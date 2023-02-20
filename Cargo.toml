@@ -1,0 +1,37 @@
+[package]
+name = "nekoton-pyton"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "nekoton"
+crate-type = ["cdylib"]
+
+[dependencies]
+ahash = "0.8"
+anyhow = "1.0"
+async-trait = "0.1"
+base64 = "0.13"
+dashmap = "5.4"
+hex = "0.4"
+num-bigint = "0.4"
+pyo3 = { version = "0.18.0", features = ["extension-module", "num-bigint"] }
+pyo3-asyncio = { version = "0.18", features = ["attributes", "tokio-runtime"] }
+tokio = { version = "1", features = ["sync"] }
+
+ed25519-dalek = { git = "https://github.com/broxus/ed25519-dalek.git" }
+
+nekoton-transport = { git = "https://github.com/broxus/nekoton.git", features = ["gql_transport", "jrpc_transport"] }
+
+ton_abi = { git = "https://github.com/broxus/ton-labs-abi.git" }
+ton_block = { git = "https://github.com/broxus/ton-labs-block.git" }
+ton_types = { git = "https://github.com/broxus/ton-labs-types.git" }
+ton_executor = { git = "https://github.com/broxus/ton-labs-executor.git" }
+
+[dependencies.nt]
+package = "nekoton"
+git = "https://github.com/broxus/nekoton.git"
+features = ["gql_transport", "jrpc_transport"]
+
+[patch.crates-io]
+hmac-drbg = { git = "https://github.com/Rexagon/rust-hmac-drbg" }
