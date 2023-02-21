@@ -1,6 +1,6 @@
 use pyo3::prelude::*;
 
-use self::abi::{AbiVersion, ContractAbi, EventAbi, FunctionAbi};
+use self::abi::*;
 use self::cell::Cell;
 use self::state_init::StateInit;
 use self::subscription::{Address, Subscription};
@@ -29,6 +29,24 @@ fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<FunctionAbi>()?;
     m.add_class::<EventAbi>()?;
     m.add_class::<AbiVersion>()?;
+    m.add_class::<AbiUint>()?;
+    m.add_class::<AbiInt>()?;
+    m.add_class::<AbiVarUint>()?;
+    m.add_class::<AbiVarInt>()?;
+    m.add_class::<AbiBool>()?;
+    m.add_class::<AbiTuple>()?;
+    m.add_class::<AbiArray>()?;
+    m.add_class::<AbiFixedArray>()?;
+    m.add_class::<AbiCell>()?;
+    m.add_class::<AbiMap>()?;
+    m.add_class::<AbiAddress>()?;
+    m.add_class::<AbiBytes>()?;
+    m.add_class::<AbiFixedBytes>()?;
+    m.add_class::<AbiString>()?;
+    m.add_class::<AbiToken>()?;
+    m.add_class::<AbiOptional>()?;
+    m.add_class::<AbiRef>()?;
+
     m.add_function(wrap_pyfunction!(check_address, m)?)?;
     m.add_function(wrap_pyfunction!(repack_address, m)?)?;
     m.add_function(wrap_pyfunction!(set_code_salt, m)?)?;

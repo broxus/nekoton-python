@@ -73,9 +73,11 @@ impl FunctionAbi {
 
     fn encode_internal_input(&self, data: &PyDict) -> PyResult<Cell> {
         let tokens = parse_tokens(&self.0.inputs, data)?;
-        nt::abi::pack_into_cell(&tokens, self.0.abi_version)
-            .handle_runtime_error()
-            .map(Cell)
+        let input = self
+            .0
+            .encode_internal_input(&tokens)
+            .handle_runtime_error()?;
+        input.into_cell().map(Cell).handle_runtime_error()
     }
 
     fn decode_input<'a>(
@@ -136,12 +138,83 @@ impl EventAbi {
     }
 }
 
+#[derive(Clone)]
+#[pyclass(subclass)]
+pub struct AbiParam {
+    pub param: ton_abi::ParamType,
+}
+
+macro_rules! define_abi_types {
+    ($($ident:ident = |$($arg:ident: $arg_ty:ty),*| $res:expr),*$(,)?) => {$(
+        #[pyclass(extends = AbiParam)]
+        pub struct $ident;
+
+        #[pymethods]
+        impl $ident {
+            #[new]
+            fn new($($arg: $arg_ty),*) -> (Self, AbiParam) {
+                let base = AbiParam {
+                    param: $res,
+                };
+                (Self, base)
+            }
+        }
+    )*};
+}
+
+define_abi_types! {
+    AbiUint = |size: usize| ton_abi::ParamType::Uint(size),
+    AbiInt = |size: usize| ton_abi::ParamType::Int(size),
+    AbiVarUint = |size: usize| ton_abi::ParamType::VarUint(size),
+    AbiVarInt = |size: usize| ton_abi::ParamType::VarInt(size),
+    AbiBool = | | ton_abi::ParamType::Bool,
+    AbiTuple = |items: Vec<(String, AbiParam)>| {
+        ton_abi::ParamType::Tuple(
+            items
+                .into_iter()
+                .map(|(name, AbiParam { param })| {
+                    ton_abi::Param {
+                        name,
+                        kind: param,
+                    }
+                })
+                .collect()
+        )
+    },
+    AbiArray = |value_type: AbiParam| ton_abi::ParamType::Array(Box::new(value_type.param)),
+    AbiFixedArray = |value_type: AbiParam, len: usize| {
+        ton_abi::ParamType::FixedArray(Box::new(value_type.param), len)
+    },
+    AbiCell = | | ton_abi::ParamType::Cell,
+    AbiMap = |key_type: AbiParam, value_type: AbiParam| {
+        let key_type = Box::new(key_type.param);
+        let value_type = Box::new(value_type.param);
+        ton_abi::ParamType::Map(key_type, value_type)
+    },
+    AbiAddress = | | ton_abi::ParamType::Address,
+    AbiBytes = | | ton_abi::ParamType::Bytes,
+    AbiFixedBytes = |len: usize| ton_abi::ParamType::FixedBytes(len),
+    AbiString = | | ton_abi::ParamType::String,
+    AbiToken = | | ton_abi::ParamType::Token,
+    AbiOptional = |value_type: AbiParam| {
+        ton_abi::ParamType::Optional(Box::new(value_type.param))
+    },
+    AbiRef = |value_type: AbiParam| {
+        ton_abi::ParamType::Ref(Box::new(value_type.param))
+    },
+}
+
 #[derive(Copy, Clone)]
 #[pyclass]
-pub struct AbiVersion(ton_abi::contract::AbiVersion);
+pub struct AbiVersion(pub ton_abi::contract::AbiVersion);
 
 #[pymethods]
 impl AbiVersion {
+    #[new]
+    fn new(major: u8, minor: u8) -> Self {
+        Self(ton_abi::contract::AbiVersion { major, minor })
+    }
+
     fn major(&self) -> u8 {
         self.0.major
     }
@@ -159,7 +232,7 @@ impl AbiVersion {
     }
 }
 
-fn parse_tokens(params: &[ton_abi::Param], value: &PyDict) -> PyResult<Vec<ton_abi::Token>> {
+pub fn parse_tokens(params: &[ton_abi::Param], value: &PyDict) -> PyResult<Vec<ton_abi::Token>> {
     let mut result = Vec::with_capacity(params.len());
     for param in params {
         let value = match value.get_item(param.name.as_str()) {
@@ -347,7 +420,7 @@ fn parse_map_entry_token(
     Ok((key, value))
 }
 
-fn convert_tokens(py: Python, tokens: Vec<ton_abi::Token>) -> PyResult<&PyDict> {
+pub fn convert_tokens(py: Python, tokens: Vec<ton_abi::Token>) -> PyResult<&PyDict> {
     let result = PyDict::new(py);
     for token in tokens {
         result.set_item(&token.name, convert_token(py, token.value)?)?;

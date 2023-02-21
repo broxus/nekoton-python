@@ -2,7 +2,9 @@ use std::str::FromStr;
 
 use pyo3::exceptions::*;
 use pyo3::prelude::*;
+use pyo3::types::PyDict;
 
+use crate::abi::{convert_tokens, parse_tokens, AbiParam, AbiVersion};
 use crate::util::HandleError;
 
 #[derive(Default, Clone)]
@@ -17,6 +19,29 @@ impl Cell {
 
 #[pymethods]
 impl Cell {
+    #[staticmethod]
+    fn build(
+        abi: Vec<(String, AbiParam)>,
+        value: &PyDict,
+        abi_version: Option<AbiVersion>,
+    ) -> PyResult<Self> {
+        let params = abi
+            .into_iter()
+            .map(|(name, AbiParam { param })| ton_abi::Param { name, kind: param })
+            .collect::<Vec<_>>();
+
+        let tokens = parse_tokens(&params, value)?;
+
+        let abi_version = match abi_version {
+            Some(version) => version.0,
+            None => ton_abi::contract::ABI_VERSION_2_2,
+        };
+
+        nt::abi::pack_into_cell(&tokens, abi_version)
+            .map(Self)
+            .handle_runtime_error()
+    }
+
     /// Constructs a new cell from base64 encoded BOC.
     #[new]
     fn new(value: Option<&str>, encoding: Option<&str>) -> PyResult<Self> {
@@ -37,6 +62,32 @@ impl Cell {
 
     fn encode_raw(&self) -> PyResult<Vec<u8>> {
         ton_types::serialize_toc(&self.0).handle_runtime_error()
+    }
+
+    fn unpack<'a>(
+        &self,
+        py: Python<'a>,
+        abi: Vec<(String, AbiParam)>,
+        abi_version: Option<AbiVersion>,
+        allow_partial: Option<bool>,
+    ) -> PyResult<&'a PyDict> {
+        let params = abi
+            .into_iter()
+            .map(|(name, AbiParam { param })| ton_abi::Param { name, kind: param })
+            .collect::<Vec<_>>();
+
+        let abi_version = match abi_version {
+            Some(version) => version.0,
+            None => ton_abi::contract::ABI_VERSION_2_2,
+        };
+
+        let allow_partial = allow_partial.unwrap_or_default();
+
+        let tokens =
+            nt::abi::unpack_from_cell(&params, self.0.clone().into(), allow_partial, abi_version)
+                .handle_runtime_error()?;
+
+        convert_tokens(py, tokens)
     }
 
     fn __hash__(&self) -> u64 {

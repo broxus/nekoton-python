@@ -1,5 +1,9 @@
 import asyncio
+import os
+
 from nekoton import *
+
+dirname = os.path.dirname(__file__)
 
 print(nekoton.check_address(""))
 
@@ -11,6 +15,21 @@ print(cell2.repr_hash)
 
 print(cell1 == cell2)
 
+complex_cell_abi = [
+    ("first", AbiUint(32)),
+    ("second", AbiBool()),
+]
+complex_cell = Cell.build(
+    abi=complex_cell_abi,
+    value={
+        "first": 123,
+        "second": True,
+    }
+)
+print(complex_cell.encode('base64'))
+
+decoded = complex_cell.unpack(abi=complex_cell_abi)
+print(decoded)
 
 async def main():
     clock = Clock()
@@ -22,19 +41,22 @@ async def main():
     subscription = await transport.subscribe(my_addr)
     print(subscription)
 
-    with open('wallet.abi.json', 'r') as json:
+    with open(os.path.join(dirname, 'wallet.abi.json'), 'r') as json:
         abi = ContractAbi(json.read())
 
     print(abi.abi_version)
     send_transaction_func = abi.get_function("sendTransaction")
-    body = send_transaction_func.encode_internal_input({
+    body_cell = send_transaction_func.encode_internal_input({
         "dest": my_addr,
         "value": 123,
         "bounce": False,
         "flags": 3,
         "payload": Cell(),
     })
-    print(body)
+    print(body_cell)
+
+    decoded_body = send_transaction_func.decode_input(message_body=body_cell, internal=True)
+    print(decoded_body)
 
 
 if __name__ == "__main__":
