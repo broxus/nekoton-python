@@ -9,6 +9,7 @@ use self::util::HandleError;
 
 mod abi;
 mod cell;
+mod crypto;
 mod state_init;
 mod subscription;
 mod transport;

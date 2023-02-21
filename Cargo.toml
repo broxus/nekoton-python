@@ -17,9 +17,12 @@ hex = "0.4"
 num-bigint = "0.4"
 pyo3 = { version = "0.18.0", features = ["extension-module", "num-bigint"] }
 pyo3-asyncio = { version = "0.18", features = ["attributes", "tokio-runtime"] }
+rand = "0.8"
+sha2 = "0.10"
 tokio = { version = "1", features = ["sync"] }
 
 ed25519-dalek = { git = "https://github.com/broxus/ed25519-dalek.git" }
+tiny-bip39 = { git = "https://github.com/broxus/tiny-bip39.git", default-features = false }
 
 nekoton-transport = { git = "https://github.com/broxus/nekoton.git", features = ["gql_transport", "jrpc_transport"] }
 

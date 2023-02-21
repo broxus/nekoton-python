@@ -1,12 +1,14 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 use pyo3::exceptions::*;
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
+use pyo3::types::*;
 
 use crate::cell::Cell;
+use crate::crypto::{KeyPair, PublicKey};
 use crate::subscription::Address;
+use crate::transport::Clock;
 use crate::util::*;
 
 #[derive(Clone)]
@@ -71,6 +73,47 @@ impl FunctionAbi {
         AbiVersion(self.0.abi_version)
     }
 
+    fn encode_external_input(
+        &self,
+        data: &PyDict,
+        public_key: Option<&PublicKey>,
+        timeout: Option<u32>,
+        address: Option<&Address>,
+        clock: Option<&Clock>,
+    ) -> PyResult<UnsignedBody> {
+        use nt::utils::Clock;
+
+        let tokens = parse_tokens(&self.0.inputs, data)?;
+
+        let now = match clock {
+            Some(clock) => clock.0.now_ms_u64(),
+            None => nt::utils::SimpleClock.now_ms_u64(),
+        };
+        let (expire_at, headers) = default_headers(
+            now,
+            nt::core::models::Expiration::Timeout(timeout.unwrap_or(DEFAULT_TIMEOUT)),
+            public_key.map(|key| key.0),
+        );
+
+        let (payload, hash) = self
+            .0
+            .create_unsigned_call(
+                &headers,
+                &tokens,
+                false,
+                true,
+                address.map(|addr| addr.0.clone()),
+            )
+            .handle_runtime_error()?;
+
+        Ok(UnsignedBody {
+            abi_version: self.0.abi_version,
+            payload,
+            hash,
+            expire_at: expire_at.timestamp,
+        })
+    }
+
     fn encode_internal_input(&self, data: &PyDict) -> PyResult<Cell> {
         let tokens = parse_tokens(&self.0.inputs, data)?;
         let input = self
@@ -118,6 +161,8 @@ impl FunctionAbi {
     }
 }
 
+const DEFAULT_TIMEOUT: u32 = 60;
+
 #[derive(Clone)]
 #[pyclass]
 pub struct EventAbi(Arc<ton_abi::Event>);
@@ -135,6 +180,49 @@ impl EventAbi {
             .decode_input(message_body.0.clone().into())
             .handle_runtime_error()?;
         convert_tokens(py, values)
+    }
+}
+
+#[pyclass]
+pub struct UnsignedBody {
+    abi_version: ton_abi::contract::AbiVersion,
+    payload: ton_types::BuilderData,
+    hash: ton_types::UInt256,
+    expire_at: u32,
+}
+
+impl UnsignedBody {
+    fn fill_signature(&self, signature: Option<&[u8]>) -> PyResult<Cell> {
+        let payload =
+            ton_abi::Function::fill_sign(&self.abi_version, signature, None, self.payload.clone())
+                .handle_runtime_error()?;
+        payload.into_cell().handle_runtime_error().map(Cell)
+    }
+}
+
+#[pymethods]
+impl UnsignedBody {
+    #[getter]
+    fn hash<'a>(&self, py: Python<'a>) -> &'a PyBytes {
+        PyBytes::new(py, self.hash.as_slice())
+    }
+
+    #[getter]
+    fn expire_at(&self) -> u32 {
+        self.expire_at
+    }
+
+    fn with_signature(&self, bytes: &[u8]) -> PyResult<Cell> {
+        let signature = ed25519_dalek::Signature::from_bytes(bytes).handle_value_error()?;
+        self.fill_signature(Some(signature.as_ref()))
+    }
+
+    fn with_fake_signature(&self) -> PyResult<Cell> {
+        self.fill_signature(Some(&[0u8; 64]))
+    }
+
+    fn without_signature(&self) -> PyResult<Cell> {
+        self.fill_signature(None)
     }
 }
 
@@ -373,8 +461,6 @@ fn parse_map_entry_token(
     value_ty: &ton_abi::ParamType,
     item: &PyAny,
 ) -> PyResult<(ton_abi::MapKeyTokenValue, ton_abi::TokenValue)> {
-    use pyo3::types::PyTuple;
-
     let mut tuple = item.extract::<&PyTuple>()?.into_iter();
     let key = match tuple.next() {
         None => {
@@ -496,4 +582,28 @@ fn convert_addr_token(py: Python, addr: ton_block::MsgAddress) -> PyResult<PyObj
         _ => return Err(PyRuntimeError::new_err("Unsupported address type")),
     })
     .into_py(py))
+}
+
+pub fn default_headers(
+    time: u64,
+    expiration: nt::core::models::Expiration,
+    public_key: Option<ed25519_dalek::PublicKey>,
+) -> (
+    nt::core::models::ExpireAt,
+    HashMap<String, ton_abi::TokenValue>,
+) {
+    let expire_at = nt::core::models::ExpireAt::new_from_millis(expiration, time);
+
+    let mut header = HashMap::with_capacity(3);
+    header.insert("time".to_string(), ton_abi::TokenValue::Time(time));
+    header.insert(
+        "expire".to_string(),
+        ton_abi::TokenValue::Expire(expire_at.timestamp),
+    );
+    header.insert(
+        "pubkey".to_string(),
+        ton_abi::TokenValue::PublicKey(public_key),
+    );
+
+    (expire_at, header)
 }

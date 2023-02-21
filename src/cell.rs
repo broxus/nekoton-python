@@ -1,11 +1,8 @@
-use std::str::FromStr;
-
-use pyo3::exceptions::*;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
 use crate::abi::{convert_tokens, parse_tokens, AbiParam, AbiVersion};
-use crate::util::HandleError;
+use crate::util::{Encoding, HandleError};
 
 #[derive(Default, Clone)]
 #[pyclass]
@@ -45,8 +42,10 @@ impl Cell {
     /// Constructs a new cell from base64 encoded BOC.
     #[new]
     fn new(value: Option<&str>, encoding: Option<&str>) -> PyResult<Self> {
-        let encoding = Encoding::from_optional_param(encoding)?;
-        encoding.decode(value.unwrap_or_default().trim()).map(Self)
+        let encoding = Encoding::from_optional_param(encoding, Encoding::Base64)?;
+        encoding
+            .decode_cell(value.unwrap_or_default().trim())
+            .map(Self)
     }
 
     /// Returns a hex encoded repr hash of the root cell.
@@ -56,8 +55,8 @@ impl Cell {
     }
 
     fn encode(&self, encoding: Option<&str>) -> PyResult<String> {
-        let encoding = Encoding::from_optional_param(encoding)?;
-        encoding.encode(&self.0)
+        let encoding = Encoding::from_optional_param(encoding, Encoding::Base64)?;
+        encoding.encode_cell(&self.0)
     }
 
     fn encode_raw(&self) -> PyResult<Vec<u8>> {
@@ -118,54 +117,5 @@ impl From<Cell> for ton_types::Cell {
     #[inline]
     fn from(value: Cell) -> Self {
         value.0
-    }
-}
-
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
-enum Encoding {
-    Hex,
-    #[default]
-    Base64,
-}
-
-impl Encoding {
-    fn from_optional_param(encoding: Option<&str>) -> PyResult<Self> {
-        match encoding {
-            None => Ok(Self::default()),
-            Some(s) => s.parse(),
-        }
-    }
-
-    fn decode(&self, boc: &str) -> PyResult<ton_types::Cell> {
-        let boc = boc.trim();
-        if boc.is_empty() {
-            return Ok(Default::default());
-        }
-
-        let bytes = match self {
-            Self::Hex => hex::decode(boc).handle_value_error(),
-            Self::Base64 => base64::decode(boc).handle_value_error(),
-        }?;
-        ton_types::deserialize_tree_of_cells(&mut bytes.as_slice()).handle_value_error()
-    }
-
-    fn encode(&self, cell: &ton_types::Cell) -> PyResult<String> {
-        let cell = ton_types::serialize_toc(cell).handle_runtime_error()?;
-        Ok(match self {
-            Self::Hex => hex::encode(cell),
-            Self::Base64 => base64::encode(cell),
-        })
-    }
-}
-
-impl FromStr for Encoding {
-    type Err = PyErr;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "hex" => Ok(Self::Hex),
-            "base64" => Ok(Self::Base64),
-            _ => Err(PyValueError::new_err("Unknown encoding")),
-        }
     }
 }
