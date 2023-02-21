@@ -123,15 +123,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "block-buffer"
-version = "0.10.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69cce20737498f97b993470a6e536b8523f0af7892a4f928cceb1ac5e52ebe7e"
-dependencies = [
- "generic-array",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -275,7 +266,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c359b7249347e46fb28804470d071c921156ad62b3eef5d34e2ba867533dec8"
 dependencies = [
  "byteorder",
- "digest 0.9.0",
+ "digest",
  "rand_core",
  "subtle-ng",
  "zeroize",
@@ -317,16 +308,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "digest"
-version = "0.10.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8168378f4e5023e7218c89c891c0fd8ecdb5e5e4f18cb78f38cf245dd021e76f"
-dependencies = [
- "block-buffer 0.10.3",
- "crypto-common",
-]
-
-[[package]]
 name = "downcast-rs"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -356,7 +337,7 @@ dependencies = [
  "ed25519",
  "rand",
  "serde",
- "sha2 0.9.9",
+ "sha2",
  "zeroize",
 ]
 
@@ -569,7 +550,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a2a2320eb7ec0ebe8da8f744d7812d9fc4cb4d09344ac01898dbcb6a20ae69b"
 dependencies = [
  "crypto-mac",
- "digest 0.9.0",
+ "digest",
 ]
 
 [[package]]
@@ -577,7 +558,7 @@ name = "hmac-drbg"
 version = "0.3.0"
 source = "git+https://github.com/Rexagon/rust-hmac-drbg#c8634165e88fafdda5f0702fcad878516a1d1e76"
 dependencies = [
- "digest 0.9.0",
+ "digest",
  "generic-array",
  "hmac",
 ]
@@ -728,14 +709,14 @@ source = "git+https://github.com/broxus/libsecp256k1.git#fae765aa1a0de4f0c7b7b38
 dependencies = [
  "arrayref",
  "base64 0.13.1",
- "digest 0.9.0",
+ "digest",
  "hmac-drbg",
  "libsecp256k1-core",
  "libsecp256k1-gen-ecmult",
  "libsecp256k1-gen-genmult",
  "rand",
  "serde",
- "sha2 0.9.9",
+ "sha2",
  "typenum",
 ]
 
@@ -745,7 +726,7 @@ version = "0.3.0"
 source = "git+https://github.com/broxus/libsecp256k1.git#fae765aa1a0de4f0c7b7b386d0d46475943291b2"
 dependencies = [
  "crunchy",
- "digest 0.9.0",
+ "digest",
  "subtle",
 ]
 
@@ -872,7 +853,7 @@ dependencies = [
  "secstr",
  "serde",
  "serde_json",
- "sha2 0.9.9",
+ "sha2",
  "thiserror",
  "tiny-bip39",
  "tiny-hderive",
@@ -947,14 +928,17 @@ dependencies = [
  "dashmap",
  "ed25519-dalek",
  "hex",
+ "hmac",
  "nekoton",
  "nekoton-transport",
  "num-bigint",
+ "pbkdf2",
  "pyo3",
  "pyo3-asyncio",
  "rand",
- "sha2 0.10.6",
+ "sha2",
  "tiny-bip39",
+ "tiny-hderive",
  "tokio",
  "ton_abi",
  "ton_block",
@@ -993,7 +977,7 @@ dependencies = [
  "pbkdf2",
  "secstr",
  "serde",
- "sha2 0.9.9",
+ "sha2",
  "thiserror",
  "ton_block",
  "ton_types",
@@ -1155,7 +1139,7 @@ dependencies = [
  "crypto-mac",
  "hmac",
  "password-hash",
- "sha2 0.9.9",
+ "sha2",
 ]
 
 [[package]]
@@ -1515,22 +1499,11 @@ version = "0.9.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4d58a1e1bf39749807d89cf2d98ac2dfa0ff1cb3faa38fbb64dd88ac8013d800"
 dependencies = [
- "block-buffer 0.9.0",
+ "block-buffer",
  "cfg-if",
  "cpufeatures",
- "digest 0.9.0",
+ "digest",
  "opaque-debug",
-]
-
-[[package]]
-name = "sha2"
-version = "0.10.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82e6b795fe2e3b1e845bafcb27aa35405c4d47cdfc92af5fc8d3002f76cebdc0"
-dependencies = [
- "cfg-if",
- "cpufeatures",
- "digest 0.10.6",
 ]
 
 [[package]]
@@ -1642,7 +1615,7 @@ dependencies = [
  "pbkdf2",
  "rand",
  "rustc-hash",
- "sha2 0.9.9",
+ "sha2",
  "thiserror",
  "unicode-normalization",
  "zeroize",
@@ -1657,7 +1630,7 @@ dependencies = [
  "hmac",
  "libsecp256k1",
  "memzero",
- "sha2 0.9.9",
+ "sha2",
 ]
 
 [[package]]
@@ -1745,7 +1718,7 @@ dependencies = [
  "num-traits",
  "serde",
  "serde_json",
- "sha2 0.9.9",
+ "sha2",
  "smallvec",
  "thiserror",
  "ton_block",
@@ -1768,7 +1741,7 @@ dependencies = [
  "num-traits",
  "rand",
  "rustc-hash",
- "sha2 0.9.9",
+ "sha2",
  "smallvec",
  "thiserror",
  "ton_types",
@@ -1804,7 +1777,7 @@ dependencies = [
  "num-traits",
  "rand",
  "rustc-hash",
- "sha2 0.9.9",
+ "sha2",
  "smallvec",
  "thiserror",
 ]
@@ -1823,7 +1796,7 @@ dependencies = [
  "num",
  "num-traits",
  "rand",
- "sha2 0.9.9",
+ "sha2",
  "smallvec",
  "thiserror",
  "ton_block",

@@ -2,6 +2,7 @@ use pyo3::prelude::*;
 
 use self::abi::*;
 use self::cell::Cell;
+use self::crypto::{Bip39Seed, KeyPair, LegacySeed, PublicKey, Seed};
 use self::state_init::StateInit;
 use self::subscription::{Address, Subscription};
 use self::transport::{Clock, GqlTransport, JrpcTransport, Transport};
@@ -26,10 +27,13 @@ fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<JrpcTransport>()?;
     m.add_class::<Address>()?;
     m.add_class::<Subscription>()?;
+
     m.add_class::<ContractAbi>()?;
     m.add_class::<FunctionAbi>()?;
     m.add_class::<EventAbi>()?;
+
     m.add_class::<AbiVersion>()?;
+
     m.add_class::<AbiUint>()?;
     m.add_class::<AbiInt>()?;
     m.add_class::<AbiVarUint>()?;
@@ -47,6 +51,12 @@ fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<AbiToken>()?;
     m.add_class::<AbiOptional>()?;
     m.add_class::<AbiRef>()?;
+
+    m.add_class::<PublicKey>()?;
+    m.add_class::<KeyPair>()?;
+    m.add_class::<Seed>()?;
+    m.add_class::<LegacySeed>()?;
+    m.add_class::<Bip39Seed>()?;
 
     m.add_function(wrap_pyfunction!(check_address, m)?)?;
     m.add_function(wrap_pyfunction!(repack_address, m)?)?;

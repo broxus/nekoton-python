@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
+use pyo3::types::{PyBytes, PyDict};
 
 use crate::abi::{convert_tokens, parse_tokens, AbiParam, AbiVersion};
 use crate::util::{Encoding, HandleError};
@@ -16,6 +16,13 @@ impl Cell {
 
 #[pymethods]
 impl Cell {
+    #[staticmethod]
+    fn from_bytes(mut bytes: &[u8]) -> PyResult<Self> {
+        ton_types::deserialize_tree_of_cells(&mut bytes)
+            .handle_value_error()
+            .map(Self)
+    }
+
     #[staticmethod]
     fn build(
         abi: Vec<(String, AbiParam)>,
@@ -39,19 +46,22 @@ impl Cell {
             .handle_runtime_error()
     }
 
-    /// Constructs a new cell from base64 encoded BOC.
-    #[new]
-    fn new(value: Option<&str>, encoding: Option<&str>) -> PyResult<Self> {
+    #[staticmethod]
+    fn decode(value: &str, encoding: Option<&str>) -> PyResult<Self> {
         let encoding = Encoding::from_optional_param(encoding, Encoding::Base64)?;
-        encoding
-            .decode_cell(value.unwrap_or_default().trim())
-            .map(Self)
+        encoding.decode_cell(value.trim()).map(Self)
+    }
+
+    /// Constructs a new empty cell.
+    #[new]
+    fn new() -> Self {
+        Self(Default::default())
     }
 
     /// Returns a hex encoded repr hash of the root cell.
     #[getter]
-    fn repr_hash(&self) -> String {
-        self.0.repr_hash().to_hex_string()
+    fn repr_hash<'a>(&self, py: Python<'a>) -> &'a PyBytes {
+        PyBytes::new(py, self.0.repr_hash().as_slice())
     }
 
     fn encode(&self, encoding: Option<&str>) -> PyResult<String> {
@@ -59,8 +69,9 @@ impl Cell {
         encoding.encode_cell(&self.0)
     }
 
-    fn encode_raw(&self) -> PyResult<Vec<u8>> {
-        ton_types::serialize_toc(&self.0).handle_runtime_error()
+    fn to_bytes<'a>(&self, py: Python<'a>) -> PyResult<&'a PyBytes> {
+        let bytes = ton_types::serialize_toc(&self.0).handle_runtime_error()?;
+        Ok(PyBytes::new(py, &bytes))
     }
 
     fn unpack<'a>(

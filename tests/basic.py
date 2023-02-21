@@ -5,15 +5,13 @@ from nekoton import *
 
 dirname = os.path.dirname(__file__)
 
-print(nekoton.check_address(""))
+# Cells
+assert(not Address.validate("totally invalid address"))
+assert(Address.validate("0:a921453472366b7feeec15323a96b5dcf17197c88dc0d4578dfa52900b8a33cb"))
 
-cell1 = nekoton.Cell()
-print(cell1.repr_hash)
-
-cell2 = nekoton.Cell()
-print(cell2.repr_hash)
-
-print(cell1 == cell2)
+cell1 = Cell()
+assert(len(Cell().repr_hash) == 32)
+assert(Cell() == Cell())
 
 complex_cell_abi = [
     ("first", AbiUint(32)),
@@ -26,11 +24,27 @@ complex_cell = Cell.build(
         "second": True,
     }
 )
-print(complex_cell.encode('base64'))
+assert(Cell.decode(complex_cell.encode('base64'), 'base64') == complex_cell)
+assert(Cell.from_bytes(complex_cell.to_bytes()) == complex_cell)
 
 decoded = complex_cell.unpack(abi=complex_cell_abi)
-print(decoded)
+assert(decoded["first"] == 123)
+assert(decoded["second"] == True)
 
+# Crypto
+
+seed = Bip39Seed.generate()
+assert(seed.word_count == 24)
+
+keypair0 = seed.derive()
+assert(len(keypair0.public_key.to_bytes()) == 32)
+assert(seed.derive() == seed.derive(path=Bip39Seed.path_for_account(0)))
+
+keypair1 = seed.derive(path=Bip39Seed.path_for_account(1))
+assert(keypair0 != keypair1)
+assert(len(keypair1.public_key.encode('hex')) == 64)
+
+# Subscriptions
 async def main():
     clock = Clock()
 

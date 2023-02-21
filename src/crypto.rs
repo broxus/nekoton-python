@@ -1,5 +1,6 @@
 use pyo3::exceptions::*;
 use pyo3::prelude::*;
+use pyo3::types::PyBytes;
 use rand::Rng;
 use sha2::Digest;
 
@@ -10,6 +11,13 @@ pub struct PublicKey(pub ed25519_dalek::PublicKey);
 
 #[pymethods]
 impl PublicKey {
+    #[staticmethod]
+    fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
+        ed25519_dalek::PublicKey::from_bytes(bytes)
+            .handle_value_error()
+            .map(Self)
+    }
+
     #[new]
     fn new(value: &str, encoding: Option<&str>) -> PyResult<Self> {
         let encoding = Encoding::from_optional_param(encoding, Encoding::Hex)?;
@@ -19,6 +27,10 @@ impl PublicKey {
     fn encode(&self, encoding: Option<&str>) -> PyResult<String> {
         let encoding = Encoding::from_optional_param(encoding, Encoding::Hex)?;
         Ok(encoding.encode_pubkey(&self.0))
+    }
+
+    fn to_bytes<'a>(&self, py: Python<'a>) -> &'a PyBytes {
+        PyBytes::new(py, self.0.as_bytes())
     }
 
     fn __hash__(&self) -> u64 {
@@ -46,13 +58,77 @@ impl KeyPair {
         let public = ed25519_dalek::PublicKey::from(&secret);
         Ok(Self(ed25519_dalek::Keypair { secret, public }))
     }
+
+    #[getter]
+    fn public_key(&self) -> PublicKey {
+        PublicKey(self.0.public)
+    }
+
+    fn __hash__(&self) -> u64 {
+        u64::from_le_bytes(self.0.public.as_bytes()[..8].try_into().unwrap())
+    }
+
+    fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {
+        op.matches(self.0.public.as_bytes().cmp(other.0.public.as_bytes()))
+    }
+}
+
+#[pyclass]
+pub struct Signature(pub ed25519_dalek::Signature);
+
+#[pymethods]
+impl Signature {
+    #[staticmethod]
+    fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
+        ed25519_dalek::Signature::from_bytes(bytes)
+            .handle_value_error()
+            .map(Self)
+    }
+
+    #[new]
+    fn new(value: &str, encoding: Option<&str>) -> PyResult<Self> {
+        let encoding = Encoding::from_optional_param(encoding, Encoding::Hex)?;
+        let bytes = encoding.decode_bytes(value)?;
+        ed25519_dalek::Signature::from_bytes(&bytes)
+            .handle_value_error()
+            .map(Self)
+    }
+
+    fn encode(&self, encoding: Option<&str>) -> PyResult<String> {
+        let encoding = Encoding::from_optional_param(encoding, Encoding::Hex)?;
+        Ok(encoding.encode_bytes(self.0.as_ref()))
+    }
+
+    fn to_bytes<'a>(&self, py: Python<'a>) -> &'a PyBytes {
+        PyBytes::new(py, self.0.as_ref())
+    }
+
+    fn __hash__(&self) -> u64 {
+        u64::from_le_bytes(self.0.as_ref()[..8].try_into().unwrap())
+    }
+
+    fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {
+        op.matches(self.0.as_ref().cmp(other.0.as_ref()))
+    }
 }
 
 #[pyclass(subclass)]
 pub struct Seed(Vec<&'static str>);
 
+#[pymethods]
+impl Seed {
+    #[getter]
+    fn word_count(&self) -> usize {
+        self.0.len()
+    }
+}
+
 #[pyclass(extends = Seed)]
 pub struct LegacySeed;
+
+impl LegacySeed {
+    const WORD_COUNT: usize = 24;
+}
 
 #[pymethods]
 impl LegacySeed {
@@ -65,8 +141,33 @@ impl LegacySeed {
 
     #[new]
     fn new(phrase: String) -> PyResult<PyClassInitializer<Self>> {
-        let words = split_words(&phrase, 24)?;
+        let words = split_words(&phrase, Self::WORD_COUNT)?;
         Ok(PyClassInitializer::from(Seed(words)).add_subclass(Self))
+    }
+
+    fn derive(self_: PyRef<'_, Self>) -> PyResult<KeyPair> {
+        use hmac::{Mac, NewMac};
+
+        const PBKDF_ITERATIONS: u32 = 100_000;
+        const SALT: &[u8] = b"TON default seed";
+
+        let words = &self_.as_ref().0;
+        if words.len() != Self::WORD_COUNT {
+            return Err(PyRuntimeError::new_err("Invalid legacy seed"));
+        }
+
+        let phrase = words.join(" ");
+        let password = hmac::Hmac::<sha2::Sha512>::new_from_slice(phrase.as_bytes())
+            .unwrap()
+            .finalize()
+            .into_bytes();
+
+        let mut res = [0; 512 / 8];
+        pbkdf2::pbkdf2::<hmac::Hmac<sha2::Sha512>>(&password, SALT, PBKDF_ITERATIONS, &mut res);
+
+        let secret = ed25519_dalek::SecretKey::from_bytes(&res[0..32]).unwrap();
+        let public = ed25519_dalek::PublicKey::from(&secret);
+        Ok(KeyPair(ed25519_dalek::Keypair { secret, public }))
     }
 }
 
@@ -82,11 +183,32 @@ impl Bip39Seed {
         Py::new(py, res).unwrap().into_py(py)
     }
 
+    #[staticmethod]
+    fn path_for_account(id: u16) -> String {
+        format!("m/44'/396'/0'/0/{id}")
+    }
+
     #[new]
     fn new(phrase: String) -> PyResult<PyClassInitializer<Self>> {
         bip39::Mnemonic::from_phrase(&phrase, LANGUAGE).handle_value_error()?;
         let words = split_words(&phrase, 12)?;
         Ok(PyClassInitializer::from(Seed(words)).add_subclass(Self))
+    }
+
+    fn derive(self_: PyRef<'_, Self>, path: Option<&str>) -> PyResult<KeyPair> {
+        let words = &self_.as_ref().0;
+        let phrase = words.join(" ");
+        let mnemonic = bip39::Mnemonic::from_phrase(&phrase, LANGUAGE).handle_runtime_error()?;
+        let hd = bip39::Seed::new(&mnemonic, "");
+        let seed_bytes = hd.as_bytes();
+
+        let path = path.unwrap_or("m/44'/396'/0'/0/0");
+        let derived = tiny_hderive::bip32::ExtendedPrivKey::derive(seed_bytes, path)
+            .map_err(|_| PyValueError::new_err("Invalid derivation path"))?;
+
+        let secret = ed25519_dalek::SecretKey::from_bytes(&derived.secret()).unwrap();
+        let public = ed25519_dalek::PublicKey::from(&secret);
+        Ok(KeyPair(ed25519_dalek::Keypair { secret, public }))
     }
 }
 
