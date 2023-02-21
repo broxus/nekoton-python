@@ -129,4 +129,12 @@ impl Address {
     fn __repr__(&self) -> String {
         format!("Address('{}')", self.0)
     }
+
+    fn __hash__(&self) -> u64 {
+        ahash::RandomState::new().hash_one(&self.0)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {
+        op.matches(self.0.cmp(&other.0))
+    }
 }

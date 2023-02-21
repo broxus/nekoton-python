@@ -2,7 +2,7 @@ use pyo3::prelude::*;
 
 use self::abi::*;
 use self::cell::Cell;
-use self::crypto::{Bip39Seed, KeyPair, LegacySeed, PublicKey, Seed};
+use self::crypto::{Bip39Seed, KeyPair, LegacySeed, PublicKey, Seed, Signature};
 use self::state_init::StateInit;
 use self::subscription::{Address, Subscription};
 use self::transport::{Clock, GqlTransport, JrpcTransport, Transport};
@@ -54,6 +54,7 @@ fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
 
     m.add_class::<PublicKey>()?;
     m.add_class::<KeyPair>()?;
+    m.add_class::<Signature>()?;
     m.add_class::<Seed>()?;
     m.add_class::<LegacySeed>()?;
     m.add_class::<Bip39Seed>()?;

@@ -24,6 +24,11 @@ impl PublicKey {
         encoding.decode_pubkey(value).map(Self)
     }
 
+    fn check_signature(&self, data: &[u8], signature: &Signature) -> bool {
+        use ed25519_dalek::Verifier;
+        self.0.verify(data, &signature.0).is_ok()
+    }
+
     fn encode(&self, encoding: Option<&str>) -> PyResult<String> {
         let encoding = Encoding::from_optional_param(encoding, Encoding::Hex)?;
         Ok(encoding.encode_pubkey(&self.0))
@@ -62,6 +67,27 @@ impl KeyPair {
     #[getter]
     fn public_key(&self) -> PublicKey {
         PublicKey(self.0.public)
+    }
+
+    pub fn sign(&self, data: &[u8], signature_id: Option<i32>) -> Signature {
+        use ed25519_dalek::Signer;
+        use sha2::Digest;
+
+        let data = sha2::Sha256::digest(data);
+        let data = ton_abi::extend_signature_with_id(&data, signature_id);
+        Signature(self.0.sign(&data))
+    }
+
+    pub fn sign_raw(&self, data: &[u8], signature_id: Option<i32>) -> Signature {
+        use ed25519_dalek::Signer;
+
+        let data = ton_abi::extend_signature_with_id(data, signature_id);
+        Signature(self.0.sign(&data))
+    }
+
+    pub fn check_signature(&self, data: &[u8], signature: &Signature) -> bool {
+        use ed25519_dalek::Verifier;
+        self.0.public.verify(data, &signature.0).is_ok()
     }
 
     fn __hash__(&self) -> u64 {

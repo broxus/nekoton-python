@@ -212,6 +212,11 @@ impl UnsignedBody {
         self.expire_at
     }
 
+    fn sign(&self, keypair: &KeyPair, signature_id: Option<i32>) -> PyResult<Cell> {
+        let signature = keypair.sign(self.hash.as_ref(), signature_id);
+        self.fill_signature(Some(signature.0.as_ref()))
+    }
+
     fn with_signature(&self, bytes: &[u8]) -> PyResult<Cell> {
         let signature = ed25519_dalek::Signature::from_bytes(bytes).handle_value_error()?;
         self.fill_signature(Some(signature.as_ref()))
