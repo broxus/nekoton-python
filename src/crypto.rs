@@ -159,10 +159,10 @@ impl LegacySeed {
 #[pymethods]
 impl LegacySeed {
     #[staticmethod]
-    fn generate(py: Python<'_>) -> PyObject {
+    fn generate(py: Python<'_>) -> PyResult<Py<Self>> {
         let entropy: [u8; 32] = rand::thread_rng().gen();
-        let res = PyClassInitializer::from(Seed(generate_words(&entropy))).add_subclass(Self);
-        Py::new(py, res).unwrap().into_py(py)
+        let class = PyClassInitializer::from(Seed(generate_words(&entropy))).add_subclass(Self);
+        Py::new(py, class)
     }
 
     #[new]
@@ -203,10 +203,10 @@ pub struct Bip39Seed;
 #[pymethods]
 impl Bip39Seed {
     #[staticmethod]
-    fn generate(py: Python<'_>) -> PyObject {
+    fn generate(py: Python<'_>) -> PyResult<Py<Self>> {
         let entropy: [u8; 16] = rand::thread_rng().gen();
-        let res = PyClassInitializer::from(Seed(generate_words(&entropy))).add_subclass(Self);
-        Py::new(py, res).unwrap().into_py(py)
+        let class = PyClassInitializer::from(Seed(generate_words(&entropy))).add_subclass(Self);
+        Py::new(py, class)
     }
 
     #[staticmethod]
