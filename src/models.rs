@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use pyo3::exceptions::*;
 use pyo3::prelude::*;
 use pyo3::types::*;
@@ -5,6 +7,134 @@ use ton_block::{Deserializable, Serializable};
 
 use crate::abi::{convert_tokens, parse_tokens, AbiParam, AbiVersion};
 use crate::util::{Encoding, HandleError};
+
+#[pyclass]
+pub struct Transaction(Arc<SharedTransaction>);
+
+#[pymethods]
+impl Transaction {
+    #[getter]
+    pub fn hash<'a>(&self, py: Python<'a>) -> &'a PyBytes {
+        PyBytes::new(py, self.0.hash.as_slice())
+    }
+
+    #[getter]
+    pub fn account<'a>(&self, py: Python<'a>) -> &'a PyBytes {
+        let account = self.0.data.account_addr.get_bytestring_on_stack(0);
+        PyBytes::new(py, &account)
+    }
+
+    #[getter]
+    pub fn lt(&self) -> u64 {
+        self.0.data.lt
+    }
+
+    #[getter]
+    pub fn now(&self) -> u32 {
+        self.0.data.now
+    }
+
+    #[getter]
+    pub fn prev_trans_hash<'a>(&self, py: Python<'a>) -> &'a PyBytes {
+        PyBytes::new(py, self.0.data.prev_trans_hash.as_slice())
+    }
+
+    #[getter]
+    pub fn prev_trans_lt(&self) -> u64 {
+        self.0.data.prev_trans_lt
+    }
+
+    #[getter]
+    pub fn orig_status(&self) -> AccountStatus {
+        self.0.data.orig_status.clone().into()
+    }
+
+    #[getter]
+    pub fn end_status(&self) -> AccountStatus {
+        self.0.data.end_status.clone().into()
+    }
+
+    #[getter]
+    pub fn total_fees(&self) -> u128 {
+        self.0.data.total_fees.grams.0
+    }
+
+    #[getter]
+    pub fn has_in_msg(&self) -> bool {
+        self.0.data.in_msg.is_some()
+    }
+
+    #[getter]
+    pub fn has_out_msgs(&self) -> bool {
+        self.0.data.outmsg_cnt > 0
+    }
+
+    #[getter]
+    pub fn out_msgs_len(&self) -> usize {
+        self.0.data.outmsg_cnt as usize
+    }
+
+    pub fn get_in_msg(&self) -> PyResult<Message> {
+        let Some(msg_cell) = self.0.data.in_msg_cell() else {
+            return Err(PyRuntimeError::new_err("Transaction without incoming message"));
+        };
+        let hash = msg_cell.repr_hash();
+        let data = ton_block::Message::construct_from_cell(msg_cell).handle_runtime_error()?;
+        Ok(Message { data, hash })
+    }
+
+    pub fn get_out_msgs(&self) -> PyResult<Vec<Message>> {
+        let mut result = Vec::with_capacity(self.0.data.outmsg_cnt as usize);
+        self.0
+            .data
+            .out_msgs
+            .iterate_slices(|msg_slice| {
+                let msg_cell = msg_slice.reference(0)?;
+                let hash = msg_cell.repr_hash();
+                let data = ton_block::Message::construct_from_cell(msg_cell)?;
+                result.push(Message { data, hash });
+                Ok(true)
+            })
+            .handle_runtime_error()?;
+        Ok(result)
+    }
+}
+
+pub struct SharedTransaction {
+    pub data: ton_block::Transaction,
+    pub hash: ton_types::UInt256,
+}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[pyclass]
+pub enum AccountStatus {
+    NotExists,
+    Uninit,
+    Active,
+    Frozen,
+}
+
+impl From<ton_block::AccountStatus> for AccountStatus {
+    fn from(value: ton_block::AccountStatus) -> Self {
+        match value {
+            ton_block::AccountStatus::AccStateNonexist => Self::NotExists,
+            ton_block::AccountStatus::AccStateUninit => Self::Uninit,
+            ton_block::AccountStatus::AccStateActive => Self::Active,
+            ton_block::AccountStatus::AccStateFrozen => Self::Frozen,
+        }
+    }
+}
+
+#[pymethods]
+impl AccountStatus {
+    fn __hash__(&self) -> u64 {
+        ahash::RandomState::new().hash_one(self)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {
+        op.matches(self.cmp(other))
+    }
+}
 
 #[pyclass]
 pub struct Message {
@@ -388,6 +518,18 @@ impl Address {
     #[staticmethod]
     fn validate(addr: &str) -> bool {
         nt::utils::validate_address(addr)
+    }
+
+    #[staticmethod]
+    fn from_parts(workchain: i8, account: &[u8]) -> PyResult<Self> {
+        if account.len() != 32 {
+            return Err(PyValueError::new_err("Account len must be 32 bytes"));
+        }
+
+        let account = ton_types::UInt256::from_le_bytes(account);
+        ton_block::MsgAddressInt::with_standart(None, workchain, account.into())
+            .handle_value_error()
+            .map(Self)
     }
 
     #[new]
