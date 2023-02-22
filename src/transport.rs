@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
-use crate::models::Address;
+use crate::models::{Address, Transaction};
 use crate::subscription::Subscription;
 use crate::util::HandleError;
 
@@ -41,6 +42,82 @@ impl Transport {
                 .await
                 .handle_runtime_error()?;
             Ok(capabilities.signature_id())
+        })
+    }
+
+    pub fn get_transaction<'a>(
+        &self,
+        py: Python<'a>,
+        transaction_hash: &[u8],
+    ) -> PyResult<&'a PyAny> {
+        if transaction_hash.len() != 32 {
+            return Err(PyValueError::new_err("Invalid transaction hash"));
+        }
+        let transaction_hash = ton_types::UInt256::from_le_bytes(transaction_hash);
+
+        let handle = self.handle.clone();
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            match handle
+                .as_ref()
+                .get_transaction(&transaction_hash)
+                .await
+                .handle_runtime_error()?
+            {
+                None => Ok(None),
+                Some(tx) => Transaction::try_from(tx).map(Some),
+            }
+        })
+    }
+
+    pub fn get_dst_transaction<'a>(
+        &self,
+        py: Python<'a>,
+        message_hash: &[u8],
+    ) -> PyResult<&'a PyAny> {
+        if message_hash.len() != 32 {
+            return Err(PyValueError::new_err("Invalid message hash"));
+        }
+        let message_hash = ton_types::UInt256::from_le_bytes(message_hash);
+
+        let handle = self.handle.clone();
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            match handle
+                .as_ref()
+                .get_dst_transaction(&message_hash)
+                .await
+                .handle_runtime_error()?
+            {
+                None => Ok(None),
+                Some(tx) => Transaction::try_from(tx).map(Some),
+            }
+        })
+    }
+
+    pub fn get_transactions<'a>(
+        &self,
+        py: Python<'a>,
+        address: Address,
+        lt: Option<u64>,
+        limit: Option<u8>,
+    ) -> PyResult<&'a PyAny> {
+        const DEFAULT_LIMIT: u8 = 50;
+
+        let handle = self.handle.clone();
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            let raw_transactions = handle
+                .as_ref()
+                .get_transactions(
+                    &address.0,
+                    lt.unwrap_or(u64::MAX),
+                    limit.unwrap_or(DEFAULT_LIMIT),
+                )
+                .await
+                .handle_runtime_error()?;
+
+            raw_transactions
+                .into_iter()
+                .map(Transaction::try_from)
+                .collect::<PyResult<Vec<_>>>()
         })
     }
 }

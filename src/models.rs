@@ -11,6 +11,19 @@ use crate::util::{Encoding, HandleError};
 #[pyclass]
 pub struct Transaction(Arc<SharedTransaction>);
 
+impl TryFrom<nt::transport::models::RawTransaction> for Transaction {
+    type Error = PyErr;
+
+    fn try_from(value: nt::transport::models::RawTransaction) -> Result<Self, Self::Error> {
+        let descr = value.data.read_description().handle_runtime_error()?;
+        Ok(Self(Arc::new(SharedTransaction {
+            hash: value.hash,
+            data: value.data,
+            descr,
+        })))
+    }
+}
+
 #[pymethods]
 impl Transaction {
     #[getter]
@@ -192,6 +205,14 @@ impl Transaction {
             })
             .handle_runtime_error()?;
         Ok(result)
+    }
+
+    fn __hash__(&self) -> u64 {
+        u64::from_le_bytes(self.0.hash.as_slice()[..8].try_into().unwrap())
+    }
+
+    fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {
+        op.matches(self.0.hash.cmp(&other.0.hash))
     }
 }
 
@@ -601,6 +622,14 @@ impl Message {
 
     fn build_cell(&self) -> PyResult<Cell> {
         self.data.serialize().handle_runtime_error().map(Cell)
+    }
+
+    fn __hash__(&self) -> u64 {
+        u64::from_le_bytes(self.hash.as_slice()[..8].try_into().unwrap())
+    }
+
+    fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {
+        op.matches(self.hash.cmp(&other.hash))
     }
 }
 

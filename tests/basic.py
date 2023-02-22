@@ -109,6 +109,19 @@ async def main():
     signature_id = await transport.get_signature_id()
     assert(signature_id is None)
 
+    transactions = await transport.get_transactions(my_addr, limit=10)
+    assert(len(transactions) == 10)
+    for tx in transactions:
+        assert(len(tx.hash) == 32)
+        assert(tx.has_in_msg)
+        assert(tx.type == TransactionType.Ordinary)
+
+    latest_tx = transactions[0]
+    fetched_tx = await transport.get_transaction(latest_tx.hash)
+    assert(latest_tx == fetched_tx)
+    fetched_next_tx = await transport.get_dst_transaction(latest_tx.in_msg_hash)
+    assert(fetched_next_tx == fetched_tx)
+
     subscription = await transport.subscribe(my_addr)
 
 
