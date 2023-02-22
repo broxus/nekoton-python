@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use pyo3::prelude::*;
 
-use crate::subscription::{Address, Subscription};
+use crate::models::Address;
+use crate::subscription::Subscription;
 use crate::util::HandleError;
 
 #[derive(Clone)]

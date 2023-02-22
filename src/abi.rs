@@ -4,12 +4,10 @@ use std::sync::Arc;
 use pyo3::exceptions::*;
 use pyo3::prelude::*;
 use pyo3::types::*;
-use ton_block::{Deserializable, GetRepresentationHash, Serializable};
+use ton_block::{GetRepresentationHash, Serializable};
 
-use crate::cell::Cell;
 use crate::crypto::{KeyPair, PublicKey, Signature};
-use crate::state_init::StateInit;
-use crate::subscription::Address;
+use crate::models::{Address, Cell, Message, StateInit};
 use crate::transport::Clock;
 use crate::util::*;
 
@@ -351,64 +349,6 @@ impl UnsignedExternalMessage {
 
     fn without_signature(&self) -> PyResult<Message> {
         self.fill_body(self.body.without_signature()?)
-    }
-}
-
-#[pyclass]
-pub struct Message {
-    data: ton_block::Message,
-    hash: ton_types::UInt256,
-}
-
-#[pymethods]
-impl Message {
-    #[staticmethod]
-    fn from_bytes(mut bytes: &[u8]) -> PyResult<Self> {
-        let cell = ton_types::deserialize_tree_of_cells(&mut bytes).handle_runtime_error()?;
-        let hash = cell.repr_hash();
-        let data = ton_block::Message::construct_from_cell(cell).handle_value_error()?;
-        Ok(Self { data, hash })
-    }
-
-    #[staticmethod]
-    fn decode(value: &str, encoding: Option<&str>) -> PyResult<Self> {
-        let encoding = Encoding::from_optional_param(encoding, Encoding::Base64)?;
-        let bytes = encoding.decode_bytes(value)?;
-        Self::from_bytes(&bytes)
-    }
-
-    #[getter]
-    fn hash<'a>(&self, py: Python<'a>) -> &'a PyBytes {
-        PyBytes::new(py, self.hash.as_slice())
-    }
-
-    #[getter]
-    fn body(&self) -> Option<Cell> {
-        self.data
-            .body()
-            .map(ton_types::SliceData::into_cell)
-            .map(Cell)
-    }
-
-    #[getter]
-    fn state_init(&self) -> Option<StateInit> {
-        self.data.state_init().cloned().map(StateInit)
-    }
-
-    fn encode(&self, encoding: Option<&str>) -> PyResult<String> {
-        let encoding = Encoding::from_optional_param(encoding, Encoding::Base64)?;
-        let cell = self.data.serialize().handle_runtime_error()?;
-        encoding.encode_cell(&cell)
-    }
-
-    fn to_bytes<'a>(&self, py: Python<'a>) -> PyResult<&'a PyBytes> {
-        let cell = self.data.serialize().handle_runtime_error()?;
-        let bytes = ton_types::serialize_toc(&cell).handle_runtime_error()?;
-        Ok(PyBytes::new(py, &bytes))
-    }
-
-    fn build_cell(&self) -> PyResult<Cell> {
-        self.data.serialize().handle_runtime_error().map(Cell)
     }
 }
 

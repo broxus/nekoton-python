@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use nt::core::models;
 use pyo3::prelude::*;
-use pyo3::types::PyBytes;
 use tokio::sync::oneshot;
 
+use crate::models::Address;
 use crate::transport::{Transport, TransportHandle};
 use crate::util::*;
 
@@ -104,60 +104,3 @@ enum ReceivedTransaction {
 
 type MsgTx = oneshot::Sender<ReceivedTransaction>;
 type MsgRx = oneshot::Receiver<ReceivedTransaction>;
-
-#[derive(Clone)]
-#[pyclass]
-pub struct Address(pub ton_block::MsgAddressInt);
-
-#[pymethods]
-impl Address {
-    #[staticmethod]
-    fn validate(addr: &str) -> bool {
-        nt::utils::validate_address(addr)
-    }
-
-    #[new]
-    fn new(addr: &str) -> PyResult<Self> {
-        nt::utils::repack_address(addr.trim())
-            .map(Self)
-            .handle_value_error()
-    }
-
-    #[getter]
-    fn get_workchain(&self) -> i32 {
-        self.0.workchain_id()
-    }
-
-    #[setter]
-    fn set_workchain(&mut self, workchain: i32) -> PyResult<()> {
-        match &mut self.0 {
-            ton_block::MsgAddressInt::AddrStd(addr) => {
-                addr.workchain_id = workchain.try_into().handle_value_error()?
-            }
-            ton_block::MsgAddressInt::AddrVar(addr) => addr.workchain_id = workchain,
-        }
-        Ok(())
-    }
-
-    #[getter]
-    fn account<'a>(&self, py: Python<'a>) -> &'a PyBytes {
-        let bytes = self.0.address().get_bytestring_on_stack(0);
-        PyBytes::new(py, &bytes)
-    }
-
-    fn __str__(&self) -> String {
-        self.0.to_string()
-    }
-
-    fn __repr__(&self) -> String {
-        format!("Address('{}')", self.0)
-    }
-
-    fn __hash__(&self) -> u64 {
-        ahash::RandomState::new().hash_one(&self.0)
-    }
-
-    fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {
-        op.matches(self.0.cmp(&other.0))
-    }
-}
