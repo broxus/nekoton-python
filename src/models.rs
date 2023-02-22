@@ -35,6 +35,89 @@ impl Message {
     }
 
     #[getter]
+    fn is_external_in(&self) -> bool {
+        self.data.is_inbound_external()
+    }
+
+    #[getter]
+    fn is_external_out(&self) -> bool {
+        self.data.is_outbound_external()
+    }
+
+    #[getter]
+    fn is_internal(&self) -> bool {
+        self.data.is_internal()
+    }
+
+    #[getter]
+    fn get_type(&self) -> MessageType {
+        match self.data.header() {
+            ton_block::CommonMsgInfo::IntMsgInfo(_) => MessageType::Internal,
+            ton_block::CommonMsgInfo::ExtInMsgInfo(_) => MessageType::ExternalIn,
+            ton_block::CommonMsgInfo::ExtOutMsgInfo(_) => MessageType::ExternalOut,
+        }
+    }
+
+    #[getter]
+    fn header(&self, py: Python<'_>) -> PyObject {
+        match self.data.header().clone() {
+            ton_block::CommonMsgInfo::IntMsgInfo(header) => {
+                let ty = PyClassInitializer::from(MessageHeader(MessageType::Internal))
+                    .add_subclass(InternalMessageHeader(header));
+                Py::new(py, ty).unwrap().into_py(py)
+            }
+            ton_block::CommonMsgInfo::ExtInMsgInfo(header) => {
+                let ty = PyClassInitializer::from(MessageHeader(MessageType::ExternalIn))
+                    .add_subclass(ExternalInMessageHeader(header));
+                Py::new(py, ty).unwrap().into_py(py)
+            }
+            ton_block::CommonMsgInfo::ExtOutMsgInfo(header) => {
+                let ty = PyClassInitializer::from(MessageHeader(MessageType::ExternalOut))
+                    .add_subclass(ExternalOutMessageHeader(header));
+                Py::new(py, ty).unwrap().into_py(py)
+            }
+        }
+    }
+
+    #[getter]
+    fn created_at(&self) -> Option<u32> {
+        match self.data.header() {
+            ton_block::CommonMsgInfo::IntMsgInfo(x) => Some(x.created_at.0),
+            ton_block::CommonMsgInfo::ExtOutMsgInfo(x) => Some(x.created_at.0),
+            ton_block::CommonMsgInfo::ExtInMsgInfo(_) => None,
+        }
+    }
+
+    #[getter]
+    fn created_lt(&self) -> Option<u64> {
+        match self.data.header() {
+            ton_block::CommonMsgInfo::IntMsgInfo(x) => Some(x.created_lt),
+            ton_block::CommonMsgInfo::ExtOutMsgInfo(x) => Some(x.created_lt),
+            ton_block::CommonMsgInfo::ExtInMsgInfo(_) => None,
+        }
+    }
+
+    #[getter]
+    fn src(&self) -> Option<Address> {
+        self.data.src().map(Address)
+    }
+
+    #[getter]
+    fn dst(&self) -> Option<Address> {
+        self.data.dst().map(Address)
+    }
+
+    #[getter]
+    fn value(&self) -> u128 {
+        self.data.value().map(|c| c.grams.0).unwrap_or_default()
+    }
+
+    #[getter]
+    fn bounced(&self) -> bool {
+        self.data.bounced()
+    }
+
+    #[getter]
     fn body(&self) -> Option<Cell> {
         self.data
             .body()
@@ -61,6 +144,139 @@ impl Message {
 
     fn build_cell(&self) -> PyResult<Cell> {
         self.data.serialize().handle_runtime_error().map(Cell)
+    }
+}
+
+#[pyclass(subclass)]
+pub struct MessageHeader(MessageType);
+
+#[pymethods]
+impl MessageHeader {
+    #[getter]
+    fn get_type(&self) -> MessageType {
+        self.0
+    }
+}
+
+#[pyclass(extends = MessageHeader)]
+pub struct InternalMessageHeader(pub ton_block::InternalMessageHeader);
+
+#[pymethods]
+impl InternalMessageHeader {
+    #[getter]
+    pub fn ihr_disabled(&self) -> bool {
+        self.0.ihr_disabled
+    }
+
+    #[getter]
+    pub fn bounce(&self) -> bool {
+        self.0.bounce
+    }
+
+    #[getter]
+    pub fn bounced(&self) -> bool {
+        self.0.bounced
+    }
+
+    #[getter]
+    pub fn src(&self) -> PyResult<Address> {
+        match &self.0.src {
+            ton_block::MsgAddressIntOrNone::Some(addr) => Ok(Address(addr.clone())),
+            ton_block::MsgAddressIntOrNone::None => {
+                Err(PyValueError::new_err("Message without source address"))
+            }
+        }
+    }
+
+    #[getter]
+    pub fn dst(&self) -> Address {
+        Address(self.0.dst.clone())
+    }
+
+    #[getter]
+    pub fn value(&self) -> u128 {
+        self.0.value.grams.0
+    }
+
+    #[getter]
+    pub fn ihr_fee(&self) -> u128 {
+        self.0.ihr_fee.0
+    }
+
+    #[getter]
+    pub fn fwd_fee(&self) -> u128 {
+        self.0.fwd_fee.0
+    }
+
+    #[getter]
+    pub fn created_at(&self) -> u32 {
+        self.0.created_at.0
+    }
+
+    #[getter]
+    pub fn created_lt(&self) -> u64 {
+        self.0.created_lt
+    }
+}
+
+#[pyclass(extends = MessageHeader)]
+pub struct ExternalInMessageHeader(ton_block::ExternalInboundMessageHeader);
+
+#[pymethods]
+impl ExternalInMessageHeader {
+    #[getter]
+    pub fn dst(&self) -> Address {
+        Address(self.0.dst.clone())
+    }
+
+    #[getter]
+    pub fn import_fee(&self) -> u128 {
+        self.0.import_fee.0
+    }
+}
+
+#[pyclass(extends = MessageHeader)]
+pub struct ExternalOutMessageHeader(ton_block::ExtOutMessageHeader);
+
+#[pymethods]
+impl ExternalOutMessageHeader {
+    #[getter]
+    pub fn src(&self) -> PyResult<Address> {
+        match &self.0.src {
+            ton_block::MsgAddressIntOrNone::Some(addr) => Ok(Address(addr.clone())),
+            ton_block::MsgAddressIntOrNone::None => {
+                Err(PyValueError::new_err("Message without source address"))
+            }
+        }
+    }
+
+    #[getter]
+    pub fn created_at(&self) -> u32 {
+        self.0.created_at.0
+    }
+
+    #[getter]
+    pub fn created_lt(&self) -> u64 {
+        self.0.created_lt
+    }
+}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[pyclass]
+pub enum MessageType {
+    Internal,
+    ExternalIn,
+    ExternalOut,
+}
+
+#[pymethods]
+impl MessageType {
+    fn __hash__(&self) -> u64 {
+        ahash::RandomState::new().hash_one(self)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {
+        op.matches(self.cmp(other))
     }
 }
 

@@ -1,10 +1,10 @@
 use pyo3::prelude::*;
 
 use self::abi::*;
-use self::crypto::{Bip39Seed, KeyPair, LegacySeed, PublicKey, Seed, Signature};
-use self::models::{Address, Cell, Message, StateInit};
-use self::subscription::Subscription;
-use self::transport::{Clock, GqlTransport, JrpcTransport, Transport};
+use self::crypto::*;
+use self::models::*;
+use self::subscription::*;
+use self::transport::*;
 
 mod abi;
 mod crypto;
@@ -24,6 +24,11 @@ fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
 
     // Models
     m.add_class::<Message>()?;
+    m.add_class::<MessageHeader>()?;
+    m.add_class::<InternalMessageHeader>()?;
+    m.add_class::<ExternalInMessageHeader>()?;
+    m.add_class::<ExternalOutMessageHeader>()?;
+    m.add_class::<MessageType>()?;
     m.add_class::<StateInit>()?;
     m.add_class::<Address>()?;
     m.add_class::<Cell>()?;
