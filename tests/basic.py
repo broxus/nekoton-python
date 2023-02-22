@@ -109,6 +109,10 @@ async def main():
     signature_id = await transport.get_signature_id()
     assert(signature_id is None)
 
+    code_hash = bytes.fromhex("7d0996943406f7d62a4ff291b1228bf06ebd3e048b58436c5b70fb77ff8b4bf2")
+    addresses = await transport.get_accounts_by_code_hash(code_hash, limit=10)
+    assert(len(addresses) == 10)
+
     transactions = await transport.get_transactions(my_addr, limit=10)
     assert(len(transactions) == 10)
     for tx in transactions:

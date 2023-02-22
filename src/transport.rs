@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 
 use crate::models::{Address, Transaction};
 use crate::subscription::Subscription;
-use crate::util::HandleError;
+use crate::util::{HandleError, HashExt};
 
 #[derive(Clone)]
 #[pyclass(subclass)]
@@ -45,15 +45,40 @@ impl Transport {
         })
     }
 
+    pub fn get_accounts_by_code_hash<'a>(
+        &self,
+        py: Python<'a>,
+        code_hash: &[u8],
+        continuation: Option<Address>,
+        limit: Option<u8>,
+    ) -> PyResult<&'a PyAny> {
+        const DEFAULT_LIMIT: u8 = 50;
+
+        let code_hash = ton_types::UInt256::from_bytes(code_hash, "code hash")?;
+
+        let handle = self.handle.clone();
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            let addresses = handle
+                .as_ref()
+                .get_accounts_by_code_hash(
+                    &code_hash,
+                    limit.unwrap_or(DEFAULT_LIMIT),
+                    &continuation.map(|Address(addr)| addr),
+                )
+                .await
+                .handle_runtime_error()?;
+
+            Ok(addresses.into_iter().map(Address).collect::<Vec<_>>())
+        })
+    }
+
     pub fn get_transaction<'a>(
         &self,
         py: Python<'a>,
         transaction_hash: &[u8],
     ) -> PyResult<&'a PyAny> {
-        if transaction_hash.len() != 32 {
-            return Err(PyValueError::new_err("Invalid transaction hash"));
-        }
-        let transaction_hash = ton_types::UInt256::from_le_bytes(transaction_hash);
+        let transaction_hash =
+            ton_types::UInt256::from_bytes(transaction_hash, "transaction hash")?;
 
         let handle = self.handle.clone();
         pyo3_asyncio::tokio::future_into_py(py, async move {
@@ -74,10 +99,7 @@ impl Transport {
         py: Python<'a>,
         message_hash: &[u8],
     ) -> PyResult<&'a PyAny> {
-        if message_hash.len() != 32 {
-            return Err(PyValueError::new_err("Invalid message hash"));
-        }
-        let message_hash = ton_types::UInt256::from_le_bytes(message_hash);
+        let message_hash = ton_types::UInt256::from_bytes(message_hash, "message hash")?;
 
         let handle = self.handle.clone();
         pyo3_asyncio::tokio::future_into_py(py, async move {
