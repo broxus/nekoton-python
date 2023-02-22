@@ -4,9 +4,11 @@ use std::sync::Arc;
 use pyo3::exceptions::*;
 use pyo3::prelude::*;
 use pyo3::types::*;
+use ton_block::{Deserializable, GetRepresentationHash, Serializable};
 
 use crate::cell::Cell;
-use crate::crypto::{KeyPair, PublicKey};
+use crate::crypto::{KeyPair, PublicKey, Signature};
+use crate::state_init::StateInit;
 use crate::subscription::Address;
 use crate::transport::Clock;
 use crate::util::*;
@@ -54,6 +56,53 @@ impl ContractAbi {
     fn get_event(&self, name: &str) -> Option<EventAbi> {
         self.0.events.get(name).cloned()
     }
+
+    fn encode_init_data(
+        &self,
+        data: &PyDict,
+        public_key: Option<&PublicKey>,
+        existing_data: Option<Cell>,
+    ) -> PyResult<Cell> {
+        let mut map = ton_types::HashmapE::with_hashmap(
+            ton_abi::Contract::DATA_MAP_KEYLEN,
+            existing_data.and_then(|Cell(cell)| cell.reference(0).ok()),
+        );
+
+        if let Some(public_key) = public_key {
+            map.set_builder(
+                0u64.write_to_new_cell().unwrap().into(),
+                ton_types::BuilderData::new()
+                    .append_raw(public_key.0.as_bytes(), 256)
+                    .unwrap(),
+            )
+            .handle_runtime_error()?;
+        }
+
+        if !self.0.contract.data.is_empty() {
+            for (param_name, param) in &self.0.contract.data {
+                let value = match data.get_item(param_name) {
+                    Some(value) => parse_token(&param.value.kind, value)?,
+                    None => {
+                        return Err(PyValueError::new_err(format!(
+                            "Param '{param_name}' not found"
+                        )))
+                    }
+                };
+
+                let builder = value
+                    .pack_into_chain(&self.0.contract.abi_version)
+                    .handle_runtime_error()?;
+
+                map.set_builder(param.key.write_to_new_cell().unwrap().into(), &builder)
+                    .handle_runtime_error()?;
+            }
+        }
+
+        map.write_to_new_cell()
+            .and_then(ton_types::BuilderData::into_cell)
+            .handle_runtime_error()
+            .map(Cell)
+    }
 }
 
 struct SharedContractAbi {
@@ -71,6 +120,23 @@ impl FunctionAbi {
     #[getter]
     fn abi_version(&self) -> AbiVersion {
         AbiVersion(self.0.abi_version)
+    }
+
+    fn encode_external_message(
+        &self,
+        dst: Address,
+        data: &PyDict,
+        public_key: Option<&PublicKey>,
+        state_init: Option<&StateInit>,
+        timeout: Option<u32>,
+        clock: Option<&Clock>,
+    ) -> PyResult<UnsignedExternalMessage> {
+        let body = self.encode_external_input(data, public_key, timeout, Some(&dst), clock)?;
+        Ok(UnsignedExternalMessage {
+            dst: dst.0,
+            state_init: state_init.cloned(),
+            body,
+        })
     }
 
     fn encode_external_input(
@@ -111,6 +177,42 @@ impl FunctionAbi {
             payload,
             hash,
             expire_at: expire_at.timestamp,
+        })
+    }
+
+    fn encode_internal_message(
+        &self,
+        data: &PyDict,
+        value: u64,
+        bounce: bool,
+        dst: Address,
+        src: Option<Address>,
+        state_init: Option<&StateInit>,
+    ) -> PyResult<Message> {
+        let body = self.encode_internal_input(data)?;
+
+        let mut message = ton_block::Message::with_int_header(ton_block::InternalMessageHeader {
+            ihr_disabled: true,
+            bounce,
+            value: ton_block::CurrencyCollection::with_grams(value),
+            src: src
+                .map(|src| ton_block::MsgAddressIntOrNone::Some(src.0))
+                .unwrap_or(ton_block::MsgAddressIntOrNone::None),
+            dst: dst.0,
+            ..Default::default()
+        });
+
+        if let Some(state_init) = state_init {
+            message.set_state_init(state_init.0.clone())
+        }
+
+        message.set_body(body.0.into());
+
+        let hash = message.hash().handle_runtime_error()?;
+
+        Ok(Message {
+            data: message,
+            hash,
         })
     }
 
@@ -184,6 +286,133 @@ impl EventAbi {
 }
 
 #[pyclass]
+pub struct UnsignedExternalMessage {
+    dst: ton_block::MsgAddressInt,
+    state_init: Option<StateInit>,
+    body: UnsignedBody,
+}
+
+impl UnsignedExternalMessage {
+    fn fill_body(&self, body: Cell) -> PyResult<Message> {
+        let mut message =
+            ton_block::Message::with_ext_in_header(ton_block::ExternalInboundMessageHeader {
+                dst: self.dst.clone(),
+                ..Default::default()
+            });
+
+        if let Some(state_init) = &self.state_init {
+            message.set_state_init(state_init.0.clone())
+        }
+
+        message.set_body(body.0.into());
+
+        let hash = message.hash().handle_runtime_error()?;
+
+        Ok(Message {
+            data: message,
+            hash,
+        })
+    }
+}
+
+#[pymethods]
+impl UnsignedExternalMessage {
+    #[getter]
+    fn hash<'a>(&self, py: Python<'a>) -> &'a PyBytes {
+        self.body.hash(py)
+    }
+
+    #[getter]
+    fn expire_at(&self) -> u32 {
+        self.body.expire_at()
+    }
+
+    #[getter]
+    fn get_state_init(&self) -> Option<StateInit> {
+        self.state_init.clone()
+    }
+
+    #[setter]
+    fn set_state_init(&mut self, state_init: Option<StateInit>) {
+        self.state_init = state_init;
+    }
+
+    fn sign(&self, keypair: &KeyPair, signature_id: Option<i32>) -> PyResult<Message> {
+        self.fill_body(self.body.sign(keypair, signature_id)?)
+    }
+
+    fn with_signature(&self, signature: &Signature) -> PyResult<Message> {
+        self.fill_body(self.body.with_signature(signature)?)
+    }
+
+    fn with_fake_signature(&self) -> PyResult<Message> {
+        self.fill_body(self.body.with_fake_signature()?)
+    }
+
+    fn without_signature(&self) -> PyResult<Message> {
+        self.fill_body(self.body.without_signature()?)
+    }
+}
+
+#[pyclass]
+pub struct Message {
+    data: ton_block::Message,
+    hash: ton_types::UInt256,
+}
+
+#[pymethods]
+impl Message {
+    #[staticmethod]
+    fn from_bytes(mut bytes: &[u8]) -> PyResult<Self> {
+        let cell = ton_types::deserialize_tree_of_cells(&mut bytes).handle_runtime_error()?;
+        let hash = cell.repr_hash();
+        let data = ton_block::Message::construct_from_cell(cell).handle_value_error()?;
+        Ok(Self { data, hash })
+    }
+
+    #[staticmethod]
+    fn decode(value: &str, encoding: Option<&str>) -> PyResult<Self> {
+        let encoding = Encoding::from_optional_param(encoding, Encoding::Base64)?;
+        let bytes = encoding.decode_bytes(value)?;
+        Self::from_bytes(&bytes)
+    }
+
+    #[getter]
+    fn hash<'a>(&self, py: Python<'a>) -> &'a PyBytes {
+        PyBytes::new(py, self.hash.as_slice())
+    }
+
+    #[getter]
+    fn body(&self) -> Option<Cell> {
+        self.data
+            .body()
+            .map(ton_types::SliceData::into_cell)
+            .map(Cell)
+    }
+
+    #[getter]
+    fn state_init(&self) -> Option<StateInit> {
+        self.data.state_init().cloned().map(StateInit)
+    }
+
+    fn encode(&self, encoding: Option<&str>) -> PyResult<String> {
+        let encoding = Encoding::from_optional_param(encoding, Encoding::Base64)?;
+        let cell = self.data.serialize().handle_runtime_error()?;
+        encoding.encode_cell(&cell)
+    }
+
+    fn to_bytes<'a>(&self, py: Python<'a>) -> PyResult<&'a PyBytes> {
+        let cell = self.data.serialize().handle_runtime_error()?;
+        let bytes = ton_types::serialize_toc(&cell).handle_runtime_error()?;
+        Ok(PyBytes::new(py, &bytes))
+    }
+
+    fn build_cell(&self) -> PyResult<Cell> {
+        self.data.serialize().handle_runtime_error().map(Cell)
+    }
+}
+
+#[pyclass]
 pub struct UnsignedBody {
     abi_version: ton_abi::contract::AbiVersion,
     payload: ton_types::BuilderData,
@@ -217,9 +446,8 @@ impl UnsignedBody {
         self.fill_signature(Some(signature.0.as_ref()))
     }
 
-    fn with_signature(&self, bytes: &[u8]) -> PyResult<Cell> {
-        let signature = ed25519_dalek::Signature::from_bytes(bytes).handle_value_error()?;
-        self.fill_signature(Some(signature.as_ref()))
+    fn with_signature(&self, signature: &Signature) -> PyResult<Cell> {
+        self.fill_signature(Some(signature.0.as_ref()))
     }
 
     fn with_fake_signature(&self) -> PyResult<Cell> {

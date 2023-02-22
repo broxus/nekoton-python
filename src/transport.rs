@@ -29,6 +29,19 @@ impl Transport {
     pub fn subscribe<'a>(&self, py: Python<'a>, address: Address) -> PyResult<&'a PyAny> {
         pyo3_asyncio::tokio::future_into_py(py, Subscription::subscribe_impl(self.clone(), address))
     }
+
+    pub fn get_signature_id<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny> {
+        let clock = self.clock.clone();
+        let handle = self.handle.clone();
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            let capabilities = handle
+                .as_ref()
+                .get_capabilities(clock.as_ref())
+                .await
+                .handle_runtime_error()?;
+            Ok(capabilities.signature_id())
+        })
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -110,6 +123,12 @@ impl Clock {
     #[setter]
     pub fn set_offset(&self, offset: i64) {
         self.0.update_offset(offset)
+    }
+}
+
+impl<'a> AsRef<dyn nt::utils::Clock + 'a> for Clock {
+    fn as_ref(&self) -> &(dyn nt::utils::Clock + 'a) {
+        self.0.as_ref()
     }
 }
 

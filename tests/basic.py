@@ -8,7 +8,10 @@ dirname = os.path.dirname(__file__)
 # Address
 assert(not Address.validate("totally invalid address"))
 assert(Address.validate("0:a921453472366b7feeec15323a96b5dcf17197c88dc0d4578dfa52900b8a33cb"))
-my_addr = Address('0:a921453472366b7feeec15323a96b5dcf17197c88dc0d4578dfa52900b8a33cb')
+my_addr = Address('-1:a921453472366b7feeec15323a96b5dcf17197c88dc0d4578dfa52900b8a33cb')
+assert(my_addr.workchain == -1 and len(my_addr.account) == 32)
+my_addr.workchain = 0
+assert(my_addr.workchain == 0)
 
 # Cells
 cell1 = Cell()
@@ -54,14 +57,25 @@ assert(abi.get_function("non-existing") is None)
 assert(abi.get_event("non-existing") is None)
 
 send_transaction_func = abi.get_function("sendTransaction")
-body_cell = send_transaction_func.encode_internal_input({
+
+send_transaction_input = {
     "dest": my_addr,
     "value": 123,
     "bounce": False,
     "flags": 3,
     "payload": Cell(),
-})
+}
+body_cell = send_transaction_func.encode_internal_input(send_transaction_input)
 assert(body_cell != Cell())
+
+internal_msg = send_transaction_func.encode_internal_message(
+    data=send_transaction_input,
+    value=13213123,
+    bounce=False,
+    dst=my_addr,
+)
+assert(internal_msg.state_init is None)
+assert(internal_msg.body == body_cell)
 
 unpacked_body = body_cell.unpack(abi=[
     ("function_id", AbiUint(32)),
@@ -71,19 +85,17 @@ unpacked_body = body_cell.unpack(abi=[
     ("flags", AbiUint(8)),
     ("payload", AbiCell()),
 ])
-assert(unpacked_body["dest"] == my_addr)
-assert(unpacked_body["value"] == 123)
-assert(unpacked_body["bounce"] == False)
-assert(unpacked_body["flags"] == 3)
-assert(unpacked_body["payload"] == Cell())
-
 decoded_body = send_transaction_func.decode_input(message_body=body_cell, internal=True)
-assert(decoded_body["dest"] == my_addr)
-assert(decoded_body["value"] == 123)
-assert(decoded_body["bounce"] == False)
-assert(decoded_body["flags"] == 3)
-assert(decoded_body["payload"] == Cell())
 
+for field, item in send_transaction_input.items():
+    assert(unpacked_body[field] == item)
+    assert(decoded_body[field] == item)
+
+unsigned_body = send_transaction_func.encode_external_input(send_transaction_input, address=my_addr)
+assert(unsigned_body.sign(keypair0) == unsigned_body.with_signature(keypair0.sign(unsigned_body.hash)))
+
+unsigned_message = send_transaction_func.encode_external_message(my_addr, send_transaction_input)
+assert(len(unsigned_message.without_signature().hash))
 
 # Subscriptions
 async def main():
@@ -91,9 +103,12 @@ async def main():
 
     transport = JrpcTransport(endpoint="https://jrpc.everwallet.net")
     await transport.check_connection()
+    signature_id = await transport.get_signature_id()
+    assert(signature_id is None)
 
     subscription = await transport.subscribe(my_addr)
 
 
 if __name__ == "__main__":
     asyncio.run(main())
+    

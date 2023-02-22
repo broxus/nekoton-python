@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use nt::core::models;
 use pyo3::prelude::*;
+use pyo3::types::PyBytes;
 use tokio::sync::oneshot;
 
 use crate::transport::{Transport, TransportHandle};
@@ -120,6 +121,28 @@ impl Address {
         nt::utils::repack_address(addr.trim())
             .map(Self)
             .handle_value_error()
+    }
+
+    #[getter]
+    fn get_workchain(&self) -> i32 {
+        self.0.workchain_id()
+    }
+
+    #[setter]
+    fn set_workchain(&mut self, workchain: i32) -> PyResult<()> {
+        match &mut self.0 {
+            ton_block::MsgAddressInt::AddrStd(addr) => {
+                addr.workchain_id = workchain.try_into().handle_value_error()?
+            }
+            ton_block::MsgAddressInt::AddrVar(addr) => addr.workchain_id = workchain,
+        }
+        Ok(())
+    }
+
+    #[getter]
+    fn account<'a>(&self, py: Python<'a>) -> &'a PyBytes {
+        let bytes = self.0.address().get_bytestring_on_stack(0);
+        PyBytes::new(py, &bytes)
     }
 
     fn __str__(&self) -> String {
