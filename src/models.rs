@@ -19,6 +19,15 @@ impl Transaction {
     }
 
     #[getter]
+    fn get_type(&self) -> PyResult<TransactionType> {
+        match &self.0.descr {
+            ton_block::TransactionDescr::Ordinary(_) => Ok(TransactionType::Ordinary),
+            ton_block::TransactionDescr::TickTock(_) => Ok(TransactionType::TickTock),
+            _ => Err(PyRuntimeError::new_err("Unsupported transaction type")),
+        }
+    }
+
+    #[getter]
     pub fn account<'a>(&self, py: Python<'a>) -> &'a PyBytes {
         let account = self.0.data.account_addr.get_bytestring_on_stack(0);
         PyBytes::new(py, &account)
@@ -74,6 +83,92 @@ impl Transaction {
         self.0.data.outmsg_cnt as usize
     }
 
+    #[getter]
+    pub fn in_msg_hash<'a>(&self, py: Python<'a>) -> Option<&'a PyBytes> {
+        let msg_cell = self.0.data.in_msg_cell()?;
+        Some(PyBytes::new(py, msg_cell.repr_hash().as_slice()))
+    }
+
+    #[getter]
+    fn credit_first(&self) -> bool {
+        let ton_block::TransactionDescr::Ordinary(descr) = &self.0.descr else {
+            return false;
+        };
+        descr.credit_first
+    }
+
+    #[getter]
+    fn aborted(&self) -> bool {
+        self.0.descr.is_aborted()
+    }
+
+    #[getter]
+    fn destroyed(&self) -> PyResult<bool> {
+        match &self.0.descr {
+            ton_block::TransactionDescr::Ordinary(descr) => Ok(descr.destroyed),
+            ton_block::TransactionDescr::TickTock(descr) => Ok(descr.destroyed),
+            _ => Err(PyRuntimeError::new_err("Unsupported transaction type")),
+        }
+    }
+
+    #[getter]
+    fn storage_phase(&self) -> PyResult<Option<TransactionStoragePhase>> {
+        match &self.0.descr {
+            ton_block::TransactionDescr::Ordinary(descr) => {
+                Ok(descr.storage_ph.clone().map(TransactionStoragePhase))
+            }
+            ton_block::TransactionDescr::TickTock(descr) => {
+                Ok(Some(TransactionStoragePhase(descr.storage.clone())))
+            }
+            _ => Err(PyRuntimeError::new_err("Unsupported transaction type")),
+        }
+    }
+
+    #[getter]
+    fn credit_phase(&self) -> PyResult<Option<TransactionCreditPhase>> {
+        match &self.0.descr {
+            ton_block::TransactionDescr::Ordinary(descr) => {
+                Ok(descr.credit_ph.clone().map(TransactionCreditPhase))
+            }
+            ton_block::TransactionDescr::TickTock(_) => Ok(None),
+            _ => Err(PyRuntimeError::new_err("Unsupported transaction type")),
+        }
+    }
+
+    #[getter]
+    fn compute_phase(&self) -> PyResult<Option<TransactionComputePhase>> {
+        let compute_phase = match &self.0.descr {
+            ton_block::TransactionDescr::Ordinary(descr) => &descr.compute_ph,
+            ton_block::TransactionDescr::TickTock(descr) => &descr.compute_ph,
+            _ => return Err(PyRuntimeError::new_err("Unsupported transaction type")),
+        };
+
+        Ok(match compute_phase {
+            ton_block::TrComputePhase::Skipped(_) => None,
+            ton_block::TrComputePhase::Vm(phase) => Some(TransactionComputePhase(phase.clone())),
+        })
+    }
+
+    #[getter]
+    fn action_phase(&self) -> PyResult<Option<TransactionActionPhase>> {
+        let action = match &self.0.descr {
+            ton_block::TransactionDescr::Ordinary(descr) => &descr.action,
+            ton_block::TransactionDescr::TickTock(descr) => &descr.action,
+            _ => return Err(PyRuntimeError::new_err("Unsupported transaction type")),
+        };
+        Ok(action.clone().map(TransactionActionPhase))
+    }
+
+    #[getter]
+    fn bounce_phase(&self) -> Option<TransactionBouncePhase> {
+        if let ton_block::TransactionDescr::Ordinary(descr) = &self.0.descr {
+            if let ton_block::TrBouncePhase::Ok(phase) = descr.bounce.as_ref()? {
+                return Some(TransactionBouncePhase(phase.clone()));
+            }
+        }
+        None
+    }
+
     pub fn get_in_msg(&self) -> PyResult<Message> {
         let Some(msg_cell) = self.0.data.in_msg_cell() else {
             return Err(PyRuntimeError::new_err("Transaction without incoming message"));
@@ -102,7 +197,210 @@ impl Transaction {
 
 pub struct SharedTransaction {
     pub data: ton_block::Transaction,
+    pub descr: ton_block::TransactionDescr,
     pub hash: ton_types::UInt256,
+}
+
+#[pyclass]
+pub struct TransactionStoragePhase(ton_block::TrStoragePhase);
+
+#[pymethods]
+impl TransactionStoragePhase {
+    #[getter]
+    fn storage_fees_collected(&self) -> u128 {
+        self.0.storage_fees_collected.0
+    }
+
+    #[getter]
+    fn storage_fees_due(&self) -> Option<u128> {
+        self.0.storage_fees_due.map(|grams| grams.0)
+    }
+
+    #[getter]
+    fn status_change(&self) -> AccountStatusChange {
+        self.0.status_change.clone().into()
+    }
+}
+
+#[pyclass]
+pub struct TransactionCreditPhase(ton_block::TrCreditPhase);
+
+#[pymethods]
+impl TransactionCreditPhase {
+    #[getter]
+    fn due_fees_collected(&self) -> Option<u128> {
+        self.0.due_fees_collected.map(|grams| grams.0)
+    }
+
+    #[getter]
+    fn credit(&self) -> u128 {
+        self.0.credit.grams.0
+    }
+}
+
+#[pyclass]
+pub struct TransactionComputePhase(ton_block::TrComputePhaseVm);
+
+#[pymethods]
+impl TransactionComputePhase {
+    #[getter]
+    fn success(&self) -> bool {
+        self.0.success
+    }
+
+    #[getter]
+    fn msg_state_used(&self) -> bool {
+        self.0.msg_state_used
+    }
+
+    #[getter]
+    fn account_activated(&self) -> bool {
+        self.0.account_activated
+    }
+
+    #[getter]
+    fn gas_fees(&self) -> u128 {
+        self.0.gas_fees.0
+    }
+
+    #[getter]
+    fn gas_used(&self) -> u64 {
+        self.0.gas_used.0
+    }
+
+    #[getter]
+    fn gas_limit(&self) -> u64 {
+        self.0.gas_limit.0
+    }
+
+    #[getter]
+    fn gas_credit(&self) -> Option<u32> {
+        self.0.gas_credit.map(|credit| credit.0)
+    }
+
+    #[getter]
+    fn mode(&self) -> i8 {
+        self.0.mode
+    }
+
+    #[getter]
+    fn exit_code(&self) -> i32 {
+        self.0.exit_code
+    }
+
+    #[getter]
+    fn exit_arg(&self) -> Option<i32> {
+        self.0.exit_arg
+    }
+
+    #[getter]
+    fn vm_steps(&self) -> u32 {
+        self.0.vm_steps
+    }
+
+    #[getter]
+    fn vm_init_state_hash<'a>(&self, py: Python<'a>) -> &'a PyBytes {
+        PyBytes::new(py, self.0.vm_init_state_hash.as_slice())
+    }
+
+    #[getter]
+    fn vm_final_state_hash<'a>(&self, py: Python<'a>) -> &'a PyBytes {
+        PyBytes::new(py, self.0.vm_final_state_hash.as_slice())
+    }
+}
+
+#[pyclass]
+pub struct TransactionActionPhase(ton_block::TrActionPhase);
+
+#[pymethods]
+impl TransactionActionPhase {
+    #[getter]
+    fn success(&self) -> bool {
+        self.0.success
+    }
+
+    #[getter]
+    fn valid(&self) -> bool {
+        self.0.valid
+    }
+
+    #[getter]
+    fn no_funds(&self) -> bool {
+        self.0.no_funds
+    }
+
+    #[getter]
+    fn status_change(&self) -> AccountStatusChange {
+        self.0.status_change.clone().into()
+    }
+
+    #[getter]
+    fn total_fwd_fees(&self) -> Option<u128> {
+        self.0.total_fwd_fees.map(|fees| fees.0)
+    }
+
+    #[getter]
+    fn total_action_fees(&self) -> Option<u128> {
+        self.0.total_action_fees.map(|fees| fees.0)
+    }
+
+    #[getter]
+    fn result_code(&self) -> i32 {
+        self.0.result_code
+    }
+
+    #[getter]
+    fn result_arg(&self) -> Option<i32> {
+        self.0.result_arg
+    }
+
+    #[getter]
+    fn total_actions(&self) -> i16 {
+        self.0.tot_actions
+    }
+
+    #[getter]
+    fn special_actions(&self) -> i16 {
+        self.0.spec_actions
+    }
+
+    #[getter]
+    fn skipped_actions(&self) -> i16 {
+        self.0.skipped_actions
+    }
+
+    #[getter]
+    fn messages_created(&self) -> i16 {
+        self.0.msgs_created
+    }
+
+    #[getter]
+    fn action_list_hash<'a>(&self, py: Python<'a>) -> &'a PyBytes {
+        PyBytes::new(py, self.0.action_list_hash.as_slice())
+    }
+}
+
+#[pyclass]
+pub struct TransactionBouncePhase(ton_block::TrBouncePhaseOk);
+
+#[pymethods]
+impl TransactionBouncePhase {
+    #[getter]
+    fn msg_fees(&self) -> u128 {
+        self.0.msg_fees.0
+    }
+
+    #[getter]
+    fn fwd_fees(&self) -> u128 {
+        self.0.fwd_fees.0
+    }
+}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[pyclass]
+pub enum TransactionType {
+    Ordinary,
+    TickTock,
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -127,6 +425,35 @@ impl From<ton_block::AccountStatus> for AccountStatus {
 
 #[pymethods]
 impl AccountStatus {
+    fn __hash__(&self) -> u64 {
+        ahash::RandomState::new().hash_one(self)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {
+        op.matches(self.cmp(other))
+    }
+}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[pyclass]
+pub enum AccountStatusChange {
+    Unchanged,
+    Frozen,
+    Deleted,
+}
+
+impl From<ton_block::AccStatusChange> for AccountStatusChange {
+    fn from(value: ton_block::AccStatusChange) -> Self {
+        match value {
+            ton_block::AccStatusChange::Unchanged => Self::Unchanged,
+            ton_block::AccStatusChange::Frozen => Self::Frozen,
+            ton_block::AccStatusChange::Deleted => Self::Deleted,
+        }
+    }
+}
+
+#[pymethods]
+impl AccountStatusChange {
     fn __hash__(&self) -> u64 {
         ahash::RandomState::new().hash_one(self)
     }
