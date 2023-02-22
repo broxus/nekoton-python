@@ -204,7 +204,7 @@ pub struct Bip39Seed;
 impl Bip39Seed {
     #[staticmethod]
     fn generate(py: Python<'_>) -> PyObject {
-        let entropy: [u8; 32] = rand::thread_rng().gen();
+        let entropy: [u8; 16] = rand::thread_rng().gen();
         let res = PyClassInitializer::from(Seed(generate_words(&entropy))).add_subclass(Self);
         Py::new(py, res).unwrap().into_py(py)
     }

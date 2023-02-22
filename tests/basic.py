@@ -38,7 +38,7 @@ assert(decoded["second"] == True)
 
 # Crypto
 seed = Bip39Seed.generate()
-assert(seed.word_count == 24)
+assert(seed.word_count == 12)
 
 keypair0 = seed.derive()
 assert(len(keypair0.public_key.to_bytes()) == 32)
