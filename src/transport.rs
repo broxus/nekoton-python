@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
-use crate::models::{Address, Transaction};
+use crate::models::{AccountState, Address, Transaction};
 use crate::subscription::Subscription;
 use crate::util::{HandleError, HashExt};
 
@@ -42,6 +41,24 @@ impl Transport {
                 .await
                 .handle_runtime_error()?;
             Ok(capabilities.signature_id())
+        })
+    }
+
+    pub fn get_account_state<'a>(&self, py: Python<'a>, address: Address) -> PyResult<&'a PyAny> {
+        let handle = self.handle.clone();
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            let state = handle
+                .as_ref()
+                .get_contract_state(&address.0)
+                .await
+                .handle_runtime_error()?;
+
+            Ok(match state {
+                nt::transport::models::RawContractState::NotExists => None,
+                nt::transport::models::RawContractState::Exists(state) => {
+                    Some(AccountState(state.account))
+                }
+            })
         })
     }
 

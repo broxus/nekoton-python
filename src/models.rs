@@ -9,6 +9,87 @@ use crate::abi::{convert_tokens, parse_tokens, AbiParam, AbiVersion};
 use crate::util::{Encoding, HandleError};
 
 #[pyclass]
+pub struct AccountState(pub ton_block::AccountStuff);
+
+#[pymethods]
+impl AccountState {
+    #[getter]
+    fn storage_used(&self) -> StorageUsed {
+        StorageUsed(self.0.storage_stat.used.clone())
+    }
+
+    #[getter]
+    fn last_paid(&self) -> u32 {
+        self.0.storage_stat.last_paid
+    }
+
+    #[getter]
+    fn due_payment(&self) -> Option<u128> {
+        self.0.storage_stat.due_payment.map(|grams| grams.0)
+    }
+
+    #[getter]
+    fn last_trans_lt(&self) -> u64 {
+        self.0.storage.last_trans_lt
+    }
+
+    #[getter]
+    fn balance(&self) -> u128 {
+        self.0.storage.balance.grams.0
+    }
+
+    #[getter]
+    fn status(&self) -> AccountStatus {
+        match &self.0.storage.state {
+            ton_block::AccountState::AccountUninit => AccountStatus::Uninit,
+            ton_block::AccountState::AccountActive { .. } => AccountStatus::Active,
+            ton_block::AccountState::AccountFrozen { .. } => AccountStatus::Frozen,
+        }
+    }
+
+    #[getter]
+    fn state_init(&self) -> Option<StateInit> {
+        match &self.0.storage.state {
+            ton_block::AccountState::AccountActive { state_init } => {
+                Some(StateInit(state_init.clone()))
+            }
+            _ => None,
+        }
+    }
+
+    #[getter]
+    fn frozen_state_hash<'a>(&self, py: Python<'a>) -> Option<&'a PyBytes> {
+        match &self.0.storage.state {
+            ton_block::AccountState::AccountFrozen { state_init_hash } => {
+                Some(PyBytes::new(py, state_init_hash.as_slice()))
+            }
+            _ => None,
+        }
+    }
+}
+
+#[pyclass]
+pub struct StorageUsed(ton_block::StorageUsed);
+
+#[pymethods]
+impl StorageUsed {
+    #[getter]
+    fn cells(&self) -> u64 {
+        self.0.cells.0
+    }
+
+    #[getter]
+    fn bits(&self) -> u64 {
+        self.0.bits.0
+    }
+
+    #[getter]
+    fn public_cells(&self) -> u64 {
+        self.0.public_cells.0
+    }
+}
+
+#[pyclass]
 pub struct Transaction(Arc<SharedTransaction>);
 
 impl TryFrom<nt::transport::models::RawTransaction> for Transaction {
