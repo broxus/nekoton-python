@@ -109,6 +109,11 @@ async def main():
     signature_id = await transport.get_signature_id()
     assert(signature_id is None)
 
+    config = await transport.get_blockchain_config()
+    assert(config.contains_param(0))
+    assert(config.config_address == Address("-1:5555555555555555555555555555555555555555555555555555555555555555"))
+    assert(config.elector_address == Address("-1:3333333333333333333333333333333333333333333333333333333333333333"))
+
     account = await transport.get_account_state(my_addr)
     assert(not account is None)
     assert(account.status == AccountStatus.Active)

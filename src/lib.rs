@@ -23,6 +23,7 @@ fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<JrpcTransport>()?;
 
     // Models
+    m.add_class::<BlockchainConfig>()?;
     m.add_class::<AccountState>()?;
     m.add_class::<StorageUsed>()?;
     m.add_class::<Transaction>()?;

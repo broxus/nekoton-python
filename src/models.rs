@@ -9,6 +9,74 @@ use crate::abi::{convert_tokens, parse_tokens, AbiParam, AbiVersion};
 use crate::util::{Encoding, HandleError};
 
 #[pyclass]
+pub struct BlockchainConfig(pub Arc<ton_executor::BlockchainConfig>);
+
+#[pymethods]
+impl BlockchainConfig {
+    #[getter]
+    fn capabilities(&self) -> u64 {
+        self.0.capabilites()
+    }
+
+    #[getter]
+    fn config_address(&self) -> PyResult<Address> {
+        let config = self.0.raw_config();
+        let addr = config.config_address().handle_runtime_error()?;
+        ton_block::MsgAddressInt::with_standart(None, -1, addr.into())
+            .handle_runtime_error()
+            .map(Address)
+    }
+
+    #[getter]
+    fn elector_address(&self) -> PyResult<Address> {
+        let config = self.0.raw_config();
+        let addr = config.elector_address().handle_runtime_error()?;
+        ton_block::MsgAddressInt::with_standart(None, -1, addr.into())
+            .handle_runtime_error()
+            .map(Address)
+    }
+
+    #[getter]
+    fn minter_address(&self) -> PyResult<Address> {
+        let config = self.0.raw_config();
+        let addr = config.minter_address().handle_runtime_error()?;
+        ton_block::MsgAddressInt::with_standart(None, -1, addr.into())
+            .handle_runtime_error()
+            .map(Address)
+    }
+
+    #[getter]
+    fn fee_collector_address(&self) -> PyResult<Address> {
+        let config = self.0.raw_config();
+        let addr = config.fee_collector_address().handle_runtime_error()?;
+        ton_block::MsgAddressInt::with_standart(None, -1, addr.into())
+            .handle_runtime_error()
+            .map(Address)
+    }
+
+    // TODO: add other params
+
+    fn contains_param(&self, index: u32) -> PyResult<bool> {
+        let config = &self.0.raw_config().config_params;
+        let key = index.serialize().unwrap();
+        Ok(
+            if let Some(value) = config.get(key.into()).handle_runtime_error()? {
+                value.remaining_references() != 0
+            } else {
+                false
+            },
+        )
+    }
+
+    fn get_raw_param(&self, index: u32) -> PyResult<Option<Cell>> {
+        let config = &self.0.raw_config().config_params;
+        let key = index.serialize().unwrap();
+        let value = config.get(key.into()).handle_runtime_error()?;
+        Ok(value.and_then(|slice| slice.reference_opt(0)).map(Cell))
+    }
+}
+
+#[pyclass]
 pub struct AccountState(pub ton_block::AccountStuff);
 
 #[pymethods]

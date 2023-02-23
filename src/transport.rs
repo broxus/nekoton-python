@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use pyo3::prelude::*;
 
-use crate::models::{AccountState, Address, Transaction};
+use crate::models::{AccountState, Address, BlockchainConfig, Transaction};
 use crate::subscription::Subscription;
 use crate::util::{HandleError, HashExt};
 
@@ -41,6 +41,25 @@ impl Transport {
                 .await
                 .handle_runtime_error()?;
             Ok(capabilities.signature_id())
+        })
+    }
+
+    pub fn get_blockchain_config<'a>(
+        &self,
+        py: Python<'a>,
+        force: Option<bool>,
+    ) -> PyResult<&'a PyAny> {
+        let force = force.unwrap_or_default();
+        let clock = self.clock.clone();
+        let handle = self.handle.clone();
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            let config = handle
+                .as_ref()
+                .get_blockchain_config(clock.as_ref(), force)
+                .await
+                .handle_runtime_error()?;
+
+            Ok(BlockchainConfig(Arc::new(config)))
         })
     }
 
