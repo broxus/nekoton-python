@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashMap};
+use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
 use pyo3::exceptions::*;
@@ -7,9 +8,104 @@ use pyo3::types::*;
 use ton_block::{GetRepresentationHash, Serializable};
 
 use crate::crypto::{KeyPair, PublicKey, Signature};
-use crate::models::{AccountState, Address, Cell, Message, StateInit, Transaction};
+use crate::models::{
+    AccountState, Address, BlockchainConfig, Cell, Message, StateInit, Transaction,
+};
 use crate::transport::Clock;
 use crate::util::*;
+
+#[pyclass]
+pub struct TransactionExecutor {
+    clock: Option<Clock>,
+    config: BlockchainConfig,
+    check_signature: bool,
+}
+
+#[pymethods]
+impl TransactionExecutor {
+    #[new]
+    fn new(config: BlockchainConfig, clock: Option<Clock>, check_signature: Option<bool>) -> Self {
+        Self {
+            clock,
+            config,
+            check_signature: check_signature.unwrap_or(true),
+        }
+    }
+
+    #[setter]
+    fn set_check_signature(&mut self, value: bool) {
+        self.check_signature = value;
+    }
+
+    #[getter]
+    fn get_check_signature(&self) -> bool {
+        self.check_signature
+    }
+
+    fn execute(
+        &self,
+        message: &Message,
+        account: Option<&AccountState>,
+    ) -> PyResult<(Transaction, Option<AccountState>)> {
+        use ton_executor::TransactionExecutor;
+
+        const TRANSACTION_LT_OFFSET: u64 = 10;
+
+        let (last_trans_lt, mut account) = match account {
+            None => (0, ton_block::Account::AccountNone),
+            Some(state) => (
+                state.0.storage.last_trans_lt,
+                ton_block::Account::Account(state.0.clone()),
+            ),
+        };
+
+        let mut executor =
+            ton_executor::OrdinaryTransactionExecutor::new(self.config.0.as_ref().clone());
+        executor.set_signature_check_disabled(!self.check_signature);
+
+        let clock = match &self.clock {
+            Some(clock) => clock.as_ref(),
+            None => &nt::utils::SimpleClock,
+        };
+
+        let block_unixtime = clock.now_sec_u64() as u32;
+        let block_lt = last_trans_lt + TRANSACTION_LT_OFFSET;
+
+        let params = ton_executor::ExecuteParams {
+            block_unixtime,
+            block_lt,
+            last_tr_lt: Arc::new(AtomicU64::new(block_lt)),
+            ..Default::default()
+        };
+
+        let transaction = executor
+            .execute_with_params(Some(&message.data), &mut account, params)
+            .handle_runtime_error()?;
+        let hash = transaction.hash().handle_runtime_error()?;
+
+        if executor
+            .config()
+            .has_capability(ton_block::GlobalCapabilities::CapFastStorageStat)
+        {
+            account.update_storage_stat_fast().handle_runtime_error()?;
+        } else {
+            account.update_storage_stat().handle_runtime_error()?;
+        }
+
+        let account_state = match account {
+            ton_block::Account::AccountNone => None,
+            ton_block::Account::Account(state) => Some(AccountState(state)),
+        };
+
+        Ok((
+            Transaction::try_from(nt::transport::models::RawTransaction {
+                data: transaction,
+                hash,
+            })?,
+            account_state,
+        ))
+    }
+}
 
 #[derive(Clone)]
 #[pyclass]

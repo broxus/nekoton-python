@@ -7,8 +7,8 @@ dirname = os.path.dirname(__file__)
 
 # Address
 assert(not Address.validate("totally invalid address"))
-assert(Address.validate("0:a921453472366b7feeec15323a96b5dcf17197c88dc0d4578dfa52900b8a33cb"))
-my_addr = Address('-1:a921453472366b7feeec15323a96b5dcf17197c88dc0d4578dfa52900b8a33cb')
+assert(Address.validate("0:d84e969feb02481933382c4544e9ff24a2f359847f8896baa86c501c3d1b00cf"))
+my_addr = Address('-1:d84e969feb02481933382c4544e9ff24a2f359847f8896baa86c501c3d1b00cf')
 assert(my_addr.workchain == -1 and len(my_addr.account) == 32)
 my_addr.workchain = 0
 assert(my_addr.workchain == 0)
@@ -122,6 +122,12 @@ async def main():
     assert(account.status == AccountStatus.Active)
     assert(account.balance > 0)
     assert(account.state_init.code is not None)
+
+    executor = TransactionExecutor(config, check_signature=False)
+    tx, new_state = executor.execute(unsigned_message.with_fake_signature(), account)
+    assert(not tx.aborted)
+    assert(tx.compute_phase.exit_code == 0)
+    assert(new_state is not None)
 
     depool_addr = Address("0:d9cf3648c1c9436785ed628d5d83a66853eb85feb94a9cfed6239056a32cc149")
     depool_state = await transport.get_account_state(depool_addr)

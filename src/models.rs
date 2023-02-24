@@ -8,6 +8,7 @@ use ton_block::{Deserializable, Serializable};
 use crate::abi::{convert_tokens, parse_tokens, AbiParam, AbiVersion};
 use crate::util::{Encoding, HandleError};
 
+#[derive(Clone)]
 #[pyclass]
 pub struct BlockchainConfig(pub Arc<ton_executor::BlockchainConfig>);
 

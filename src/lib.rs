@@ -49,6 +49,7 @@ fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<Subscription>()?;
 
     // Abi
+    m.add_class::<TransactionExecutor>()?;
     m.add_class::<ContractAbi>()?;
     m.add_class::<FunctionAbi>()?;
     m.add_class::<EventAbi>()?;
