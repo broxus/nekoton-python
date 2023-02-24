@@ -158,7 +158,7 @@ impl StorageUsed {
 }
 
 #[pyclass]
-pub struct Transaction(Arc<SharedTransaction>);
+pub struct Transaction(pub Arc<SharedTransaction>);
 
 impl TryFrom<nt::transport::models::RawTransaction> for Transaction {
     type Error = PyErr;

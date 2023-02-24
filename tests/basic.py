@@ -69,7 +69,7 @@ body_cell = send_transaction_func.encode_internal_input(send_transaction_input)
 assert(body_cell != Cell())
 
 internal_msg = send_transaction_func.encode_internal_message(
-    data=send_transaction_input,
+    input=send_transaction_input,
     value=13213123,
     bounce=False,
     dst=my_addr,
@@ -100,6 +100,9 @@ external_msg = unsigned_message.without_signature()
 assert(len(external_msg.hash) == 32)
 assert(isinstance(external_msg.header, ExternalInMessageHeader))
 
+with open(os.path.join(dirname, 'depool.abi.json'), 'r') as json:
+    depool_abi = ContractAbi(json.read())
+
 # Subscriptions
 async def main():
     clock = Clock()
@@ -115,10 +118,28 @@ async def main():
     assert(config.elector_address == Address("-1:3333333333333333333333333333333333333333333333333333333333333333"))
 
     account = await transport.get_account_state(my_addr)
-    assert(not account is None)
+    assert(account is not None)
     assert(account.status == AccountStatus.Active)
     assert(account.balance > 0)
-    assert(not account.state_init.code is None)
+    assert(account.state_init.code is not None)
+
+    depool_addr = Address("0:d9cf3648c1c9436785ed628d5d83a66853eb85feb94a9cfed6239056a32cc149")
+    depool_state = await transport.get_account_state(depool_addr)
+
+    depool_info = depool_abi.get_function("getDePoolInfo").call(depool_state, input={})
+    assert(depool_info.exit_code == 0)
+    assert(depool_info.output is not None)
+
+    stake_accept_tx = await transport.get_transaction(bytes.fromhex("60a311aa3e3c1f30deb3010bb09d0079713ab1b0af07f5fd2ca87f5b282912a4"))
+    on_stake_accept_func = depool_abi.get_function("onStakeAccept")
+    parsed_stake_accept = on_stake_accept_func.decode_transaction(stake_accept_tx)
+    assert(parsed_stake_accept.input['queryId'] == 93)
+    assert(parsed_stake_accept.output == {})
+
+    full_parsed_stake_accept = depool_abi.decode_transaction(stake_accept_tx)
+    assert(full_parsed_stake_accept.function == on_stake_accept_func)
+    assert(len(full_parsed_stake_accept.events) == 1)
+    assert(full_parsed_stake_accept.events[0][0] == depool_abi.get_event("RoundStakeIsAccepted"))
 
     code_hash = bytes.fromhex("7d0996943406f7d62a4ff291b1228bf06ebd3e048b58436c5b70fb77ff8b4bf2")
     addresses = await transport.get_accounts_by_code_hash(code_hash, limit=10)
@@ -142,4 +163,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-    
+

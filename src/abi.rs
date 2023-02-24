@@ -7,7 +7,7 @@ use pyo3::types::*;
 use ton_block::{GetRepresentationHash, Serializable};
 
 use crate::crypto::{KeyPair, PublicKey, Signature};
-use crate::models::{Address, Cell, Message, StateInit};
+use crate::models::{AccountState, Address, Cell, Message, StateInit, Transaction};
 use crate::transport::Clock;
 use crate::util::*;
 
@@ -101,6 +101,171 @@ impl ContractAbi {
             .handle_runtime_error()
             .map(Cell)
     }
+
+    fn decode_init_data<'a>(
+        &self,
+        py: Python<'a>,
+        data: &Cell,
+    ) -> PyResult<(Option<PublicKey>, &'a PyDict)> {
+        let pubkey = {
+            let map = ton_types::HashmapE::with_hashmap(
+                ton_abi::Contract::DATA_MAP_KEYLEN,
+                data.0.reference(0).ok(),
+            );
+
+            let value = map
+                .get(0u64.write_to_new_cell().unwrap().into())
+                .handle_value_error()?;
+            match value {
+                Some(mut value) => {
+                    let pubkey = value.get_next_hash().handle_value_error()?;
+                    if pubkey.is_zero() {
+                        None
+                    } else {
+                        Some(PublicKey(
+                            ed25519_dalek::PublicKey::from_bytes(pubkey.as_slice())
+                                .handle_value_error()?,
+                        ))
+                    }
+                }
+                None => None,
+            }
+        };
+
+        let tokens = self
+            .0
+            .contract
+            .decode_data(data.0.clone().into())
+            .handle_value_error()?;
+        Ok((pubkey, convert_tokens(py, tokens)?))
+    }
+
+    fn decode_transaction(
+        &self,
+        py: Python<'_>,
+        transaction: &Transaction,
+    ) -> PyResult<Option<Py<FunctionCallFull>>> {
+        use ton_block::Deserializable;
+
+        let contract = &self.0.contract;
+        let tx = &transaction.0.data;
+
+        let Some(in_msg) = tx.read_in_msg().handle_runtime_error()? else {
+            return Ok(None);
+        };
+        let Some(in_msg_body) = in_msg.body() else {
+            return Ok(None);
+        };
+
+        let function = match nt::abi::guess_method_by_input(
+            contract,
+            &in_msg_body,
+            &nt::abi::MethodName::Guess,
+            in_msg.is_internal(),
+        )
+        .handle_value_error()?
+        {
+            Some(function) => self.0.functions.get(&function.name).unwrap().clone(),
+            None => return Ok(None),
+        };
+
+        let input = function
+            .0
+            .decode_input(in_msg_body, in_msg.is_internal())
+            .handle_runtime_error()?;
+
+        let mut output = None;
+        let mut events = Vec::new();
+        tx.out_msgs
+            .iterate_slices(|value| {
+                let msg_cell = value.reference(0)?;
+                let msg = ton_block::Message::construct_from_cell(msg_cell)?;
+                if !msg.is_outbound_external() {
+                    return Ok(true);
+                }
+                let Some(msg_body) = msg.body() else {
+                    return Ok(true);
+                };
+
+                if let Ok(id) = nt::abi::read_function_id(&msg_body) {
+                    if id == function.0.output_id {
+                        output = Some(function.0.decode_output(msg_body, false)?);
+                    } else if let Ok(event) = contract.event_by_id(id) {
+                        let event = self.0.events.get(&event.name).unwrap();
+                        let input = event.0.decode_input(msg_body)?;
+                        events.push((event, input));
+                    }
+                }
+
+                Ok(true)
+            })
+            .handle_runtime_error()?;
+
+        let output = match output {
+            Some(x) => x,
+            None if !function.0.has_output() => Default::default(),
+            None => return Err(PyRuntimeError::new_err("No output messages produced")),
+        };
+
+        let events = events
+            .into_iter()
+            .map(|(event, input)| {
+                PyResult::Ok((event.clone(), convert_tokens(py, input)?.into_py(py)))
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+
+        let function_call = FunctionCall {
+            input: convert_tokens(py, input)?.into_py(py),
+            output: convert_tokens(py, output)?.into_py(py),
+        };
+
+        Py::new(
+            py,
+            PyClassInitializer::from(function_call)
+                .add_subclass(FunctionCallFull { function, events }),
+        )
+        .map(Some)
+    }
+
+    fn decode_transaction_events<'a>(
+        &self,
+        py: Python<'a>,
+        transaction: &Transaction,
+    ) -> PyResult<Vec<(EventAbi, &'a PyDict)>> {
+        use ton_block::Deserializable;
+
+        let contract = &self.0.contract;
+        let tx = &transaction.0.data;
+
+        let mut events = Vec::new();
+        tx.out_msgs
+            .iterate_slices(|value| {
+                let msg_cell = value.reference(0)?;
+                let msg = ton_block::Message::construct_from_cell(msg_cell)?;
+                if !msg.is_outbound_external() {
+                    return Ok(true);
+                }
+                let Some(msg_body) = msg.body() else {
+                    return Ok(true);
+                };
+
+                if let Ok(id) = nt::abi::read_function_id(&msg_body) {
+                    if let Ok(event) = contract.event_by_id(id) {
+                        let event = self.0.events.get(&event.name).unwrap();
+                        let input = event.0.decode_input(msg_body)?;
+                        events.push((event, input));
+                    }
+                }
+
+                Ok(true)
+            })
+            .handle_runtime_error()?;
+
+        events
+            .into_iter()
+            .map(|(event, input)| PyResult::Ok((event.clone(), convert_tokens(py, input)?)))
+            .collect::<PyResult<Vec<_>>>()
+    }
 }
 
 struct SharedContractAbi {
@@ -120,16 +285,64 @@ impl FunctionAbi {
         AbiVersion(self.0.abi_version)
     }
 
+    #[getter]
+    fn name(&self) -> String {
+        self.0.name.clone()
+    }
+
+    #[getter]
+    fn input_id(&self) -> u32 {
+        self.0.input_id
+    }
+
+    #[getter]
+    fn output_id(&self) -> u32 {
+        self.0.output_id
+    }
+
+    fn call(
+        &self,
+        py: Python<'_>,
+        account_state: &AccountState,
+        input: &PyDict,
+        responsible: Option<bool>,
+        clock: Option<&Clock>,
+    ) -> PyResult<ExecutionOutput> {
+        use nt::abi::FunctionExt;
+
+        let input = parse_tokens(&self.0.inputs, input)?;
+        let clock = match clock {
+            Some(clock) => clock.as_ref(),
+            None => &nt::utils::SimpleClock,
+        };
+
+        let execution_output = if matches!(responsible, Some(true)) {
+            self.0
+                .run_local_responsible(clock, account_state.0.clone(), &input)
+        } else {
+            self.0.run_local(clock, account_state.0.clone(), &input)
+        }
+        .handle_runtime_error()?;
+
+        Ok(ExecutionOutput {
+            exit_code: execution_output.result_code,
+            output: execution_output
+                .tokens
+                .map(|tokens| PyResult::Ok(convert_tokens(py, tokens)?.into_py(py)))
+                .transpose()?,
+        })
+    }
+
     fn encode_external_message(
         &self,
         dst: Address,
-        data: &PyDict,
+        input: &PyDict,
         public_key: Option<&PublicKey>,
         state_init: Option<&StateInit>,
         timeout: Option<u32>,
         clock: Option<&Clock>,
     ) -> PyResult<UnsignedExternalMessage> {
-        let body = self.encode_external_input(data, public_key, timeout, Some(&dst), clock)?;
+        let body = self.encode_external_input(input, public_key, timeout, Some(&dst), clock)?;
         Ok(UnsignedExternalMessage {
             dst: dst.0,
             state_init: state_init.cloned(),
@@ -139,7 +352,7 @@ impl FunctionAbi {
 
     fn encode_external_input(
         &self,
-        data: &PyDict,
+        input: &PyDict,
         public_key: Option<&PublicKey>,
         timeout: Option<u32>,
         address: Option<&Address>,
@@ -147,7 +360,7 @@ impl FunctionAbi {
     ) -> PyResult<UnsignedBody> {
         use nt::utils::Clock;
 
-        let tokens = parse_tokens(&self.0.inputs, data)?;
+        let tokens = parse_tokens(&self.0.inputs, input)?;
 
         let now = match clock {
             Some(clock) => clock.0.now_ms_u64(),
@@ -180,14 +393,14 @@ impl FunctionAbi {
 
     fn encode_internal_message(
         &self,
-        data: &PyDict,
+        input: &PyDict,
         value: u64,
         bounce: bool,
         dst: Address,
         src: Option<Address>,
         state_init: Option<&StateInit>,
     ) -> PyResult<Message> {
-        let body = self.encode_internal_input(data)?;
+        let body = self.encode_internal_input(input)?;
 
         let mut message = ton_block::Message::with_int_header(ton_block::InternalMessageHeader {
             ihr_disabled: true,
@@ -214,13 +427,41 @@ impl FunctionAbi {
         })
     }
 
-    fn encode_internal_input(&self, data: &PyDict) -> PyResult<Cell> {
-        let tokens = parse_tokens(&self.0.inputs, data)?;
+    fn encode_internal_input(&self, input: &PyDict) -> PyResult<Cell> {
+        let tokens = parse_tokens(&self.0.inputs, input)?;
         let input = self
             .0
             .encode_internal_input(&tokens)
             .handle_runtime_error()?;
         input.into_cell().map(Cell).handle_runtime_error()
+    }
+
+    fn decode_transaction(
+        &self,
+        py: Python<'_>,
+        transaction: &Transaction,
+    ) -> PyResult<FunctionCall> {
+        use nt::abi::FunctionExt;
+
+        let tx = &transaction.0.data;
+
+        let Some(in_msg) = tx.read_in_msg().handle_runtime_error()? else {
+            return Err(PyRuntimeError::new_err("Transaction without incoming message"));
+        };
+        let Some(in_msg_body) = in_msg.body() else {
+            return Err(PyRuntimeError::new_err("Incoming message without body"));
+        };
+
+        let input = self
+            .0
+            .decode_input(in_msg_body, in_msg.is_internal())
+            .handle_runtime_error()?;
+        let output = self.0.parse(tx).handle_runtime_error()?;
+
+        Ok(FunctionCall {
+            input: convert_tokens(py, input)?.into_py(py),
+            output: convert_tokens(py, output)?.into_py(py),
+        })
     }
 
     fn decode_input<'a>(
@@ -259,6 +500,39 @@ impl FunctionAbi {
 
         convert_tokens(py, values)
     }
+
+    fn __hash__(&self) -> u64 {
+        self.0.input_id as u64
+    }
+
+    fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {
+        match op {
+            pyo3::basic::CompareOp::Eq => self.0.eq(&other.0),
+            pyo3::basic::CompareOp::Ne => !self.0.eq(&other.0),
+            pyo3::basic::CompareOp::Lt => self.0.input_id < other.0.input_id,
+            pyo3::basic::CompareOp::Le => self.0.input_id <= other.0.input_id,
+            pyo3::basic::CompareOp::Gt => self.0.input_id > other.0.input_id,
+            pyo3::basic::CompareOp::Ge => self.0.input_id >= other.0.input_id,
+        }
+    }
+}
+
+#[pyclass(get_all)]
+pub struct ExecutionOutput {
+    exit_code: i32,
+    output: Option<Py<PyDict>>,
+}
+
+#[pyclass(subclass, get_all)]
+pub struct FunctionCall {
+    input: Py<PyDict>,
+    output: Py<PyDict>,
+}
+
+#[pyclass(extends = FunctionCall, get_all)]
+pub struct FunctionCallFull {
+    function: FunctionAbi,
+    events: Vec<(EventAbi, Py<PyDict>)>,
 }
 
 const DEFAULT_TIMEOUT: u32 = 60;
@@ -274,12 +548,48 @@ impl EventAbi {
         AbiVersion(self.0.abi_version)
     }
 
+    #[getter]
+    fn name(&self) -> String {
+        self.0.name.clone()
+    }
+
+    #[getter]
+    fn id(&self) -> u32 {
+        self.0.id
+    }
+
+    fn decode_message<'a>(&self, py: Python<'a>, message: &Message) -> PyResult<&'a PyDict> {
+        let Some(body) = message.data.body() else {
+            return Err(PyValueError::new_err("Message without body"));
+        };
+        if !message.data.is_outbound_external() {
+            return Err(PyValueError::new_err("Message is not an external outbound"));
+        }
+        let values = self.0.decode_input(body).handle_runtime_error()?;
+        convert_tokens(py, values)
+    }
+
     fn decode_message_body<'a>(&self, py: Python<'a>, message_body: &Cell) -> PyResult<&'a PyDict> {
         let values = self
             .0
             .decode_input(message_body.0.clone().into())
             .handle_runtime_error()?;
         convert_tokens(py, values)
+    }
+
+    fn __hash__(&self) -> u64 {
+        self.0.id as u64
+    }
+
+    fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {
+        match op {
+            pyo3::basic::CompareOp::Eq => self.0.eq(&other.0),
+            pyo3::basic::CompareOp::Ne => !self.0.eq(&other.0),
+            pyo3::basic::CompareOp::Lt => self.0.id < other.0.id,
+            pyo3::basic::CompareOp::Le => self.0.id <= other.0.id,
+            pyo3::basic::CompareOp::Gt => self.0.id > other.0.id,
+            pyo3::basic::CompareOp::Ge => self.0.id >= other.0.id,
+        }
     }
 }
 
@@ -486,6 +796,10 @@ impl AbiVersion {
 
     fn __str__(&self) -> String {
         self.0.to_string()
+    }
+
+    fn __hash__(&self) -> u64 {
+        u64::from_le_bytes([self.0.minor, self.0.major, 0, 0, 0, 0, 0, 0])
     }
 
     fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {
