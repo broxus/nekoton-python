@@ -1,5 +1,5 @@
 [package]
-name = "nekoton-pyton"
+name = "nekoton-python"
 version = "0.1.0"
 edition = "2021"
 
@@ -15,13 +15,15 @@ base64 = "0.13"
 dashmap = "5.4"
 hex = "0.4"
 hmac = "0.11"
+log = "0.4"
 num-bigint = "0.4"
 pbkdf2 = "0.9"
 pyo3 = { version = "0.18.0", features = ["extension-module", "num-bigint"] }
 pyo3-asyncio = { version = "0.18", features = ["attributes", "tokio-runtime"] }
+pyo3-log = { version = "0.8.1" }
 rand = "0.8"
 sha2 = "0.9"
-tokio = { version = "1", features = ["sync"] }
+tokio = { version = "1", features = ["sync", "macros", "rt-multi-thread"] }
 
 ed25519-dalek = { git = "https://github.com/broxus/ed25519-dalek.git" }
 tiny-bip39 = { git = "https://github.com/broxus/tiny-bip39.git", default-features = false }

@@ -690,6 +690,19 @@ impl EventAbi {
 }
 
 #[pyclass]
+pub struct SignedExternalMessage {
+    pub message: Message,
+    pub expire_at: u32,
+}
+
+#[pymethods]
+impl SignedExternalMessage {
+    fn split(&self) -> (Message, u32) {
+        (self.message.clone(), self.expire_at)
+    }
+}
+
+#[pyclass]
 pub struct UnsignedExternalMessage {
     dst: ton_block::MsgAddressInt,
     state_init: Option<StateInit>,

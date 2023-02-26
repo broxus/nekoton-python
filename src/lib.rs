@@ -3,19 +3,19 @@ use pyo3::prelude::*;
 use self::abi::*;
 use self::crypto::*;
 use self::models::*;
-use self::subscription::*;
 use self::transport::*;
 
 mod abi;
 mod crypto;
 mod models;
-mod subscription;
 mod transport;
 mod util;
 
 /// Rust bindings to the nekoton.
 #[pymodule]
 fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
+    pyo3_log::init();
+
     // Transport
     m.add_class::<Clock>()?;
     m.add_class::<Transport>()?;
@@ -45,9 +45,6 @@ fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<Address>()?;
     m.add_class::<Cell>()?;
 
-    // Subscription
-    m.add_class::<Subscription>()?;
-
     // Abi
     m.add_class::<TransactionExecutor>()?;
     m.add_class::<ContractAbi>()?;
@@ -59,6 +56,7 @@ fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<AbiVersion>()?;
     m.add_class::<UnsignedBody>()?;
     m.add_class::<UnsignedExternalMessage>()?;
+    m.add_class::<SignedExternalMessage>()?;
     m.add_class::<AbiUint>()?;
     m.add_class::<AbiInt>()?;
     m.add_class::<AbiVarUint>()?;

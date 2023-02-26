@@ -158,6 +158,7 @@ impl StorageUsed {
     }
 }
 
+#[derive(Clone)]
 #[pyclass]
 pub struct Transaction(pub Arc<SharedTransaction>);
 
@@ -634,6 +635,7 @@ impl AccountStatusChange {
     }
 }
 
+#[derive(Clone)]
 #[pyclass]
 pub struct Message {
     pub data: ton_block::Message,

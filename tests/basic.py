@@ -164,8 +164,6 @@ async def main():
     fetched_next_tx = await transport.get_dst_transaction(latest_tx.in_msg_hash)
     assert(fetched_next_tx == fetched_tx)
 
-    subscription = await transport.subscribe(my_addr)
-
 
 if __name__ == "__main__":
     asyncio.run(main())

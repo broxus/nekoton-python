@@ -1,17 +1,23 @@
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
+use std::time::Duration;
 
+use nt::core::models;
+use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
+use tokio::sync::{oneshot, Notify};
 
+use crate::abi::SignedExternalMessage;
 use crate::models::{AccountState, Address, BlockchainConfig, Transaction};
-use crate::subscription::Subscription;
-use crate::util::{HandleError, HashExt};
+use crate::util::{FastDashMap, FastHashMap, HandleError, HashExt};
 
-#[derive(Clone)]
 #[pyclass(subclass)]
 pub struct Transport {
-    pub clock: Clock,
-    pub handle: TransportHandle,
+    clock: Clock,
+    handle: TransportHandle,
+    subscriptions: Arc<tokio::sync::Mutex<SubscriptionsMap>>,
 }
+
+type SubscriptionsMap = FastHashMap<ton_block::MsgAddressInt, Weak<SharedSubscription>>;
 
 #[pymethods]
 impl Transport {
@@ -27,8 +33,56 @@ impl Transport {
         })
     }
 
-    pub fn subscribe<'a>(&self, py: Python<'a>, address: Address) -> PyResult<&'a PyAny> {
-        pyo3_asyncio::tokio::future_into_py(py, Subscription::subscribe_impl(self.clone(), address))
+    pub fn send_external_message<'a>(
+        &self,
+        py: Python<'a>,
+        message: &SignedExternalMessage,
+    ) -> PyResult<&'a PyAny> {
+        use std::collections::hash_map;
+
+        let dst = {
+            let ton_block::CommonMsgInfo::ExtInMsgInfo(info) = message.message.data.header() else {
+                return Err(PyValueError::new_err("Expected external outbound message"));
+            };
+            info.dst.clone()
+        };
+
+        let clock = self.clock.clone();
+        let handle = self.handle.clone();
+        let subscriptions = self.subscriptions.clone();
+        let data = message.message.data.clone();
+        let hash = message.message.hash;
+        let expire_at = message.expire_at;
+
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            let subscription = {
+                let mut subscriptions = subscriptions.lock().await;
+                match subscriptions.entry(dst.clone()) {
+                    hash_map::Entry::Occupied(mut entry) => {
+                        if let Some(subscription) = entry.get().upgrade() {
+                            subscription
+                        } else {
+                            let subscription = SharedSubscription::subscribe(clock, handle, dst)
+                                .await
+                                .handle_runtime_error()?;
+                            entry.insert(Arc::downgrade(&subscription));
+                            subscription
+                        }
+                    }
+                    hash_map::Entry::Vacant(entry) => {
+                        let subscription = SharedSubscription::subscribe(clock, handle, dst)
+                            .await
+                            .handle_runtime_error()?;
+                        entry.insert(Arc::downgrade(&subscription));
+                        subscription
+                    }
+                }
+            };
+
+            // TODO: add watchdog timer to delay subscription drop
+
+            subscription.send_message(&data, hash, expire_at).await
+        })
     }
 
     pub fn get_signature_id<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny> {
@@ -205,7 +259,12 @@ impl GqlTransport {
         let handle = TransportHandle::GraphQl(transport);
         let clock = clock.unwrap_or_default();
 
-        Ok(PyClassInitializer::from(Transport { handle, clock }).add_subclass(Self))
+        Ok(PyClassInitializer::from(Transport {
+            handle,
+            clock,
+            subscriptions: Default::default(),
+        })
+        .add_subclass(Self))
     }
 }
 
@@ -225,7 +284,12 @@ impl JrpcTransport {
         let handle = TransportHandle::Jrpc(transport);
         let clock = clock.unwrap_or_default();
 
-        Ok(PyClassInitializer::from(Transport { handle, clock }).add_subclass(Self))
+        Ok(PyClassInitializer::from(Transport {
+            handle,
+            clock,
+            subscriptions: Default::default(),
+        })
+        .add_subclass(Self))
     }
 }
 
@@ -327,3 +391,190 @@ impl TransportHandle {
         Ok(())
     }
 }
+
+struct SharedSubscription {
+    state: SubscriptionState,
+    skip_iteration_signal: Arc<Notify>,
+    subscription: tokio::sync::Mutex<nt::core::ContractSubscription>,
+}
+
+impl SharedSubscription {
+    async fn subscribe(
+        clock: Clock,
+        transport: TransportHandle,
+        address: ton_block::MsgAddressInt,
+    ) -> PyResult<Arc<Self>> {
+        let state = SubscriptionState::default();
+
+        let subscription = tokio::sync::Mutex::new(
+            nt::core::ContractSubscription::subscribe(
+                clock.0,
+                transport.into(),
+                address,
+                &mut |account_state| state.on_state_changed(account_state.clone()),
+                None,
+            )
+            .await
+            .handle_runtime_error()?,
+        );
+
+        let shared = Arc::new(SharedSubscription {
+            state,
+            skip_iteration_signal: Arc::new(Default::default()),
+            subscription,
+        });
+
+        tokio::spawn(subscription_loop(shared.clone()));
+
+        Ok(shared)
+    }
+
+    async fn send_message(
+        &self,
+        message: &ton_block::Message,
+        hash: ton_types::UInt256,
+        expire_at: u32,
+    ) -> PyResult<Option<Transaction>> {
+        use dashmap::mapref::entry;
+
+        let (tx, rx) = oneshot::channel();
+        match self.state.pending_messages.entry(hash) {
+            entry::Entry::Occupied(_) => return Err(PyRuntimeError::new_err("Duplicate message")),
+            entry::Entry::Vacant(entry) => {
+                entry.insert(tx);
+            }
+        }
+
+        let pending_message = {
+            let mut subscription = self.subscription.lock().await;
+            subscription.send(&message, expire_at).await
+        };
+
+        match pending_message {
+            Ok(tx) => {
+                if tx.message_hash != hash {
+                    // TODO: panic instead?
+                    self.state.pending_messages.remove(&hash);
+                    return Err(PyRuntimeError::new_err("Pending message mismatch"));
+                }
+            }
+            Err(e) => {
+                self.state.pending_messages.remove(&hash);
+                return Err(e).handle_runtime_error();
+            }
+        }
+
+        let result = rx.await.handle_runtime_error();
+        self.state.pending_messages.remove(&hash);
+
+        match result.handle_runtime_error()? {
+            ReceivedTransaction::Expired => Ok(None),
+            ReceivedTransaction::Invalid => {
+                // TODO: panic instead?
+                Err(PyRuntimeError::new_err("Failed to parse transaction"))
+            }
+            ReceivedTransaction::Valid(tx) => Ok(Some(tx)),
+        }
+    }
+}
+
+async fn subscription_loop(shared: Arc<SharedSubscription>) {
+    fn split_shared(shared: Arc<SharedSubscription>) -> (Arc<Notify>, Weak<SharedSubscription>) {
+        (
+            shared.skip_iteration_signal.clone(),
+            Arc::downgrade(&shared),
+        )
+    }
+
+    const INTERVAL: Duration = Duration::from_secs(5);
+    const SHORT_INTERVAL: Duration = Duration::from_secs(1);
+
+    let (skip_iteration_signal, shared) = split_shared(shared);
+
+    let mut polling_method = nt::core::models::PollingMethod::Manual;
+    loop {
+        let interval = match polling_method {
+            nt::core::models::PollingMethod::Manual => INTERVAL,
+            nt::core::models::PollingMethod::Reliable => SHORT_INTERVAL,
+        };
+
+        let signal = skip_iteration_signal.notified();
+        tokio::select! {
+            _ = signal => {},
+            _ = tokio::time::sleep(interval) => {}
+        }
+
+        let Some(shared) = shared.upgrade() else {
+            return;
+        };
+
+        // TODO: add support for block traversal
+
+        let mut subscription = shared.subscription.lock().await;
+        let res = subscription
+            .refresh(
+                &mut |state| shared.state.on_state_changed(state.clone()),
+                &mut |_transactions, _batch_info| {
+                    // TODO: handle transactions
+                },
+                &mut |pending_transaction, transaction| {
+                    shared
+                        .state
+                        .on_message_sent(pending_transaction, transaction)
+                },
+                &mut |pending_transaction| shared.state.on_message_expired(pending_transaction),
+            )
+            .await;
+
+        if let Err(e) = res {
+            log::error!("Subscription loop error: {e:?}");
+        }
+
+        polling_method = subscription.polling_method();
+    }
+}
+
+#[derive(Default)]
+struct SubscriptionState {
+    account_state: std::sync::Mutex<ton_block::Account>,
+    pending_messages: FastDashMap<ton_types::UInt256, ResultTx>,
+}
+
+impl SubscriptionState {
+    fn on_state_changed(&self, new_state: nt::transport::models::RawContractState) {
+        *self.account_state.lock().unwrap() = new_state.into_account();
+    }
+
+    fn on_message_sent(
+        &self,
+        pending_transaction: models::PendingTransaction,
+        transaction: nt::transport::models::RawTransaction,
+    ) {
+        if let Some((_, tx)) = self
+            .pending_messages
+            .remove(&pending_transaction.message_hash)
+        {
+            _ = tx.send(match Transaction::try_from(transaction) {
+                Ok(transaction) => ReceivedTransaction::Valid(transaction),
+                Err(_) => ReceivedTransaction::Invalid,
+            });
+        }
+    }
+
+    fn on_message_expired(&self, pending_transaction: models::PendingTransaction) {
+        if let Some((_, tx)) = self
+            .pending_messages
+            .remove(&pending_transaction.message_hash)
+        {
+            _ = tx.send(ReceivedTransaction::Expired);
+        }
+    }
+}
+
+enum ReceivedTransaction {
+    Expired,
+    Invalid,
+    Valid(Transaction),
+}
+
+type ResultTx = oneshot::Sender<ReceivedTransaction>;
