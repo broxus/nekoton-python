@@ -636,7 +636,7 @@ impl AccountStatusChange {
 }
 
 #[derive(Clone)]
-#[pyclass]
+#[pyclass(subclass)]
 pub struct Message {
     pub data: ton_block::Message,
     pub hash: ton_types::UInt256,

@@ -5,6 +5,7 @@ use std::sync::Arc;
 use pyo3::exceptions::*;
 use pyo3::prelude::*;
 use pyo3::types::*;
+use rand::Rng;
 use ton_block::{GetRepresentationHash, Serializable};
 
 use crate::crypto::{KeyPair, PublicKey, Signature};
@@ -75,6 +76,7 @@ impl TransactionExecutor {
             block_unixtime,
             block_lt,
             last_tr_lt: Arc::new(AtomicU64::new(block_lt)),
+            seed_block: ton_types::UInt256::from(rand::thread_rng().gen::<[u8; 32]>()),
             ..Default::default()
         };
 
@@ -689,16 +691,16 @@ impl EventAbi {
     }
 }
 
-#[pyclass]
+#[pyclass(extends = Message)]
 pub struct SignedExternalMessage {
-    pub message: Message,
     pub expire_at: u32,
 }
 
 #[pymethods]
 impl SignedExternalMessage {
-    fn split(&self) -> (Message, u32) {
-        (self.message.clone(), self.expire_at)
+    fn split(slf: PyRef<'_, Self>) -> (Message, u32) {
+        let expire_at = slf.expire_at;
+        (slf.into_super().clone(), expire_at)
     }
 }
 
@@ -710,7 +712,7 @@ pub struct UnsignedExternalMessage {
 }
 
 impl UnsignedExternalMessage {
-    fn fill_body(&self, body: Cell) -> PyResult<Message> {
+    fn fill_body(&self, py: Python<'_>, body: Cell) -> PyResult<Py<SignedExternalMessage>> {
         let mut message =
             ton_block::Message::with_ext_in_header(ton_block::ExternalInboundMessageHeader {
                 dst: self.dst.clone(),
@@ -725,10 +727,16 @@ impl UnsignedExternalMessage {
 
         let hash = message.hash().handle_runtime_error()?;
 
-        Ok(Message {
-            data: message,
-            hash,
-        })
+        Py::new(
+            py,
+            PyClassInitializer::from(Message {
+                data: message,
+                hash,
+            })
+            .add_subclass(SignedExternalMessage {
+                expire_at: self.body.expire_at(),
+            }),
+        )
     }
 }
 
@@ -754,20 +762,29 @@ impl UnsignedExternalMessage {
         self.state_init = state_init;
     }
 
-    fn sign(&self, keypair: &KeyPair, signature_id: Option<i32>) -> PyResult<Message> {
-        self.fill_body(self.body.sign(keypair, signature_id)?)
+    fn sign(
+        &self,
+        py: Python<'_>,
+        keypair: &KeyPair,
+        signature_id: Option<i32>,
+    ) -> PyResult<Py<SignedExternalMessage>> {
+        self.fill_body(py, self.body.sign(keypair, signature_id)?)
     }
 
-    fn with_signature(&self, signature: &Signature) -> PyResult<Message> {
-        self.fill_body(self.body.with_signature(signature)?)
+    fn with_signature(
+        &self,
+        py: Python<'_>,
+        signature: &Signature,
+    ) -> PyResult<Py<SignedExternalMessage>> {
+        self.fill_body(py, self.body.with_signature(signature)?)
     }
 
-    fn with_fake_signature(&self) -> PyResult<Message> {
-        self.fill_body(self.body.with_fake_signature()?)
+    fn with_fake_signature(&self, py: Python<'_>) -> PyResult<Py<SignedExternalMessage>> {
+        self.fill_body(py, self.body.with_fake_signature()?)
     }
 
-    fn without_signature(&self) -> PyResult<Message> {
-        self.fill_body(self.body.without_signature()?)
+    fn without_signature(&self, py: Python<'_>) -> PyResult<Py<SignedExternalMessage>> {
+        self.fill_body(py, self.body.without_signature()?)
     }
 }
 

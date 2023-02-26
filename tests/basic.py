@@ -96,7 +96,7 @@ unsigned_body = send_transaction_func.encode_external_input(send_transaction_inp
 assert(unsigned_body.sign(keypair0) == unsigned_body.with_signature(keypair0.sign(unsigned_body.hash)))
 
 unsigned_message = send_transaction_func.encode_external_message(my_addr, send_transaction_input)
-external_msg = unsigned_message.without_signature()
+external_msg, _ = unsigned_message.without_signature().split()
 assert(len(external_msg.hash) == 32)
 assert(isinstance(external_msg.header, ExternalInMessageHeader))
 

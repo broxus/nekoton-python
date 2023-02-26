@@ -7,7 +7,7 @@ use pyo3::prelude::*;
 use tokio::sync::{oneshot, Notify};
 
 use crate::abi::SignedExternalMessage;
-use crate::models::{AccountState, Address, BlockchainConfig, Transaction};
+use crate::models::{AccountState, Address, BlockchainConfig, Message, Transaction};
 use crate::util::{FastDashMap, FastHashMap, HandleError, HashExt};
 
 #[pyclass(subclass)]
@@ -36,12 +36,15 @@ impl Transport {
     pub fn send_external_message<'a>(
         &self,
         py: Python<'a>,
-        message: &SignedExternalMessage,
+        message: PyRef<'a, SignedExternalMessage>,
     ) -> PyResult<&'a PyAny> {
         use std::collections::hash_map;
 
+        let expire_at = message.expire_at;
+        let message = message.into_super().clone();
+
         let dst = {
-            let ton_block::CommonMsgInfo::ExtInMsgInfo(info) = message.message.data.header() else {
+            let ton_block::CommonMsgInfo::ExtInMsgInfo(info) = message.data.header() else {
                 return Err(PyValueError::new_err("Expected external outbound message"));
             };
             info.dst.clone()
@@ -50,9 +53,6 @@ impl Transport {
         let clock = self.clock.clone();
         let handle = self.handle.clone();
         let subscriptions = self.subscriptions.clone();
-        let data = message.message.data.clone();
-        let hash = message.message.hash;
-        let expire_at = message.expire_at;
 
         pyo3_asyncio::tokio::future_into_py(py, async move {
             let subscription = {
@@ -81,7 +81,7 @@ impl Transport {
 
             // TODO: add watchdog timer to delay subscription drop
 
-            subscription.send_message(&data, hash, expire_at).await
+            subscription.send_message(&message, expire_at).await
         })
     }
 
@@ -431,14 +431,13 @@ impl SharedSubscription {
 
     async fn send_message(
         &self,
-        message: &ton_block::Message,
-        hash: ton_types::UInt256,
+        message: &Message,
         expire_at: u32,
     ) -> PyResult<Option<Transaction>> {
         use dashmap::mapref::entry;
 
         let (tx, rx) = oneshot::channel();
-        match self.state.pending_messages.entry(hash) {
+        match self.state.pending_messages.entry(message.hash) {
             entry::Entry::Occupied(_) => return Err(PyRuntimeError::new_err("Duplicate message")),
             entry::Entry::Vacant(entry) => {
                 entry.insert(tx);
@@ -447,25 +446,25 @@ impl SharedSubscription {
 
         let pending_message = {
             let mut subscription = self.subscription.lock().await;
-            subscription.send(&message, expire_at).await
+            subscription.send(&message.data, expire_at).await
         };
 
         match pending_message {
             Ok(tx) => {
-                if tx.message_hash != hash {
+                if tx.message_hash != message.hash {
                     // TODO: panic instead?
-                    self.state.pending_messages.remove(&hash);
+                    self.state.pending_messages.remove(&message.hash);
                     return Err(PyRuntimeError::new_err("Pending message mismatch"));
                 }
             }
             Err(e) => {
-                self.state.pending_messages.remove(&hash);
+                self.state.pending_messages.remove(&message.hash);
                 return Err(e).handle_runtime_error();
             }
         }
 
         let result = rx.await.handle_runtime_error();
-        self.state.pending_messages.remove(&hash);
+        self.state.pending_messages.remove(&message.hash);
 
         match result.handle_runtime_error()? {
             ReceivedTransaction::Expired => Ok(None),
