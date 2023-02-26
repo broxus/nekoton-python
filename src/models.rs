@@ -575,6 +575,17 @@ pub enum TransactionType {
     TickTock,
 }
 
+#[pymethods]
+impl TransactionType {
+    fn __hash__(&self) -> u64 {
+        ahash::RandomState::new().hash_one(self)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {
+        op.matches(self.cmp(other))
+    }
+}
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 #[pyclass]
 pub enum AccountStatus {

@@ -57,6 +57,7 @@ fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<UnsignedBody>()?;
     m.add_class::<UnsignedExternalMessage>()?;
     m.add_class::<SignedExternalMessage>()?;
+    m.add_class::<AbiParam>()?;
     m.add_class::<AbiUint>()?;
     m.add_class::<AbiInt>()?;
     m.add_class::<AbiVarUint>()?;
