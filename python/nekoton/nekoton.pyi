@@ -683,6 +683,11 @@ class BlockchainConfig:
         ...
 
     @property
+    def global_version(self) -> int:
+        """Required software version."""
+        ...
+
+    @property
     def config_address(self) -> Address:
         """Address of the config contract."""
         ...
@@ -1536,6 +1541,16 @@ class Cell:
         """Representation hash of the cell."""
         ...
 
+    @property
+    def bits(self) -> int:
+        """Data length in bits."""
+        ...
+
+    @property
+    def refs(self) -> int:
+        """Number of child references."""
+        ...
+
     def encode(self, encoding: Optional[str] = None) -> str:
         """
         Encodes the cell into BOC.
@@ -1746,7 +1761,7 @@ class PublicKey:
     @staticmethod
     def from_int(int: int) -> PublicKey:
         """
-        Tries to contract a public key from integer.
+        Tries to construct a public key from integer.
 
         :param int: integer (max 2^256-1)
         """
@@ -1818,6 +1833,11 @@ class KeyPair:
 
     @classmethod
     def __init__(cls, secret: bytes) -> None: ...
+
+    @property
+    def secret_key(self) -> PublicKey:
+        """Corresponding secret key."""
+        ...
 
     @property
     def public_key(self) -> PublicKey:

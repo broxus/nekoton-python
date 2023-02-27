@@ -107,6 +107,13 @@ impl TransactionExecutor {
             account_state,
         ))
     }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "<TransactionExecutor check_signature={}>",
+            DisplayBool(self.check_signature)
+        )
+    }
 }
 
 #[derive(Clone)]
@@ -602,6 +609,13 @@ impl FunctionAbi {
         convert_tokens(py, values)
     }
 
+    fn __repr__(&self) -> String {
+        format!(
+            "<FunctionAbi name='{}', input_id=0x{:08x}, output_id=0x{:08x}>",
+            self.0.name, self.0.input_id, self.0.output_id
+        )
+    }
+
     fn __hash__(&self) -> u64 {
         self.0.input_id as u64
     }
@@ -624,6 +638,17 @@ pub struct ExecutionOutput {
     output: Option<Py<PyDict>>,
 }
 
+#[pymethods]
+impl ExecutionOutput {
+    fn __repr__(&self) -> String {
+        format!(
+            "<ExecutionOutput exit_code={}, has_output={}>",
+            self.exit_code,
+            DisplayBool(self.output.is_some())
+        )
+    }
+}
+
 #[pyclass(subclass, get_all)]
 pub struct FunctionCall {
     input: Py<PyDict>,
@@ -634,6 +659,13 @@ pub struct FunctionCall {
 pub struct FunctionCallFull {
     function: FunctionAbi,
     events: Py<PyList>,
+}
+
+#[pymethods]
+impl FunctionCallFull {
+    fn __repr__(&self) -> String {
+        format!("<FunctionCallFull function={}>", self.function.0.name)
+    }
 }
 
 const DEFAULT_TIMEOUT: u32 = 60;
@@ -678,6 +710,10 @@ impl EventAbi {
         convert_tokens(py, values)
     }
 
+    fn __repr__(&self) -> String {
+        format!("<EventAbi name='{}', id=0x{:08x}>", self.0.name, self.0.id)
+    }
+
     fn __hash__(&self) -> u64 {
         self.0.id as u64
     }
@@ -709,6 +745,15 @@ impl SignedExternalMessage {
     fn split(slf: PyRef<'_, Self>) -> (Message, u32) {
         let expire_at = slf.expire_at;
         (slf.into_super().clone(), expire_at)
+    }
+
+    fn __repr__(slf: PyRef<'_, Self>) -> String {
+        let expire_at = slf.expire_at;
+        let message = slf.into_super();
+        format!(
+            "<SignedExternalMessage hash='{:x}', expire_at={}, ExternalIn>",
+            message.hash, expire_at
+        )
     }
 }
 
@@ -794,6 +839,13 @@ impl UnsignedExternalMessage {
     fn without_signature(&self, py: Python<'_>) -> PyResult<Py<SignedExternalMessage>> {
         self.fill_body(py, self.body.without_signature()?)
     }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "<UnsignedExternalMessage hash='{:x}', expire_at={}>",
+            self.body.hash, self.body.expire_at
+        )
+    }
 }
 
 #[pyclass]
@@ -840,6 +892,13 @@ impl UnsignedBody {
 
     fn without_signature(&self) -> PyResult<Cell> {
         self.fill_signature(None)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "<UnsignedBody hash='{:x}', expire_at={}>",
+            self.hash, self.expire_at
+        )
     }
 }
 
@@ -942,6 +1001,10 @@ impl AbiVersion {
 
     fn __str__(&self) -> String {
         self.0.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("AbiVersion({}, {})", self.0.major, self.0.minor)
     }
 
     fn __hash__(&self) -> u64 {

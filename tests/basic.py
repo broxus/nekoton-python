@@ -38,6 +38,7 @@ assert (decoded["second"] is True)
 
 # Crypto
 some_pubkey = PublicKey('7b671b6bfd43e306d4accb46113a871e66b30cc587a57635766a2f360ee831c6')
+print(some_pubkey)
 assert some_pubkey == PublicKey.from_int(55816654881951532897500201008042388765613920635159317416907795053873153454534)
 assert (some_pubkey.to_int() == 55816654881951532897500201008042388765613920635159317416907795053873153454534)
 
@@ -46,15 +47,24 @@ assert PublicKey('00005a641f7deda1442badd9ed761dd4e948580c7d7f36b3f858ab26b1af6f
 assert (PublicKey('00005a641f7deda1442badd9ed761dd4e948580c7d7f36b3f858ab26b1af6fa1').to_int()
         == 623856482362781547816624847020167340480982121355398289209492515375247265)
 
+cell_with_pubkey_abi = [
+    ("pubkey", AbiUint(256)),
+    ("not_pubkey", AbiUint(256)),
+]
 cell_with_pubkey = Cell.build(
-    abi=[("pubkey", AbiUint(256))],
-    value={"pubkey": some_pubkey}
+    abi=cell_with_pubkey_abi,
+    value={
+        "pubkey": some_pubkey,
+        "not_pubkey": 123123,
+    }
 )
-assert (PublicKey.from_int(cell_with_pubkey.unpack(abi=[("pubkey", AbiUint(256))])["pubkey"])
-        == some_pubkey)
+decoded_cell_with_pubkey = cell_with_pubkey.unpack(cell_with_pubkey_abi)
+assert PublicKey.from_int(decoded_cell_with_pubkey['pubkey']) == some_pubkey
+assert decoded_cell_with_pubkey['not_pubkey'] == 123123
 
 seed = Bip39Seed.generate()
 assert (seed.word_count == 12)
+print(seed)
 
 keypair0 = seed.derive()
 assert (len(keypair0.public_key.to_bytes()) == 32)
@@ -83,6 +93,7 @@ send_transaction_input = {
     "payload": Cell(),
 }
 body_cell = send_transaction_func.encode_internal_input(send_transaction_input)
+print(body_cell)
 assert (body_cell != Cell())
 
 internal_msg = send_transaction_func.encode_internal_message(
@@ -91,6 +102,7 @@ internal_msg = send_transaction_func.encode_internal_message(
     bounce=False,
     dst=my_addr,
 )
+print(internal_msg)
 assert (internal_msg.state_init is None)
 assert (internal_msg.body == body_cell)
 assert (isinstance(internal_msg.header, InternalMessageHeader))
@@ -114,6 +126,7 @@ assert (unsigned_body.sign(keypair0, signature_id=None) == unsigned_body.with_si
     keypair0.sign(unsigned_body.hash, signature_id=None)))
 
 unsigned_message = send_transaction_func.encode_external_message(my_addr, send_transaction_input, public_key=None)
+print(unsigned_message.without_signature())
 external_msg, _ = unsigned_message.without_signature().split()
 assert (len(external_msg.hash) == 32)
 assert (isinstance(external_msg.header, ExternalInMessageHeader))
@@ -137,6 +150,7 @@ async def main():
     assert (config.elector_address == Address("-1:3333333333333333333333333333333333333333333333333333333333333333"))
 
     account = await transport.get_account_state(my_addr)
+    print(account)
     assert (account is not None)
     assert (account.status == AccountStatus.Active)
     assert (account.balance > 0)
@@ -157,6 +171,7 @@ async def main():
 
     stake_accept_tx = await transport.get_transaction(
         bytes.fromhex("60a311aa3e3c1f30deb3010bb09d0079713ab1b0af07f5fd2ca87f5b282912a4"))
+    print(stake_accept_tx)
     on_stake_accept_func = depool_abi.get_function("onStakeAccept")
     parsed_stake_accept = on_stake_accept_func.decode_transaction(stake_accept_tx)
     assert (parsed_stake_accept.input['queryId'] == 93)

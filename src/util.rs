@@ -127,3 +127,12 @@ impl FromStr for Encoding {
         }
     }
 }
+
+#[derive(Copy, Clone)]
+pub struct DisplayBool(pub bool);
+
+impl std::fmt::Display for DisplayBool {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(if self.0 { "True" } else { "False" })
+    }
+}

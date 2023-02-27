@@ -57,6 +57,14 @@ impl PublicKey {
         num_bigint::BigUint::from_bytes_be(self.0.as_bytes())
     }
 
+    fn __str__(&self) -> String {
+        hex::encode(self.0.as_bytes())
+    }
+
+    fn __repr__(&self) -> String {
+        format!("PublicKey('{}')", hex::encode(self.0.as_bytes()))
+    }
+
     fn __hash__(&self) -> u64 {
         u64::from_le_bytes(self.0.as_bytes()[..8].try_into().unwrap())
     }
@@ -81,6 +89,11 @@ impl KeyPair {
         let secret = ed25519_dalek::SecretKey::from_bytes(secret).handle_value_error()?;
         let public = ed25519_dalek::PublicKey::from(&secret);
         Ok(Self(ed25519_dalek::Keypair { secret, public }))
+    }
+
+    #[getter]
+    fn secret_key<'a>(&self, py: Python<'a>) -> &'a PyBytes {
+        PyBytes::new(py, self.0.secret.as_bytes())
     }
 
     #[getter]
@@ -148,6 +161,11 @@ impl Signature {
         PyBytes::new(py, self.0.as_ref())
     }
 
+    fn __repr__(&self) -> String {
+        use ed25519_dalek::ed25519::signature::Signature;
+        format!("Signature('{}')", hex::encode(self.0.as_bytes()))
+    }
+
     fn __hash__(&self) -> u64 {
         u64::from_le_bytes(self.0.as_ref()[..8].try_into().unwrap())
     }
@@ -165,6 +183,10 @@ impl Seed {
     #[getter]
     fn word_count(&self) -> usize {
         self.0.len()
+    }
+
+    fn __str__(&self) -> String {
+        self.0.join(" ")
     }
 }
 
@@ -214,6 +236,11 @@ impl LegacySeed {
         let public = ed25519_dalek::PublicKey::from(&secret);
         Ok(KeyPair(ed25519_dalek::Keypair { secret, public }))
     }
+
+    fn __repr__(slf: PyRef<Self>) -> String {
+        let base = slf.into_super();
+        format!("LegacySeed('{}')", base.0.join(" "))
+    }
 }
 
 #[pyclass(extends = Seed)]
@@ -254,6 +281,11 @@ impl Bip39Seed {
         let secret = ed25519_dalek::SecretKey::from_bytes(&derived.secret()).unwrap();
         let public = ed25519_dalek::PublicKey::from(&secret);
         Ok(KeyPair(ed25519_dalek::Keypair { secret, public }))
+    }
+
+    fn __repr__(slf: PyRef<Self>) -> String {
+        let base = slf.into_super();
+        format!("Bip39Seed('{}')", base.0.join(" "))
     }
 }
 

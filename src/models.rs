@@ -20,6 +20,11 @@ impl BlockchainConfig {
     }
 
     #[getter]
+    fn global_version(&self) -> u32 {
+        self.0.global_version()
+    }
+
+    #[getter]
     fn config_address(&self) -> PyResult<Address> {
         let config = self.0.raw_config();
         let addr = config.config_address().handle_runtime_error()?;
@@ -74,6 +79,14 @@ impl BlockchainConfig {
         let key = index.serialize().unwrap();
         let value = config.get(key.into()).handle_runtime_error()?;
         Ok(value.and_then(|slice| slice.reference_opt(0)).map(Cell))
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "<BlockchainConfig capabilities=0x{:016x}, global_version=0x{}>",
+            self.capabilities(),
+            self.0.global_version()
+        )
     }
 }
 
@@ -135,6 +148,14 @@ impl AccountState {
             _ => None,
         }
     }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "<AccountState balance={}, {:?}>",
+            self.balance(),
+            self.status(),
+        )
+    }
 }
 
 #[pyclass]
@@ -155,6 +176,15 @@ impl StorageUsed {
     #[getter]
     fn public_cells(&self) -> u64 {
         self.0.public_cells.0
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "<StorageUsed cells={}, bits={}, public_cells={}>",
+            self.cells(),
+            self.bits(),
+            self.public_cells()
+        )
     }
 }
 
@@ -356,6 +386,14 @@ impl Transaction {
             })
             .handle_runtime_error()?;
         Ok(result)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "<Transaction hash='{:x}', {:?}>",
+            self.0.hash,
+            self.get_type().unwrap_or(TransactionType::TickTock)
+        )
     }
 
     fn __hash__(&self) -> u64 {
@@ -568,7 +606,7 @@ impl TransactionBouncePhase {
     }
 }
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 #[pyclass]
 pub enum TransactionType {
     Ordinary,
@@ -577,6 +615,14 @@ pub enum TransactionType {
 
 #[pymethods]
 impl TransactionType {
+    fn __str__(&self) -> String {
+        format!("{:?}", self)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("TransactionType.{:?}", self)
+    }
+
     fn __hash__(&self) -> u64 {
         ahash::RandomState::new().hash_one(self)
     }
@@ -586,7 +632,7 @@ impl TransactionType {
     }
 }
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 #[pyclass]
 pub enum AccountStatus {
     NotExists,
@@ -608,6 +654,14 @@ impl From<ton_block::AccountStatus> for AccountStatus {
 
 #[pymethods]
 impl AccountStatus {
+    fn __str__(&self) -> String {
+        format!("{:?}", self)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("AccountStatus.{:?}", self)
+    }
+
     fn __hash__(&self) -> u64 {
         ahash::RandomState::new().hash_one(self)
     }
@@ -617,7 +671,7 @@ impl AccountStatus {
     }
 }
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 #[pyclass]
 pub enum AccountStatusChange {
     Unchanged,
@@ -637,6 +691,14 @@ impl From<ton_block::AccStatusChange> for AccountStatusChange {
 
 #[pymethods]
 impl AccountStatusChange {
+    fn __str__(&self) -> String {
+        format!("{:?}", self)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("AccountStatusChange.{:?}", self)
+    }
+
     fn __hash__(&self) -> u64 {
         ahash::RandomState::new().hash_one(self)
     }
@@ -787,6 +849,10 @@ impl Message {
         self.data.serialize().handle_runtime_error().map(Cell)
     }
 
+    fn __repr__(&self) -> String {
+        format!("<Message hash='{:x}', {:?}>", self.hash, self.get_type())
+    }
+
     fn __hash__(&self) -> u64 {
         u64::from_le_bytes(self.hash.as_slice()[..8].try_into().unwrap())
     }
@@ -910,7 +976,7 @@ impl ExternalOutMessageHeader {
     }
 }
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 #[pyclass]
 pub enum MessageType {
     Internal,
@@ -920,6 +986,14 @@ pub enum MessageType {
 
 #[pymethods]
 impl MessageType {
+    fn __str__(&self) -> String {
+        format!("{:?}", self)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("MessageType.{:?}", self)
+    }
+
     fn __hash__(&self) -> u64 {
         ahash::RandomState::new().hash_one(self)
     }
@@ -1026,6 +1100,23 @@ impl StateInit {
     fn build_cell(&self) -> PyResult<Cell> {
         self.0.serialize().handle_runtime_error().map(Cell)
     }
+
+    fn __repr__(&self) -> String {
+        use std::borrow::Cow;
+
+        fn field_repr(cell: &Option<ton_types::Cell>) -> Cow<'static, str> {
+            match cell {
+                Some(cell) => Cow::Owned(format!("'{:x}'", cell.repr_hash())),
+                None => Cow::Borrowed("None"),
+            }
+        }
+
+        format!(
+            "<StateInit code_hash='{}', data_hash='{}'>",
+            field_repr(&self.0.code),
+            field_repr(&self.0.data),
+        )
+    }
 }
 
 #[derive(Clone)]
@@ -1102,7 +1193,7 @@ impl Address {
 pub struct Cell(pub ton_types::Cell);
 
 impl Cell {
-    pub fn try_from_struct(value: &dyn ton_block::Serializable) -> PyResult<Self> {
+    pub fn try_from_struct(value: &dyn Serializable) -> PyResult<Self> {
         value.serialize().handle_runtime_error().map(Self)
     }
 }
@@ -1157,6 +1248,16 @@ impl Cell {
         PyBytes::new(py, self.0.repr_hash().as_slice())
     }
 
+    #[getter]
+    fn bits(&self) -> usize {
+        self.0.bit_length()
+    }
+
+    #[getter]
+    fn refs(&self) -> usize {
+        self.0.references_count()
+    }
+
     fn encode(&self, encoding: Option<&str>) -> PyResult<String> {
         let encoding = Encoding::from_optional_param(encoding, Encoding::Base64)?;
         encoding.encode_cell(&self.0)
@@ -1191,6 +1292,15 @@ impl Cell {
                 .handle_runtime_error()?;
 
         convert_tokens(py, tokens)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "<Cell repr_hash='{:x}', bits={}, refs={}>",
+            self.0.repr_hash(),
+            self.0.bit_length(),
+            self.0.references_count()
+        )
     }
 
     fn __hash__(&self) -> u64 {

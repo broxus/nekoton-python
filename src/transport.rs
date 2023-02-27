@@ -235,7 +235,7 @@ impl Transport {
 }
 
 #[derive(Copy, Clone)]
-#[pyclass(extends = Transport)]
+#[pyclass(subclass, extends = Transport)]
 pub struct GqlTransport;
 
 #[pymethods]
@@ -269,7 +269,7 @@ impl GqlTransport {
 }
 
 #[derive(Copy, Clone)]
-#[pyclass(extends = Transport)]
+#[pyclass(subclass, extends = Transport)]
 pub struct JrpcTransport;
 
 #[pymethods]
@@ -325,6 +325,10 @@ impl Clock {
     #[setter]
     pub fn set_offset(&self, offset: i64) {
         self.0.update_offset(offset)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("Clock(offset={})", self.get_offset())
     }
 }
 
