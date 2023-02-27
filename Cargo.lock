@@ -939,6 +939,7 @@ dependencies = [
  "nekoton",
  "nekoton-transport",
  "num-bigint",
+ "once_cell",
  "pbkdf2",
  "pyo3",
  "pyo3-asyncio",

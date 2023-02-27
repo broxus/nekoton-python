@@ -205,6 +205,16 @@ async def main():
     fetched_next_tx = await transport.get_dst_transaction(latest_tx.in_msg_hash)
     assert (fetched_next_tx == fetched_tx)
 
+    async with transport.account_states(my_addr) as states:
+        # There is always at least one iteration with the current state
+        async for state in states:
+            if state is not None:
+                print(my_addr, state.balance)
+            else:
+                print(my_addr, 'account not exists')
+
+            break  # for tests
+
 
 if __name__ == "__main__":
     asyncio.run(main())

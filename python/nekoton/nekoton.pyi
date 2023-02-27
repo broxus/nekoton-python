@@ -1767,6 +1767,14 @@ class Transport:
         """
         ...
 
+    def account_states(self, address: Address) -> AccountStatesAsyncIter:
+        """
+        Returns an async account states iterator.
+
+        :param address: account address.
+        """
+        ...
+
 
 class GqlTransport(Transport):
     """
@@ -1796,6 +1804,26 @@ class JrpcTransport(Transport):
 
     @classmethod
     def __init__(cls, endpoint: str, clock: Optional[Clock] = None) -> None: ...
+
+
+class AccountStatesAsyncIter:
+    """
+    Async states iterator.
+    """
+
+    async def close(self):
+        """
+        Closes async iterator.
+        """
+        ...
+
+    def __aenter__(self): ...
+
+    def __aexit__(self, exc_type, exc_val, exc_tb): ...
+
+    def __aiter__(self) -> AccountStatesAsyncIter: ...
+
+    def __anext__(self) -> Optional[AccountState]: ...
 
 
 class Clock:

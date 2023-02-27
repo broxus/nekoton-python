@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
+use once_cell::sync::OnceCell;
 use pyo3::exceptions::*;
 use pyo3::prelude::*;
 
@@ -141,4 +142,10 @@ impl std::fmt::Display for DisplayBool {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(if self.0 { "True" } else { "False" })
     }
+}
+
+pub fn py_none() -> PyObject {
+    static TRUE: OnceCell<PyObject> = OnceCell::new();
+    TRUE.get_or_init(|| Python::with_gil(|py| py.None()))
+        .clone()
 }

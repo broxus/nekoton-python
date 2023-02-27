@@ -17,10 +17,11 @@ fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
     pyo3_log::init();
 
     // Transport
-    m.add_class::<Clock>()?;
     m.add_class::<Transport>()?;
     m.add_class::<GqlTransport>()?;
     m.add_class::<JrpcTransport>()?;
+    m.add_class::<AccountStatesAsyncIter>()?;
+    m.add_class::<Clock>()?;
 
     // Models
     m.add_class::<BlockchainConfig>()?;
