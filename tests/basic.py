@@ -131,8 +131,7 @@ external_msg, _ = unsigned_message.without_signature().split()
 assert (len(external_msg.hash) == 32)
 assert (isinstance(external_msg.header, ExternalInMessageHeader))
 
-with open(os.path.join(dirname, 'depool.abi.json'), 'r') as json:
-    depool_abi = ContractAbi(json.read())
+depool_abi = ContractAbi.from_file(os.path.join(dirname, 'depool.abi.json'))
 
 
 # Subscriptions

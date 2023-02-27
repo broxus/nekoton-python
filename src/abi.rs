@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashMap};
+use std::path::PathBuf;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
@@ -122,6 +123,12 @@ pub struct ContractAbi(Arc<SharedContractAbi>);
 
 #[pymethods]
 impl ContractAbi {
+    #[staticmethod]
+    fn from_file(path: PathBuf) -> PyResult<Self> {
+        let abi = std::fs::read_to_string(path).handle_runtime_error()?;
+        Self::new(&abi)
+    }
+
     #[new]
     fn new(abi: &str) -> PyResult<Self> {
         let contract = ton_abi::Contract::load(abi.trim()).handle_value_error()?;

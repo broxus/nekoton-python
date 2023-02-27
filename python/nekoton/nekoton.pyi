@@ -1,3 +1,4 @@
+from os import PathLike
 from typing import Any, ClassVar, Optional, List, Tuple, Dict
 
 
@@ -43,6 +44,11 @@ class ContractAbi:
 
     :param abi: a string with JSON ABI description.
     """
+
+    @staticmethod
+    def from_file(file: str | bytes | PathLike[str] | PathLike[bytes]) -> ContractAbi:
+        """Reads ABI from file."""
+        ...
 
     @classmethod
     def __init__(cls, abi: str) -> None: ...
