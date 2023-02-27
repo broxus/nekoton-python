@@ -44,11 +44,13 @@ class ContractAbi:
     :param abi: a string with JSON ABI description.
     """
 
-    abi_version: AbiVersion
-    """TVM ABI version."""
-
     @classmethod
     def __init__(cls, abi: str) -> None: ...
+
+    @property
+    def abi_version(self) -> AbiVersion:
+        """TVM ABI version."""
+        ...
 
     def get_function(self, name: str) -> Optional[FunctionAbi]:
         """
@@ -109,17 +111,25 @@ class ContractAbi:
 class FunctionAbi:
     """Parsed function ABI."""
 
-    abi_version: AbiVersion
-    """TVM ABI version."""
+    @property
+    def abi_version(self) -> AbiVersion:
+        """TVM ABI version."""
+        ...
 
-    name: str
-    """Function name."""
+    @property
+    def name(self) -> str:
+        """Function name."""
+        ...
 
-    input_id: int
-    """Input id."""
+    @property
+    def input_id(self) -> int:
+        """Input id."""
+        ...
 
-    output_id: int
-    """Output id."""
+    @property
+    def output_id(self) -> int:
+        """Output id."""
+        ...
 
     def call(
             self,
@@ -255,44 +265,62 @@ class FunctionAbi:
 
 
 class ExecutionOutput:
-    exit_code: int
-    """Exit code from the compute phase."""
+    @property
+    def exit_code(self) -> int:
+        """Exit code from the compute phase."""
+        ...
 
-    output: Optional[Dict[str, Any]]
-    """Parsed output in case of successful execution."""
+    @property
+    def output(self) -> Optional[Dict[str, Any]]:
+        """Parsed output in case of successful execution."""
+        ...
 
 
 class FunctionCall:
     """Parsed function call."""
 
-    input: Dict[str, Any]
-    """Parsed function input."""
+    @property
+    def input(self) -> Dict[str, Any]:
+        """Parsed function input."""
+        ...
 
-    output: Dict[str, Any]
-    """Parsed function output."""
+    @property
+    def output(self) -> Dict[str, Any]:
+        """Parsed function output."""
+        ...
 
 
 class FunctionCallFull(FunctionCall):
     """Extended parsed function cell."""
 
-    events: List[Tuple[EventAbi, Dict[str, Any]]]
-    """Parsed events"""
+    @property
+    def events(self) -> List[Tuple[EventAbi, Dict[str, Any]]]:
+        """Parsed events"""
+        ...
 
-    function: FunctionAbi
-    """ABI object of the parsed function"""
+    @property
+    def function(self) -> FunctionAbi:
+        """ABI object of the parsed function"""
+        ...
 
 
 class EventAbi:
     """Parsed event ABI."""
 
-    abi_version: AbiVersion
-    """TVM ABI version."""
+    @property
+    def abi_version(self) -> AbiVersion:
+        """TVM ABI version."""
+        ...
 
-    name: str
-    """Event name."""
+    @property
+    def name(self) -> str:
+        """Event name."""
+        ...
 
-    id: int
-    """Event id."""
+    @property
+    def id(self) -> int:
+        """Event id."""
+        ...
 
     def decode_message(self, message: Message) -> Dict[str, Any]:
         """
@@ -330,6 +358,11 @@ class SignedExternalMessage(Message):
     External message with an additional expiration param.
     """
 
+    @property
+    def expire_at(self) -> int:
+        """Expiration unix timestamp."""
+        ...
+
     def split(self) -> Tuple[Message, int]:
         """Splits into inner message and expiration timestamp."""
         ...
@@ -338,14 +371,18 @@ class SignedExternalMessage(Message):
 class UnsignedExternalMessage:
     """Unsigned external message with function intput."""
 
-    hash: bytes
-    """A hash to sign."""
-
-    expire_at: int
-    """Expiration unix timestamp."""
-
     state_init: Optional[StateInit]
     """Optional state init."""
+
+    @property
+    def hash(self) -> bytes:
+        """A hash to sign."""
+        ...
+
+    @property
+    def expire_at(self) -> int:
+        """Expiration unix timestamp."""
+        ...
 
     def sign(self, keypair: KeyPair, signature_id: Optional[int]) -> SignedExternalMessage:
         """
@@ -376,11 +413,15 @@ class UnsignedExternalMessage:
 class UnsignedBody:
     """Unsigned function input."""
 
-    hash: bytes
-    """A hash to sign."""
+    @property
+    def hash(self) -> bytes:
+        """A hash to sign."""
+        ...
 
-    expire_at: int
-    """Expiration unix timestamp."""
+    @property
+    def expire_at(self) -> int:
+        """Expiration unix timestamp."""
+        ...
 
     def sign(self, keypair: KeyPair, signature_id: Optional[int]) -> Cell:
         """
@@ -599,20 +640,14 @@ class AbiVersion:
     :param minor: minor version component.
     """
 
+    major: int
+    """Major TVM ABI version component."""
+
+    minor: int
+    """Minor TVM ABI version component."""
+
     @classmethod
     def __init__(cls, major: int, minor: int) -> None: ...
-
-    def major(self) -> int:
-        """
-        Major TVM ABI version component.
-        """
-        ...
-
-    def minor(self) -> int:
-        """
-        Minor TVM ABI version component.
-        """
-        ...
 
     def __eq__(self, other) -> Any: ...
 
@@ -642,20 +677,30 @@ class BlockchainConfig:
     Partially parsed blockchain config.
     """
 
-    capabilities: int
-    """Required software capabilities as integer mask."""
+    @property
+    def capabilities(self) -> int:
+        """Required software capabilities as integer mask."""
+        ...
 
-    config_address: Address
-    """Address of the config contract."""
+    @property
+    def config_address(self) -> Address:
+        """Address of the config contract."""
+        ...
 
-    elector_address: Address
-    """Address of the elector contract."""
+    @property
+    def elector_address(self) -> Address:
+        """Address of the elector contract."""
+        ...
 
-    minter_address: Address
-    """Address of the minter contract."""
+    @property
+    def minter_address(self) -> Address:
+        """Address of the minter contract."""
+        ...
 
-    fee_collector_address: Address
-    """Address of the fee collector contract."""
+    @property
+    def fee_collector_address(self) -> Address:
+        """Address of the fee collector contract."""
+        ...
 
     def contains_param(self, index: int) -> bool:
         """
@@ -679,29 +724,45 @@ class AccountState:
     A state of an existing account.
     """
 
-    storage_used: StorageUsed
-    """Storage usage statistics."""
+    @property
+    def storage_used(self) -> StorageUsed:
+        """Storage usage statistics."""
+        ...
 
-    last_paid: int
-    """The last time when storage phase was executed."""
+    @property
+    def last_paid(self) -> int:
+        """The last time when storage phase was executed."""
+        ...
 
-    due_payment: Optional[int]
-    """Optional account debt in nano EVERs."""
+    @property
+    def due_payment(self) -> Optional[int]:
+        """Optional account debt in nano EVERs."""
+        ...
 
-    last_trans_lt: int
-    """The logical time of the last transaction."""
+    @property
+    def last_trans_lt(self) -> int:
+        """The logical time of the last transaction."""
+        ...
 
-    balance: int
-    """Account balance in nano EVERs."""
+    @property
+    def balance(self) -> int:
+        """Account balance in nano EVERs."""
+        ...
 
-    status: AccountStatus
-    """Account status."""
+    @property
+    def status(self) -> AccountStatus:
+        """Account status."""
+        ...
 
-    state_init: Optional[StateInit]
-    """StateInit for the active account."""
+    @property
+    def state_init(self) -> Optional[StateInit]:
+        """StateInit for the active account."""
+        ...
 
-    frozen_state_hash: Optional[bytes]
-    """A hash of the last known state for the frozen account."""
+    @property
+    def frozen_state_hash(self) -> Optional[bytes]:
+        """A hash of the last known state for the frozen account."""
+        ...
 
 
 class StorageUsed:
@@ -709,84 +770,134 @@ class StorageUsed:
     Account storage stats.
     """
 
-    cells: int
-    """Number of cells occupied by this account."""
+    @property
+    def cells(self) -> int:
+        """Number of cells occupied by this account."""
+        ...
 
-    bits: int
-    """Number of bits occupied by this account."""
+    @property
+    def bits(self) -> int:
+        """Number of bits occupied by this account."""
+        ...
 
-    public_cells: int
-    """Number of public cells (libraries) provided by this account."""
+    @property
+    def public_cells(self) -> int:
+        """Number of public cells (libraries) provided by this account."""
+        ...
 
 
 class Transaction:
     """Blockchain transaction."""
 
-    hash: bytes
-    """Hash of the root cell."""
+    @property
+    def hash(self) -> bytes:
+        """Hash of the root cell."""
+        ...
 
-    type: TransactionType
-    """Transaction type."""
+    @property
+    def type(self) -> TransactionType:
+        """Transaction type."""
+        ...
 
-    account: bytes
-    """Account part of the address."""
+    @property
+    def account(self) -> bytes:
+        """Account part of the address."""
+        ...
 
-    lt: int
-    """Logical time when the transaction was created."""
+    @property
+    def lt(self) -> int:
+        """Logical time when the transaction was created."""
+        ...
 
-    now: int
-    """Unix timestamp when the transaction was created."""
+    @property
+    def now(self) -> int:
+        """Unix timestamp when the transaction was created."""
+        ...
 
-    prev_trans_hash: bytes
-    """A hash of the previous transaction."""
+    @property
+    def prev_trans_hash(self) -> bytes:
+        """A hash of the previous transaction."""
+        ...
 
-    prev_trans_lt: int
-    """A logical time of the previous transaction."""
+    @property
+    def prev_trans_lt(self) -> int:
+        """A logical time of the previous transaction."""
+        ...
 
-    orig_status: AccountStatus
-    """Account status before this transaction."""
+    @property
+    def orig_status(self) -> AccountStatus:
+        """Account status before this transaction."""
+        ...
 
-    end_status: AccountStatus
-    """Account status after this transaction."""
+    @property
+    def end_status(self) -> AccountStatus:
+        """Account status after this transaction."""
+        ...
 
-    total_fees: int
-    """A total amount of fees in nano EVERs."""
+    @property
+    def total_fees(self) -> int:
+        """A total amount of fees in nano EVERs."""
+        ...
 
-    has_in_msg: bool
-    """Whether this transaction has an incoming message. (`True` for ordinary transactions)."""
+    @property
+    def has_in_msg(self) -> bool:
+        """Whether this transaction has an incoming message. (`True` for ordinary transactions)."""
+        ...
 
-    has_out_msgs: bool
-    """Whether this transaction has any outgoing message."""
+    @property
+    def has_out_msgs(self) -> bool:
+        """Whether this transaction has any outgoing message."""
+        ...
 
-    out_msgs_len: int
-    """Number of outgoing messages."""
+    @property
+    def out_msgs_len(self) -> int:
+        """Number of outgoing messages."""
+        ...
 
-    in_msg_hash: Optional[bytes]
-    """Hash of the incoming message."""
+    @property
+    def in_msg_hash(self) -> Optional[bytes]:
+        """Hash of the incoming message."""
+        ...
 
-    credit_first: bool
-    """Whether the account balance was updated before the credit storage phase."""
+    @property
+    def credit_first(self) -> bool:
+        """Whether the account balance was updated before the credit storage phase."""
+        ...
 
-    aborted: bool
-    """Whether this transaction was not successful."""
+    @property
+    def aborted(self) -> bool:
+        """Whether this transaction was not successful."""
+        ...
 
-    destroyed: bool
-    """Whether the account was destroyed during this transaction."""
+    @property
+    def destroyed(self) -> bool:
+        """Whether the account was destroyed during this transaction."""
+        ...
 
-    storage_phase: Optional[TransactionStoragePhase]
-    """Optional storage phase."""
+    @property
+    def storage_phase(self) -> Optional[TransactionStoragePhase]:
+        """Optional storage phase."""
+        ...
 
-    credit_phase: Optional[TransactionCreditPhase]
-    """Optional credit phase."""
+    @property
+    def credit_phase(self) -> Optional[TransactionCreditPhase]:
+        """Optional credit phase."""
+        ...
 
-    compute_phase: Optional[TransactionComputePhase]
-    """Optional compute phase."""
+    @property
+    def compute_phase(self) -> Optional[TransactionComputePhase]:
+        """Optional compute phase."""
+        ...
 
-    action_phase: Optional[TransactionActionPhase]
-    """Optional action phase."""
+    @property
+    def action_phase(self) -> Optional[TransactionActionPhase]:
+        """Optional action phase."""
+        ...
 
-    bounce_phase: Optional[TransactionBouncePhase]
-    """Optional bounce phase."""
+    @property
+    def bounce_phase(self) -> Optional[TransactionBouncePhase]:
+        """Optional bounce phase."""
+        ...
 
     def get_in_msg(self) -> Message:
         """Loads an internal message."""
@@ -814,65 +925,128 @@ class Transaction:
 class TransactionStoragePhase:
     """Transaction storage phase."""
 
-    status_change: AccountStatusChange
-    """Account status change during this phase."""
+    @property
+    def status_change(self) -> AccountStatusChange:
+        """Account status change during this phase."""
+        ...
 
-    storage_fees_collected: int
-    """Amount of collected storage fees in nano EVERs."""
+    @property
+    def storage_fees_collected(self) -> int:
+        """Amount of collected storage fees in nano EVERs."""
+        ...
 
-    storage_fees_due: Optional[int]
-    """Payed storage debt."""
+    @property
+    def storage_fees_due(self) -> Optional[int]:
+        """Payed storage debt."""
+        ...
 
 
 class TransactionCreditPhase:
     """Transaction credit phase."""
 
-    due_fees_collected: Optional[int]
-    """Amount of collected storage fees in nano EVERs."""
+    @property
+    def due_fees_collected(self) -> Optional[int]:
+        """Amount of collected storage fees in nano EVERs."""
+        ...
 
-    credit: int
-    """Increased balance in nano EVERs."""
+    @property
+    def credit(self) -> int:
+        """Increased balance in nano EVERs."""
+        ...
 
 
 class TransactionComputePhase:
     """Transaction compute phase."""
 
-    success: bool
-    msg_state_used: bool
-    account_activated: bool
-    gas_fees: int
-    gas_used: int
-    gas_limit: int
-    gas_credit: Optional[int]
-    mode: int
-    exit_code: int
-    exit_arg: Optional[int]
-    vm_steps: int
-    vm_init_state_hash: bytes
-    vm_final_state_hash: bytes
+    @property
+    def success(self) -> bool: ...
+
+    @property
+    def msg_state_used(self) -> bool: ...
+
+    @property
+    def account_activated(self) -> bool: ...
+
+    @property
+    def gas_fees(self) -> int: ...
+
+    @property
+    def gas_used(self) -> int: ...
+
+    @property
+    def gas_limit(self) -> int: ...
+
+    @property
+    def gas_credit(self) -> Optional[int]: ...
+
+    @property
+    def mode(self) -> int: ...
+
+    @property
+    def exit_code(self) -> int: ...
+
+    @property
+    def exit_arg(self) -> Optional[int]: ...
+
+    @property
+    def vm_steps(self) -> int: ...
+
+    @property
+    def vm_init_state_hash(self) -> bytes: ...
+
+    @property
+    def vm_final_state_hash(self) -> bytes: ...
 
 
 class TransactionActionPhase:
     """Transaction action phase."""
 
-    success: bool
-    valid: bool
-    no_funds: bool
-    status_change: AccountStatusChange
-    total_fwd_fees: Optional[int]
-    total_action_fees: Optional[int]
-    result_code: int
-    result_arg: Optional[int]
-    total_actions: int
-    special_actions: int
-    skipped_actions: int
-    messages_created: int
-    action_list_hash: bytes
+    @property
+    def success(self) -> bool: ...
+
+    @property
+    def valid(self) -> bool: ...
+
+    @property
+    def no_funds(self) -> bool: ...
+
+    @property
+    def status_change(self) -> AccountStatusChange: ...
+
+    @property
+    def total_fwd_fees(self) -> Optional[int]: ...
+
+    @property
+    def total_action_fees(self) -> Optional[int]: ...
+
+    @property
+    def result_code(self) -> int: ...
+
+    @property
+    def result_arg(self) -> Optional[int]: ...
+
+    @property
+    def total_actions(self) -> int: ...
+
+    @property
+    def special_actions(self) -> int: ...
+
+    @property
+    def skipped_actions(self) -> int: ...
+
+    @property
+    def messages_created(self) -> int: ...
+
+    @property
+    def action_list_hash(self) -> bytes: ...
 
 
 class TransactionBouncePhase:
-    msg_fees: int
-    fwd_fees: int
+    @property
+    def msg_fees(self) -> int: ...
+
+    @property
+    def fwd_fees(self) -> int: ...
 
 
 class TransactionType:
@@ -969,48 +1143,6 @@ class Message:
     Blockchain message.
     """
 
-    hash: bytes
-    """The hash of the root message cell."""
-
-    is_external_in: bool
-    """Whether this message is `ExternalIn`."""
-
-    is_external_out: bool
-    """Whether this message is `ExternalOut`."""
-
-    is_internal: bool
-    """Whether this message is `Internal`."""
-
-    type: MessageType
-    """Message type."""
-
-    header: MessageHeader
-    """Message header"""
-
-    created_at: int
-    """A unix timestamp when this message was created. (always 0 for `ExternalIn`)."""
-
-    created_lt: int
-    """A logical timestamp when this message was created. (always 0 for `ExternalIn`)."""
-
-    src: Optional[Address]
-    """Source address. (None for ExternalIn)."""
-
-    dst: Optional[Address]
-    """Destination address. (None for `ExternalOut`)."""
-
-    value: int
-    """Attached amount of nano EVERs. (always 0 for non `Internal`)."""
-
-    bounced: bool
-    """Whether this message was bounced."""
-
-    body: Optional[Cell]
-    """Optional message body."""
-
-    state_init: Optional[StateInit]
-    """Optional state init."""
-
     @staticmethod
     def from_bytes(bytes: bytes) -> Message:
         """
@@ -1028,6 +1160,76 @@ class Message:
         :param value: a string with encoded BOC.
         :param encoding: encoding type. `base64` (default) or `hex`.
         """
+        ...
+
+    @property
+    def hash(self) -> bytes:
+        """The hash of the root message cell."""
+        ...
+
+    @property
+    def is_external_in(self) -> bool:
+        """Whether this message is `ExternalIn`."""
+        ...
+
+    @property
+    def is_external_out(self) -> bool:
+        """Whether this message is `ExternalOut`."""
+        ...
+
+    @property
+    def is_internal(self) -> bool:
+        """Whether this message is `Internal`."""
+        ...
+
+    @property
+    def type(self) -> MessageType:
+        """Message type."""
+        ...
+
+    @property
+    def header(self) -> MessageHeader:
+        """Message header"""
+        ...
+
+    @property
+    def created_at(self) -> int:
+        """A unix timestamp when this message was created. (always 0 for `ExternalIn`)."""
+        ...
+
+    @property
+    def created_lt(self) -> int:
+        """A logical timestamp when this message was created. (always 0 for `ExternalIn`)."""
+        ...
+
+    @property
+    def src(self) -> Optional[Address]:
+        """Source address. (None for ExternalIn)."""
+        ...
+
+    @property
+    def dst(self) -> Optional[Address]:
+        """Destination address. (None for `ExternalOut`)."""
+        ...
+
+    @property
+    def value(self) -> int:
+        """Attached amount of nano EVERs. (always 0 for non `Internal`)."""
+        ...
+
+    @property
+    def bounced(self) -> bool:
+        """Whether this message was bounced."""
+        ...
+
+    @property
+    def body(self) -> Optional[Cell]:
+        """Optional message body."""
+        ...
+
+    @property
+    def state_init(self) -> Optional[StateInit]:
+        """Optional state init."""
         ...
 
     def encode(self, encoding: Optional[str] = None) -> str:
@@ -1064,46 +1266,76 @@ class Message:
 class MessageHeader:
     """Base message header."""
 
-    type: MessageType
-    """Message type."""
+    def type(self) -> MessageType:
+        """Message type."""
+        ...
 
 
 class InternalMessageHeader(MessageHeader):
     """Internal message header."""
 
-    ihr_disabled: bool
-    bounce: bool
-    bounced: bool
-    src: Address
-    dst: Address
-    value: int
-    ihr_fee: int
-    fwd_fee: int
-    created_at: int
-    created_lt: int
+    @property
+    def ihr_disabled(self) -> bool: ...
+
+    @property
+    def bounce(self) -> bool: ...
+
+    @property
+    def bounced(self) -> bool: ...
+
+    @property
+    def src(self) -> Address: ...
+
+    @property
+    def dst(self) -> Address: ...
+
+    @property
+    def value(self) -> int: ...
+
+    @property
+    def ihr_fee(self) -> int: ...
+
+    @property
+    def fwd_fee(self) -> int: ...
+
+    @property
+    def created_at(self) -> int: ...
+
+    @property
+    def created_lt(self) -> int: ...
 
 
 class ExternalInMessageHeader(MessageHeader):
     """External incoming message header."""
 
-    dst: Address
-    """Message destination."""
+    @property
+    def dst(self) -> Address:
+        """Message destination."""
+        ...
 
-    import_fee: int
-    """Import fee in nano EVERs"""
+    @property
+    def import_fee(self) -> int:
+        """Import fee in nano EVERs"""
+        ...
 
 
 class ExternalOutMessageHeader(MessageHeader):
     """External outgoing message header."""
 
-    created_at: int
-    """A unix timestamp when the message was created."""
+    @property
+    def src(self) -> Address:
+        """Message source."""
+        ...
 
-    created_lt: int
-    """A logical time when the message was created."""
+    @property
+    def created_at(self) -> int:
+        """A unix timestamp when the message was created."""
+        ...
 
-    src: Address
-    """Message source."""
+    @property
+    def created_lt(self) -> int:
+        """A logical time when the message was created."""
+        ...
 
 
 class MessageType:
@@ -1143,9 +1375,6 @@ class StateInit:
     :param data: optional contract data.
     """
 
-    code_hash: Optional[bytes]
-    """Optional code hash."""
-
     code: Optional[Cell]
     """Optional contract code."""
 
@@ -1163,6 +1392,11 @@ class StateInit:
 
     @classmethod
     def __init__(cls, code: Optional[Cell], data: Optional[Cell]) -> None: ...
+
+    @property
+    def code_hash(self) -> Optional[bytes]:
+        """Optional code hash."""
+        ...
 
     def set_code_salt(self, salt: Cell):
         """
@@ -1210,9 +1444,6 @@ class Address:
     :param addr: a string with raw address.
     """
 
-    account: bytes
-    """Hash of the initial state."""
-
     workchain: int
     """Address workchain."""
 
@@ -1238,6 +1469,11 @@ class Address:
     @classmethod
     def __init__(cls, addr: str) -> None: ...
 
+    @property
+    def account(self) -> bytes:
+        """Hash of the initial state."""
+        ...
+
     def __eq__(self, other) -> Any: ...
 
     def __ge__(self, other) -> Any: ...
@@ -1257,9 +1493,6 @@ class Cell:
     """
     A container with up to 1023 bits of data and up to 4 children.
     """
-
-    repr_hash: bytes
-    """Representation hash of the cell."""
 
     @staticmethod
     def from_bytes(bytes: bytes) -> Cell:
@@ -1297,6 +1530,11 @@ class Cell:
 
     @classmethod
     def __init__(cls) -> None: ...
+
+    @property
+    def repr_hash(self) -> bytes:
+        """Representation hash of the cell."""
+        ...
 
     def encode(self, encoding: Optional[str] = None) -> str:
         """
@@ -1351,8 +1589,10 @@ class Cell:
 class Transport:
     """Base transport"""
 
-    clock: Clock
-    """Time context."""
+    @property
+    def clock(self) -> Clock:
+        """Time context."""
+        ...
 
     async def check_connection(self):
         """Checks the connection."""
@@ -1476,10 +1716,12 @@ class Clock:
     @classmethod
     def __init__(cls, offset: Optional[int] = None) -> None: ...
 
+    @property
     def now_sec(self) -> int:
         """Returns current timestamp in seconds."""
         ...
 
+    @property
     def now_ms(self) -> int:
         """Returns current timestamp in milliseconds."""
         ...
@@ -1556,9 +1798,6 @@ class KeyPair:
     :param secret: 32 bytes of secret.
     """
 
-    public_key: PublicKey
-    """Corresponding public key."""
-
     @staticmethod
     def generate() -> KeyPair:
         """Generates a new keypair."""
@@ -1566,6 +1805,11 @@ class KeyPair:
 
     @classmethod
     def __init__(cls, secret: bytes) -> None: ...
+
+    @property
+    def public_key(self) -> PublicKey:
+        """Corresponding public key."""
+        ...
 
     def sign(self, data: bytes, signature_id: Optional[int]) -> Signature:
         """
@@ -1659,8 +1903,10 @@ class Signature:
 class Seed:
     """Base seed."""
 
-    word_count: int
-    """Number of words in phrase."""
+    @property
+    def word_count(self) -> int:
+        """Number of words in phrase."""
+        ...
 
 
 class LegacySeed(Seed):

@@ -308,14 +308,17 @@ impl ContractAbi {
         let events = events
             .into_iter()
             .map(|(event, input)| {
-                PyResult::Ok((event.clone(), convert_tokens(py, input)?.into_py(py)))
+                let event = Py::new(py, event.clone())?;
+                PyResult::Ok((event, convert_tokens(py, input)?))
             })
-            .collect::<PyResult<Vec<_>>>()?;
+            .collect::<PyResult<Vec<(Py<EventAbi>, &PyDict)>>>()?;
 
         let function_call = FunctionCall {
             input: convert_tokens(py, input)?.into_py(py),
             output: convert_tokens(py, output)?.into_py(py),
         };
+
+        let events = PyList::new(py, events).into_py(py);
 
         Py::new(
             py,
@@ -630,7 +633,7 @@ pub struct FunctionCall {
 #[pyclass(extends = FunctionCall, get_all)]
 pub struct FunctionCallFull {
     function: FunctionAbi,
-    events: Vec<(EventAbi, Py<PyDict>)>,
+    events: Py<PyList>,
 }
 
 const DEFAULT_TIMEOUT: u32 = 60;
@@ -698,6 +701,11 @@ pub struct SignedExternalMessage {
 
 #[pymethods]
 impl SignedExternalMessage {
+    #[getter]
+    fn expire_at(&self) -> u32 {
+        self.expire_at
+    }
+
     fn split(slf: PyRef<'_, Self>) -> (Message, u32) {
         let expire_at = slf.expire_at;
         (slf.into_super().clone(), expire_at)
@@ -912,12 +920,24 @@ impl AbiVersion {
         Self(ton_abi::contract::AbiVersion { major, minor })
     }
 
-    fn major(&self) -> u8 {
+    #[getter]
+    fn get_major(&self) -> u8 {
         self.0.major
     }
 
-    fn minor(&self) -> u8 {
+    #[setter]
+    fn set_major(&mut self, value: u8) {
+        self.0.major = value;
+    }
+
+    #[getter]
+    fn get_minor(&self) -> u8 {
         self.0.minor
+    }
+
+    #[setter]
+    fn set_minor(&mut self, value: u8) {
+        self.0.minor = value;
     }
 
     fn __str__(&self) -> String {

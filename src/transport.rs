@@ -307,10 +307,12 @@ impl Clock {
         )))
     }
 
+    #[getter]
     pub fn now_sec(&self) -> u64 {
         nt::utils::Clock::now_sec_u64(self.0.as_ref())
     }
 
+    #[getter]
     pub fn now_ms(&self) -> u64 {
         nt::utils::Clock::now_ms_u64(self.0.as_ref())
     }
