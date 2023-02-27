@@ -1744,6 +1744,15 @@ class PublicKey:
     """
 
     @staticmethod
+    def from_int(int: int) -> PublicKey:
+        """
+        Tries to contract a public key from integer.
+
+        :param int: integer (max 2^256-1)
+        """
+        ...
+
+    @staticmethod
     def from_bytes(bytes: bytes) -> PublicKey:
         """
         Tries to construct a public key from raw bytes.
@@ -1774,6 +1783,10 @@ class PublicKey:
 
     def to_bytes(self) -> bytes:
         """Converts public key into raw bytes."""
+        ...
+
+    def to_int(self) -> int:
+        """Converts public key into integer."""
         ...
 
     def __eq__(self, other) -> Any: ...

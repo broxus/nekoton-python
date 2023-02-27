@@ -975,7 +975,16 @@ fn parse_token(param: &ton_abi::ParamType, value: &PyAny) -> PyResult<ton_abi::T
 
     Ok(match param {
         ton_abi::ParamType::Uint(size) => {
-            let number = value.extract::<num_bigint::BigUint>()?;
+            let number = 'number: {
+                if *size == 256 {
+                    if let Ok(public_key) = value.extract::<PyRef<PublicKey>>() {
+                        break 'number num_bigint::BigUint::from_bytes_be(public_key.0.as_bytes());
+                    }
+                }
+
+                value.extract::<num_bigint::BigUint>()?
+            };
+
             ton_abi::TokenValue::Uint(ton_abi::Uint {
                 number,
                 size: *size,

@@ -37,6 +37,22 @@ assert (decoded["first"] == 123)
 assert (decoded["second"] is True)
 
 # Crypto
+some_pubkey = PublicKey('7b671b6bfd43e306d4accb46113a871e66b30cc587a57635766a2f360ee831c6')
+assert some_pubkey == PublicKey.from_int(55816654881951532897500201008042388765613920635159317416907795053873153454534)
+assert (some_pubkey.to_int() == 55816654881951532897500201008042388765613920635159317416907795053873153454534)
+
+assert PublicKey('00005a641f7deda1442badd9ed761dd4e948580c7d7f36b3f858ab26b1af6fa1') == PublicKey.from_int(
+    623856482362781547816624847020167340480982121355398289209492515375247265)
+assert (PublicKey('00005a641f7deda1442badd9ed761dd4e948580c7d7f36b3f858ab26b1af6fa1').to_int()
+        == 623856482362781547816624847020167340480982121355398289209492515375247265)
+
+cell_with_pubkey = Cell.build(
+    abi=[("pubkey", AbiUint(256))],
+    value={"pubkey": some_pubkey}
+)
+assert (PublicKey.from_int(cell_with_pubkey.unpack(abi=[("pubkey", AbiUint(256))])["pubkey"])
+        == some_pubkey)
+
 seed = Bip39Seed.generate()
 assert (seed.word_count == 12)
 

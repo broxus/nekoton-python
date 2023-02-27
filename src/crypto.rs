@@ -12,6 +12,21 @@ pub struct PublicKey(pub ed25519_dalek::PublicKey);
 #[pymethods]
 impl PublicKey {
     #[staticmethod]
+    fn from_int(int: num_bigint::BigUint) -> PyResult<Self> {
+        let bytes = int.to_bytes_be();
+        if bytes.len() > 32 {
+            return Err(PyValueError::new_err("Number is too big"));
+        }
+
+        let mut pubkey = [0u8; 32];
+        pubkey[(32 - bytes.len())..].copy_from_slice(&bytes);
+
+        ed25519_dalek::PublicKey::from_bytes(&pubkey)
+            .handle_value_error()
+            .map(Self)
+    }
+
+    #[staticmethod]
     fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
         ed25519_dalek::PublicKey::from_bytes(bytes)
             .handle_value_error()
@@ -36,6 +51,10 @@ impl PublicKey {
 
     fn to_bytes<'a>(&self, py: Python<'a>) -> &'a PyBytes {
         PyBytes::new(py, self.0.as_bytes())
+    }
+
+    fn to_int(&self) -> num_bigint::BigUint {
+        num_bigint::BigUint::from_bytes_be(self.0.as_bytes())
     }
 
     fn __hash__(&self) -> u64 {
