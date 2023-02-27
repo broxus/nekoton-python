@@ -101,17 +101,23 @@ impl Encoding {
     }
 
     pub fn decode_bytes(&self, data: &str) -> PyResult<Vec<u8>> {
+        use base64::engine::general_purpose::STANDARD;
+        use base64::engine::Engine;
+
         let data = data.trim();
         match self {
             Self::Hex => hex::decode(data).handle_value_error(),
-            Self::Base64 => base64::decode(data).handle_value_error(),
+            Self::Base64 => STANDARD.decode(data).handle_value_error(),
         }
     }
 
     pub fn encode_bytes(&self, data: &[u8]) -> String {
+        use base64::engine::general_purpose::STANDARD;
+        use base64::engine::Engine;
+
         match self {
             Self::Hex => hex::encode(data),
-            Self::Base64 => base64::encode(data),
+            Self::Base64 => STANDARD.encode(data),
         }
     }
 }

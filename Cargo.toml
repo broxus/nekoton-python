@@ -1,6 +1,6 @@
 [package]
 name = "nekoton-python"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 
 [lib]
@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 ahash = "0.8"
 anyhow = "1.0"
 async-trait = "0.1"
-base64 = "0.13"
+base64 = "0.21.0"
 dashmap = "5.4"
 hex = "0.4"
 hmac = "0.11"
