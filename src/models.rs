@@ -106,8 +106,8 @@ impl AccountState {
     }
 
     #[getter]
-    fn due_payment(&self) -> Option<u128> {
-        self.0.storage_stat.due_payment.map(|grams| grams.0)
+    fn due_payment(&self) -> Option<Tokens> {
+        self.0.storage_stat.due_payment.map(Tokens::from)
     }
 
     #[getter]
@@ -116,8 +116,8 @@ impl AccountState {
     }
 
     #[getter]
-    fn balance(&self) -> u128 {
-        self.0.storage.balance.grams.0
+    fn balance(&self) -> Tokens {
+        self.0.storage.balance.grams.into()
     }
 
     #[getter]
@@ -258,8 +258,8 @@ impl Transaction {
     }
 
     #[getter]
-    pub fn total_fees(&self) -> u128 {
-        self.0.data.total_fees.grams.0
+    pub fn total_fees(&self) -> Tokens {
+        self.0.data.total_fees.grams.into()
     }
 
     #[getter]
@@ -417,13 +417,13 @@ pub struct TransactionStoragePhase(ton_block::TrStoragePhase);
 #[pymethods]
 impl TransactionStoragePhase {
     #[getter]
-    fn storage_fees_collected(&self) -> u128 {
-        self.0.storage_fees_collected.0
+    fn storage_fees_collected(&self) -> Tokens {
+        self.0.storage_fees_collected.into()
     }
 
     #[getter]
-    fn storage_fees_due(&self) -> Option<u128> {
-        self.0.storage_fees_due.map(|grams| grams.0)
+    fn storage_fees_due(&self) -> Option<Tokens> {
+        self.0.storage_fees_due.map(Tokens::from)
     }
 
     #[getter]
@@ -438,13 +438,13 @@ pub struct TransactionCreditPhase(ton_block::TrCreditPhase);
 #[pymethods]
 impl TransactionCreditPhase {
     #[getter]
-    fn due_fees_collected(&self) -> Option<u128> {
-        self.0.due_fees_collected.map(|grams| grams.0)
+    fn due_fees_collected(&self) -> Option<Tokens> {
+        self.0.due_fees_collected.map(Tokens::from)
     }
 
     #[getter]
-    fn credit(&self) -> u128 {
-        self.0.credit.grams.0
+    fn credit(&self) -> Tokens {
+        self.0.credit.grams.into()
     }
 }
 
@@ -469,8 +469,8 @@ impl TransactionComputePhase {
     }
 
     #[getter]
-    fn gas_fees(&self) -> u128 {
-        self.0.gas_fees.0
+    fn gas_fees(&self) -> Tokens {
+        self.0.gas_fees.into()
     }
 
     #[getter]
@@ -545,13 +545,13 @@ impl TransactionActionPhase {
     }
 
     #[getter]
-    fn total_fwd_fees(&self) -> Option<u128> {
-        self.0.total_fwd_fees.map(|fees| fees.0)
+    fn total_fwd_fees(&self) -> Option<Tokens> {
+        self.0.total_fwd_fees.map(Tokens::from)
     }
 
     #[getter]
-    fn total_action_fees(&self) -> Option<u128> {
-        self.0.total_action_fees.map(|fees| fees.0)
+    fn total_action_fees(&self) -> Option<Tokens> {
+        self.0.total_action_fees.map(Tokens::from)
     }
 
     #[getter]
@@ -596,13 +596,13 @@ pub struct TransactionBouncePhase(ton_block::TrBouncePhaseOk);
 #[pymethods]
 impl TransactionBouncePhase {
     #[getter]
-    fn msg_fees(&self) -> u128 {
-        self.0.msg_fees.0
+    fn msg_fees(&self) -> Tokens {
+        self.0.msg_fees.into()
     }
 
     #[getter]
-    fn fwd_fees(&self) -> u128 {
-        self.0.fwd_fees.0
+    fn fwd_fees(&self) -> Tokens {
+        self.0.fwd_fees.into()
     }
 }
 
@@ -811,8 +811,11 @@ impl Message {
     }
 
     #[getter]
-    fn value(&self) -> u128 {
-        self.data.value().map(|c| c.grams.0).unwrap_or_default()
+    fn value(&self) -> Tokens {
+        self.data
+            .value()
+            .map(|c| c.grams.into())
+            .unwrap_or_default()
     }
 
     #[getter]
@@ -909,18 +912,18 @@ impl InternalMessageHeader {
     }
 
     #[getter]
-    pub fn value(&self) -> u128 {
-        self.0.value.grams.0
+    pub fn value(&self) -> Tokens {
+        self.0.value.grams.into()
     }
 
     #[getter]
-    pub fn ihr_fee(&self) -> u128 {
-        self.0.ihr_fee.0
+    pub fn ihr_fee(&self) -> Tokens {
+        self.0.ihr_fee.into()
     }
 
     #[getter]
-    pub fn fwd_fee(&self) -> u128 {
-        self.0.fwd_fee.0
+    pub fn fwd_fee(&self) -> Tokens {
+        self.0.fwd_fee.into()
     }
 
     #[getter]
@@ -945,8 +948,8 @@ impl ExternalInMessageHeader {
     }
 
     #[getter]
-    pub fn import_fee(&self) -> u128 {
-        self.0.import_fee.0
+    pub fn import_fee(&self) -> Tokens {
+        self.0.import_fee.into()
     }
 }
 
@@ -1331,5 +1334,187 @@ impl From<Cell> for ton_types::Cell {
     #[inline]
     fn from(value: Cell) -> Self {
         value.0
+    }
+}
+
+#[derive(Default, Copy, Clone)]
+#[pyclass]
+pub struct Tokens(pub i128);
+
+impl From<ton_block::Grams> for Tokens {
+    #[inline]
+    fn from(value: ton_block::Grams) -> Self {
+        Tokens(value.0 as i128)
+    }
+}
+
+impl TryFrom<Tokens> for u128 {
+    type Error = PyErr;
+
+    fn try_from(value: Tokens) -> Result<Self, Self::Error> {
+        value.0.try_into().handle_value_error()
+    }
+}
+
+impl std::fmt::Display for Tokens {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let int = self.0 / 1000000000;
+        let mut frac = self.0.abs() % 1000000000;
+
+        int.fmt(f)?;
+
+        let mut n = 9;
+        if frac > 0 {
+            while frac % 10 == 0 && frac > 0 {
+                frac /= 10;
+                n -= 1;
+            }
+            f.write_fmt(format_args!(".{frac:0n$}"))?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(FromPyObject)]
+enum TokensValue<'a> {
+    #[pyo3(transparent, annotation = "str")]
+    String(&'a str),
+    #[pyo3(transparent, annotation = "int")]
+    Int(i64),
+}
+
+#[pymethods]
+impl Tokens {
+    #[staticmethod]
+    fn from_nano(nano: i128) -> Self {
+        Self(nano)
+    }
+
+    #[new]
+    fn new(value: TokensValue<'_>) -> PyResult<Self> {
+        const ONE: i128 = 1000000000;
+        const OVERFLOW: &str = "Tokens overflow";
+
+        let value = match value {
+            TokensValue::String(value) => {
+                let (value, negative) = match value.strip_prefix('-') {
+                    Some(value) => (value, true),
+                    None => (value, false),
+                };
+
+                let (int, frac) = match value.split_once('.') {
+                    Some((int, frac)) => {
+                        let int = int.parse::<u64>().handle_value_error()?;
+
+                        let frac_scale = match 9usize.checked_sub(frac.len()) {
+                            Some(scale) => 10u64.pow(scale as u32),
+                            None => return Err(PyValueError::new_err("Invalid tokens precision")),
+                        };
+                        let frac = frac.parse::<u64>().handle_value_error()?;
+
+                        (int, frac * frac_scale)
+                    }
+                    None => (value.parse::<u64>().handle_value_error()?, 0),
+                };
+
+                let Some(int) = (int as i128).checked_mul(ONE) else {
+                    return Err(PyOverflowError::new_err(OVERFLOW))
+                };
+
+                match int.checked_add(frac as i128) {
+                    Some(value) if negative => -value,
+                    Some(value) => value,
+                    None => return Err(PyOverflowError::new_err(OVERFLOW)),
+                }
+            }
+            TokensValue::Int(value) => (value as i128) * ONE,
+        };
+        Ok(Self(value))
+    }
+
+    #[getter]
+    fn is_signed(&self) -> bool {
+        self.0 < 0
+    }
+
+    #[getter]
+    fn is_zero(&self) -> bool {
+        self.0 == 0
+    }
+
+    fn max(&self, other: &Self) -> Self {
+        Tokens(std::cmp::max(self.0, other.0))
+    }
+
+    fn min(&self, other: &Self) -> Self {
+        Tokens(std::cmp::min(self.0, other.0))
+    }
+
+    #[allow(clippy::wrong_self_convention)]
+    fn to_nano(&self) -> i128 {
+        self.0
+    }
+
+    fn abs(&self) -> Tokens {
+        Tokens(self.0.abs())
+    }
+
+    fn __bool__(&self) -> bool {
+        self.0 != 0
+    }
+
+    fn __int__(&self) -> i128 {
+        self.0
+    }
+
+    fn __str__(&self) -> String {
+        self.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("Tokens.from_nano({})", self.0)
+    }
+
+    fn __hash__(&self) -> u64 {
+        ahash::RandomState::new().hash_one(self.0)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {
+        op.matches(self.0.cmp(&other.0))
+    }
+
+    fn __add__(&self, other: &Self) -> Self {
+        Self(self.0.saturating_add(other.0))
+    }
+
+    fn __sub__(&self, other: &Self) -> Self {
+        Self(self.0.saturating_sub(other.0))
+    }
+
+    fn __mul__(&self, other: i64) -> Self {
+        Self(self.0.saturating_mul(other as i128))
+    }
+
+    fn __rmul__(&self, other: i64) -> Self {
+        Self(self.0.saturating_mul(other as i128))
+    }
+
+    fn __truediv__(&self, other: i64) -> PyResult<Self> {
+        match self.0.checked_div(other as i128) {
+            Some(i) => Ok(Self(i)),
+            None => Err(PyZeroDivisionError::new_err("division by zero")),
+        }
+    }
+
+    fn __pos__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __neg__(&self) -> Self {
+        Self(-self.0)
+    }
+
+    fn __abs__(&self) -> Self {
+        Self(self.0.abs())
     }
 }

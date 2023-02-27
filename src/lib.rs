@@ -44,6 +44,7 @@ fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<StateInit>()?;
     m.add_class::<Address>()?;
     m.add_class::<Cell>()?;
+    m.add_class::<Tokens>()?;
 
     // Abi
     m.add_class::<TransactionExecutor>()?;

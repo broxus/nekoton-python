@@ -10,9 +10,7 @@ use rand::Rng;
 use ton_block::{GetRepresentationHash, Serializable};
 
 use crate::crypto::{KeyPair, PublicKey, Signature};
-use crate::models::{
-    AccountState, Address, BlockchainConfig, Cell, Message, StateInit, Transaction,
-};
+use crate::models::*;
 use crate::transport::Clock;
 use crate::util::*;
 
@@ -509,18 +507,19 @@ impl FunctionAbi {
     fn encode_internal_message(
         &self,
         input: &PyDict,
-        value: u64,
+        value: Tokens,
         bounce: bool,
         dst: Address,
         src: Option<Address>,
         state_init: Option<&StateInit>,
     ) -> PyResult<Message> {
+        let value = value.try_into()?;
         let body = self.encode_internal_input(input)?;
 
         let mut message = ton_block::Message::with_int_header(ton_block::InternalMessageHeader {
             ihr_disabled: true,
             bounce,
-            value: ton_block::CurrencyCollection::with_grams(value),
+            value: ton_block::CurrencyCollection::from_grams(ton_block::Grams(value)),
             src: src
                 .map(|src| ton_block::MsgAddressIntOrNone::Some(src.0))
                 .unwrap_or(ton_block::MsgAddressIntOrNone::None),
@@ -1046,10 +1045,21 @@ fn parse_token(param: &ton_abi::ParamType, value: &PyAny) -> PyResult<ton_abi::T
     Ok(match param {
         ton_abi::ParamType::Uint(size) => {
             let number = 'number: {
-                if *size == 256 {
-                    if let Ok(public_key) = value.extract::<PyRef<PublicKey>>() {
-                        break 'number num_bigint::BigUint::from_bytes_be(public_key.0.as_bytes());
+                match *size {
+                    64 | 128 => {
+                        if let Ok(tokens) = value.extract::<PyRef<Tokens>>() {
+                            break 'number num_bigint::BigUint::try_from(tokens.0)
+                                .handle_value_error()?;
+                        }
                     }
+                    256 => {
+                        if let Ok(public_key) = value.extract::<PyRef<PublicKey>>() {
+                            break 'number num_bigint::BigUint::from_bytes_be(
+                                public_key.0.as_bytes(),
+                            );
+                        }
+                    }
+                    _ => {}
                 }
 
                 value.extract::<num_bigint::BigUint>()?
@@ -1061,7 +1071,19 @@ fn parse_token(param: &ton_abi::ParamType, value: &PyAny) -> PyResult<ton_abi::T
             })
         }
         ton_abi::ParamType::Int(size) => {
-            let number = value.extract::<num_bigint::BigInt>()?;
+            let number = 'number: {
+                match *size {
+                    64 | 128 => {
+                        if let Ok(tokens) = value.extract::<PyRef<Tokens>>() {
+                            break 'number num_bigint::BigInt::from(tokens.0);
+                        }
+                    }
+                    _ => {}
+                }
+
+                value.extract::<num_bigint::BigInt>()?
+            };
+
             ton_abi::TokenValue::Int(ton_abi::Int {
                 number,
                 size: *size,
@@ -1139,7 +1161,14 @@ fn parse_token(param: &ton_abi::ParamType, value: &PyAny) -> PyResult<ton_abi::T
             ton_abi::TokenValue::String(value)
         }
         ton_abi::ParamType::Token => {
-            let value = value.extract::<u128>()?;
+            let value = 'number: {
+                if let Ok(tokens) = value.extract::<PyRef<Tokens>>() {
+                    break 'number tokens.0.try_into().handle_value_error()?;
+                }
+
+                value.extract::<u128>()?
+            };
+
             let value = ton_block::Grams::new(value).handle_runtime_error()?;
             ton_abi::TokenValue::Token(value)
         }

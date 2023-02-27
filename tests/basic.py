@@ -87,7 +87,7 @@ assert (send_transaction_func is not None)
 
 send_transaction_input = {
     "dest": my_addr,
-    "value": 123,
+    "value": Tokens('1.5'),
     "bounce": False,
     "flags": 3,
     "payload": Cell(),
@@ -98,7 +98,7 @@ assert (body_cell != Cell())
 
 internal_msg = send_transaction_func.encode_internal_message(
     input=send_transaction_input,
-    value=13213123,
+    value=Tokens('1.5'),
     bounce=False,
     dst=my_addr,
 )
@@ -118,8 +118,12 @@ unpacked_body = body_cell.unpack(abi=[
 decoded_body = send_transaction_func.decode_input(message_body=body_cell, internal=True)
 
 for field, item in send_transaction_input.items():
-    assert (unpacked_body[field] == item)
-    assert (decoded_body[field] == item)
+    if isinstance(item, Tokens):
+        assert (Tokens.from_nano(unpacked_body[field]) == item)
+        assert (Tokens.from_nano(decoded_body[field]) == item)
+    else:
+        assert (unpacked_body[field] == item)
+        assert (decoded_body[field] == item)
 
 unsigned_body = send_transaction_func.encode_external_input(send_transaction_input, public_key=None, address=my_addr)
 assert (unsigned_body.sign(keypair0, signature_id=None) == unsigned_body.with_signature(
@@ -132,6 +136,9 @@ assert (len(external_msg.hash) == 32)
 assert (isinstance(external_msg.header, ExternalInMessageHeader))
 
 depool_abi = ContractAbi.from_file(os.path.join(dirname, 'depool.abi.json'))
+
+tokens = Tokens('10.123456789')
+assert (2 * tokens / 2) == tokens
 
 
 # Subscriptions
@@ -152,7 +159,7 @@ async def main():
     print(account)
     assert (account is not None)
     assert (account.status == AccountStatus.Active)
-    assert (account.balance > 0)
+    assert (not account.balance.is_zero)
     assert (account.state_init.code is not None)
 
     executor = TransactionExecutor(config, check_signature=False)

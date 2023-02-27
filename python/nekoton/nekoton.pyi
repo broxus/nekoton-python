@@ -197,7 +197,7 @@ class FunctionAbi:
     def encode_internal_message(
             self,
             input: Dict[str, Any],
-            value: int,
+            value: Tokens,
             bounce: bool,
             dst: Address,
             src: Optional[Address] = None,
@@ -746,7 +746,7 @@ class AccountState:
         ...
 
     @property
-    def due_payment(self) -> Optional[int]:
+    def due_payment(self) -> Optional[Tokens]:
         """Optional account debt in nano EVERs."""
         ...
 
@@ -756,7 +756,7 @@ class AccountState:
         ...
 
     @property
-    def balance(self) -> int:
+    def balance(self) -> Tokens:
         """Account balance in nano EVERs."""
         ...
 
@@ -846,7 +846,7 @@ class Transaction:
         ...
 
     @property
-    def total_fees(self) -> int:
+    def total_fees(self) -> Tokens:
         """A total amount of fees in nano EVERs."""
         ...
 
@@ -937,18 +937,18 @@ class TransactionStoragePhase:
     """Transaction storage phase."""
 
     @property
-    def status_change(self) -> AccountStatusChange:
-        """Account status change during this phase."""
-        ...
-
-    @property
-    def storage_fees_collected(self) -> int:
+    def storage_fees_collected(self) -> Tokens:
         """Amount of collected storage fees in nano EVERs."""
         ...
 
     @property
-    def storage_fees_due(self) -> Optional[int]:
+    def storage_fees_due(self) -> Optional[Tokens]:
         """Payed storage debt."""
+        ...
+
+    @property
+    def status_change(self) -> AccountStatusChange:
+        """Account status change during this phase."""
         ...
 
 
@@ -956,12 +956,12 @@ class TransactionCreditPhase:
     """Transaction credit phase."""
 
     @property
-    def due_fees_collected(self) -> Optional[int]:
+    def due_fees_collected(self) -> Optional[Tokens]:
         """Amount of collected storage fees in nano EVERs."""
         ...
 
     @property
-    def credit(self) -> int:
+    def credit(self) -> Tokens:
         """Increased balance in nano EVERs."""
         ...
 
@@ -979,7 +979,7 @@ class TransactionComputePhase:
     def account_activated(self) -> bool: ...
 
     @property
-    def gas_fees(self) -> int: ...
+    def gas_fees(self) -> Tokens: ...
 
     @property
     def gas_used(self) -> int: ...
@@ -1025,10 +1025,10 @@ class TransactionActionPhase:
     def status_change(self) -> AccountStatusChange: ...
 
     @property
-    def total_fwd_fees(self) -> Optional[int]: ...
+    def total_fwd_fees(self) -> Optional[Tokens]: ...
 
     @property
-    def total_action_fees(self) -> Optional[int]: ...
+    def total_action_fees(self) -> Optional[Tokens]: ...
 
     @property
     def result_code(self) -> int: ...
@@ -1054,10 +1054,10 @@ class TransactionActionPhase:
 
 class TransactionBouncePhase:
     @property
-    def msg_fees(self) -> int: ...
+    def msg_fees(self) -> Tokens: ...
 
     @property
-    def fwd_fees(self) -> int: ...
+    def fwd_fees(self) -> Tokens: ...
 
 
 class TransactionType:
@@ -1224,7 +1224,7 @@ class Message:
         ...
 
     @property
-    def value(self) -> int:
+    def value(self) -> Tokens:
         """Attached amount of nano EVERs. (always 0 for non `Internal`)."""
         ...
 
@@ -1301,13 +1301,13 @@ class InternalMessageHeader(MessageHeader):
     def dst(self) -> Address: ...
 
     @property
-    def value(self) -> int: ...
+    def value(self) -> Tokens: ...
 
     @property
-    def ihr_fee(self) -> int: ...
+    def ihr_fee(self) -> Tokens: ...
 
     @property
-    def fwd_fee(self) -> int: ...
+    def fwd_fee(self) -> Tokens: ...
 
     @property
     def created_at(self) -> int: ...
@@ -1325,7 +1325,7 @@ class ExternalInMessageHeader(MessageHeader):
         ...
 
     @property
-    def import_fee(self) -> int:
+    def import_fee(self) -> Tokens:
         """Import fee in nano EVERs"""
         ...
 
@@ -1597,6 +1597,80 @@ class Cell:
     def __lt__(self, other) -> Any: ...
 
     def __ne__(self, other) -> Any: ...
+
+
+class Tokens:
+    """
+    Wrapper around native currency.
+    """
+
+    @staticmethod
+    def from_nano(nano: int) -> Tokens:
+        """Wraps amount in nano."""
+        ...
+
+    @classmethod
+    def __init__(cls, value: str | int):
+        """Constructs tokens from decimal or integer value."""
+        ...
+
+    @property
+    def is_signed(self) -> bool:
+        """Returns `True` if the argument has a negative sign and `False` otherwise."""
+        ...
+
+    @property
+    def is_zero(self) -> bool:
+        """Returns `True` if the argument is a zero and `False` otherwise."""
+        ...
+
+    def max(self, other: Tokens) -> Tokens:
+        """Compares two values numerically and returns the maximum."""
+        ...
+
+    def min(self, other: Tokens) -> Tokens:
+        """Compares two values numerically and returns the minimum."""
+        ...
+
+    def to_nano(self) -> int:
+        """Returns underlying value as nano."""
+        ...
+
+    def abs(self) -> Tokens: ...
+
+    def __bool__(self) -> bool: ...
+
+    def __int__(self) -> int: ...
+
+    def __add__(self, other: Tokens) -> Tokens: ...
+
+    def __sub__(self, other: Tokens) -> Tokens: ...
+
+    def __mul__(self, other: int) -> Tokens: ...
+
+    def __rmul__(self, other: int) -> Tokens: ...
+
+    def __truediv__(self, other: int) -> Tokens: ...
+
+    def __pos__(self) -> Tokens: ...
+
+    def __neg__(self) -> Tokens: ...
+
+    def __abs__(self) -> Tokens: ...
+
+    def __eq__(self, other: Tokens) -> Any: ...
+
+    def __ge__(self, other: Tokens) -> Any: ...
+
+    def __gt__(self, other: Tokens) -> Any: ...
+
+    def __hash__(self) -> Any: ...
+
+    def __le__(self, other: Tokens) -> Any: ...
+
+    def __lt__(self, other: Tokens) -> Any: ...
+
+    def __ne__(self, other: Tokens) -> Any: ...
 
 
 # </editor-fold>
