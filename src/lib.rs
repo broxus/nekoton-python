@@ -23,6 +23,7 @@ fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<AccountStatesAsyncIter>()?;
     m.add_class::<AccountTransactionsAsyncIter>()?;
     m.add_class::<TransactionsBatchInfo>()?;
+    m.add_class::<TraceTransaction>()?;
     m.add_class::<Clock>()?;
 
     // Models

@@ -1,7 +1,12 @@
 import asyncio
 import os
+import logging
 
 from nekoton import *
+
+FORMAT = '%(levelname)s %(name)s %(asctime)-15s %(filename)s:%(lineno)d %(message)s'
+logging.basicConfig(format=FORMAT)
+logging.getLogger().setLevel(logging.DEBUG)
 
 dirname = os.path.dirname(__file__)
 
@@ -183,6 +188,8 @@ async def main():
     assert (parsed_stake_accept.input['queryId'] == 93)
     assert (parsed_stake_accept.output == {})
 
+    await transport.trace_transaction(stake_accept_tx).wait()
+
     full_parsed_stake_accept = depool_abi.decode_transaction(stake_accept_tx)
     assert (full_parsed_stake_accept.function == on_stake_accept_func)
     assert (len(full_parsed_stake_accept.events) == 1)
@@ -220,6 +227,13 @@ async def main():
             print(batch)
             assert len(batch) > 0
             break
+
+    deep_tx_hash = bytes.fromhex('a82e6603dec13499dd43486203b3304122ae89c13a80b189eef8976834cba413')
+    deep_tx_nodes = 0
+    async for transaction in transport.trace_transaction(deep_tx_hash, yield_root=True):
+        deep_tx_nodes += 1
+        print(transaction)
+    assert deep_tx_nodes == 12
 
 
 if __name__ == "__main__":

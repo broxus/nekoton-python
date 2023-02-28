@@ -925,7 +925,7 @@ dependencies = [
 
 [[package]]
 name = "nekoton-python"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -949,6 +949,7 @@ dependencies = [
  "tiny-bip39",
  "tiny-hderive",
  "tokio",
+ "tokio-util",
  "ton_abi",
  "ton_block",
  "ton_executor",

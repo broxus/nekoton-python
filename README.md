@@ -1,3 +1,9 @@
 ## nekoton-python
 
-wip: Python bindings for Nekoton
+Python bindings for Nekoton
+
+### How to install
+
+```
+pip install nekoton
+```

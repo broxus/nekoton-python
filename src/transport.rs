@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 
@@ -5,6 +6,8 @@ use nt::core::models;
 use pyo3::exceptions::{PyRuntimeError, PyStopAsyncIteration, PyValueError};
 use pyo3::prelude::*;
 use tokio::sync::{broadcast, oneshot, watch, Notify};
+use tokio_util::sync::{CancellationToken, DropGuard};
+use ton_block::Deserializable;
 
 use crate::abi::SignedExternalMessage;
 use crate::models::{AccountState, Address, BlockchainConfig, Message, Transaction};
@@ -17,21 +20,59 @@ struct TransportState {
     clock: Clock,
     handle: TransportHandle,
     subscriptions: Arc<tokio::sync::Mutex<SubscriptionsMap>>,
+    _drop_guard: DropGuard,
 }
 
 impl TransportState {
+    fn new(clock: Clock, handle: TransportHandle) -> Arc<Self> {
+        let cancellation_token = CancellationToken::new();
+
+        let shared = Arc::new(Self {
+            clock,
+            handle,
+            subscriptions: Default::default(),
+            _drop_guard: cancellation_token.clone().drop_guard(),
+        });
+
+        let weak = Arc::downgrade(&shared);
+        pyo3_asyncio::tokio::get_runtime().spawn(async move {
+            const GC_INTERVAL: Duration = Duration::from_secs(2);
+
+            tokio::pin!(let cancelled = cancellation_token.cancelled(););
+            loop {
+                tokio::select! {
+                    _ = tokio::time::sleep(GC_INTERVAL) => {},
+                    _ = &mut cancelled => return,
+                }
+
+                let Some(shared) = weak.upgrade() else {
+                    return;
+                };
+
+                let mut subscriptions = shared.subscriptions.lock().await;
+                subscriptions.retain(|_, subscription| subscription.strong_count() > 0);
+            }
+        });
+
+        shared
+    }
+
     async fn get_subscription(
         &self,
         address: ton_block::MsgAddressInt,
     ) -> PyResult<Arc<SharedSubscription>> {
         use std::collections::hash_map;
 
+        log::debug!("Requesting subscription for {address}");
+
         let mut subscriptions = self.subscriptions.lock().await;
         let subscription = match subscriptions.entry(address.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
                 if let Some(subscription) = entry.get().upgrade() {
+                    log::debug!("Subscription for {address} already exists");
                     subscription
                 } else {
+                    log::debug!("Recreating subscription for {address}");
                     let subscription = SharedSubscription::subscribe(
                         self.clock.clone(),
                         self.handle.clone(),
@@ -44,6 +85,7 @@ impl TransportState {
                 }
             }
             hash_map::Entry::Vacant(entry) => {
+                log::debug!("Creating subscription for {address}");
                 let subscription =
                     SharedSubscription::subscribe(self.clock.clone(), self.handle.clone(), address)
                         .await
@@ -200,9 +242,9 @@ impl Transport {
     pub fn get_dst_transaction<'a>(
         &self,
         py: Python<'a>,
-        message_hash: &[u8],
+        message_hash: MessageOrHash<'a>,
     ) -> PyResult<&'a PyAny> {
-        let message_hash = ton_types::UInt256::from_bytes(message_hash, "message hash")?;
+        let message_hash = message_hash.try_into()?;
 
         let handle = self.0.handle.clone();
         pyo3_asyncio::tokio::future_into_py(py, async move {
@@ -263,6 +305,78 @@ impl Transport {
             },
         )))
     }
+
+    pub fn trace_transaction<'a>(
+        &self,
+        py: Python<'a>,
+        transaction_hash: TransactionOrHash<'a>,
+        yield_root: Option<bool>,
+    ) -> PyResult<TraceTransaction> {
+        let yield_root = yield_root.unwrap_or_default();
+        let mut queue = Default::default();
+        let root_hash;
+        let root = match &transaction_hash {
+            TransactionOrHash::Transaction(tx) => {
+                TraceTransactionState::extract_messages(&tx.0.data, &mut queue)?;
+                root_hash = Some(tx.0.hash);
+                yield_root.then(|| tx.into_py(py))
+            }
+            TransactionOrHash::Hash(bytes) => {
+                root_hash = Some(ton_types::UInt256::from_bytes(bytes, "transaction hash")?);
+                None
+            }
+        };
+
+        Ok(TraceTransaction(Arc::new(tokio::sync::Mutex::new(
+            TraceTransactionState {
+                transport: self.0.clone(),
+                yield_root,
+                root_hash,
+                root,
+                queue,
+            },
+        ))))
+    }
+}
+
+#[derive(FromPyObject)]
+pub enum MessageOrHash<'a> {
+    #[pyo3(transparent, annotation = "bytes")]
+    Hash(&'a [u8]),
+    #[pyo3(transparent, annotation = "Message")]
+    Message(PyRef<'a, Message>),
+}
+
+impl TryFrom<MessageOrHash<'_>> for ton_types::UInt256 {
+    type Error = PyErr;
+
+    fn try_from(value: MessageOrHash<'_>) -> Result<Self, Self::Error> {
+        match value {
+            MessageOrHash::Hash(hash) => ton_types::UInt256::from_bytes(hash, "message hash"),
+            MessageOrHash::Message(msg) => Ok(msg.hash),
+        }
+    }
+}
+
+#[derive(FromPyObject)]
+pub enum TransactionOrHash<'a> {
+    #[pyo3(transparent, annotation = "bytes")]
+    Hash(&'a [u8]),
+    #[pyo3(transparent, annotation = "Transaction")]
+    Transaction(PyRef<'a, Transaction>),
+}
+
+impl TryFrom<TransactionOrHash<'_>> for ton_types::UInt256 {
+    type Error = PyErr;
+
+    fn try_from(value: TransactionOrHash<'_>) -> Result<Self, Self::Error> {
+        match value {
+            TransactionOrHash::Hash(hash) => {
+                ton_types::UInt256::from_bytes(hash, "transaction hash")
+            }
+            TransactionOrHash::Transaction(tx) => Ok(tx.0.hash),
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -290,12 +404,10 @@ impl GqlTransport {
         let handle = TransportHandle::GraphQl(transport);
         let clock = clock.unwrap_or_default();
 
-        Ok(PyClassInitializer::from(Transport(Arc::new(TransportState {
-            handle,
-            clock,
-            subscriptions: Default::default(),
-        })))
-        .add_subclass(Self))
+        Ok(
+            PyClassInitializer::from(Transport(TransportState::new(clock, handle)))
+                .add_subclass(Self),
+        )
     }
 }
 
@@ -315,12 +427,10 @@ impl JrpcTransport {
         let handle = TransportHandle::Jrpc(transport);
         let clock = clock.unwrap_or_default();
 
-        Ok(PyClassInitializer::from(Transport(Arc::new(TransportState {
-            handle,
-            clock,
-            subscriptions: Default::default(),
-        })))
-        .add_subclass(Self))
+        Ok(
+            PyClassInitializer::from(Transport(TransportState::new(clock, handle)))
+                .add_subclass(Self),
+        )
     }
 }
 
@@ -335,7 +445,7 @@ enum AccountStatesAsyncIterState {
     Active {
         watch: watch::Receiver<PyObject>,
         initial: bool,
-        _subscription: Arc<SharedSubscription>,
+        subscription: Arc<SharedSubscription>,
     },
     Closed,
 }
@@ -345,7 +455,14 @@ impl AccountStatesAsyncIter {
     fn close<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny> {
         let state = self.0.clone();
         pyo3_asyncio::tokio::future_into_py(py, async move {
-            *state.lock().await = AccountStatesAsyncIterState::Closed;
+            let mut state = state.lock().await;
+            if let AccountStatesAsyncIterState::Active { subscription, .. } = &*state {
+                log::debug!(
+                    "Closed account states iterator for {}",
+                    subscription.address
+                );
+            }
+            *state = AccountStatesAsyncIterState::Closed;
             Ok(())
         })
     }
@@ -363,10 +480,11 @@ impl AccountStatesAsyncIter {
                 AccountStatesAsyncIterState::Uninit { transport, address } => {
                     let subscription = transport.get_subscription(address.clone()).await?;
                     let watch = subscription.state.account_state.subscribe();
+                    log::debug!("Created account states iterator for {address}");
                     *state = AccountStatesAsyncIterState::Active {
                         watch,
                         initial: true,
-                        _subscription: subscription,
+                        subscription,
                     };
                     Ok(slf)
                 }
@@ -399,22 +517,31 @@ impl AccountStatesAsyncIter {
                 AccountStatesAsyncIterState::Uninit { transport, address } => {
                     let subscription = transport.get_subscription(address.clone()).await?;
                     let watch = subscription.state.account_state.subscribe();
+                    log::debug!("Created account states iterator for {address}");
                     *state = AccountStatesAsyncIterState::Active {
                         watch,
                         initial: true,
-                        _subscription: subscription,
+                        subscription,
                     };
                 }
                 _ => {}
             };
 
             match &mut *state {
-                AccountStatesAsyncIterState::Active { watch, initial, .. } => {
+                AccountStatesAsyncIterState::Active {
+                    watch,
+                    initial,
+                    subscription,
+                } => {
                     if std::mem::take(initial) {
                         return Ok(watch.borrow_and_update().clone());
                     }
 
                     if watch.changed().await.is_err() {
+                        log::debug!(
+                            "Closed account states iterator for {}",
+                            subscription.address
+                        );
                         *state = AccountStatesAsyncIterState::Closed;
                         return Err(PyStopAsyncIteration::new_err(()));
                     }
@@ -440,7 +567,7 @@ enum AccountTransactionsAsyncIterState {
     },
     Active {
         transactions: broadcast::Receiver<PyObject>,
-        _subscription: Arc<SharedSubscription>,
+        subscription: Arc<SharedSubscription>,
     },
     Closed,
 }
@@ -450,7 +577,11 @@ impl AccountTransactionsAsyncIter {
     fn close<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny> {
         let state = self.0.clone();
         pyo3_asyncio::tokio::future_into_py(py, async move {
-            *state.lock().await = AccountTransactionsAsyncIterState::Closed;
+            let mut state = state.lock().await;
+            if let AccountTransactionsAsyncIterState::Active { subscription, .. } = &*state {
+                log::debug!("Closed transactions iterator for {}", subscription.address);
+            }
+            *state = AccountTransactionsAsyncIterState::Closed;
             Ok(())
         })
     }
@@ -468,9 +599,10 @@ impl AccountTransactionsAsyncIter {
                 AccountTransactionsAsyncIterState::Uninit { transport, address } => {
                     let subscription = transport.get_subscription(address.clone()).await?;
                     let transactions = subscription.state.transactions.subscribe();
+                    log::debug!("Created transactions iterator for {address}");
                     *state = AccountTransactionsAsyncIterState::Active {
                         transactions,
-                        _subscription: subscription,
+                        subscription,
                     };
                     Ok(slf)
                 }
@@ -503,25 +635,172 @@ impl AccountTransactionsAsyncIter {
                 AccountTransactionsAsyncIterState::Uninit { transport, address } => {
                     let subscription = transport.get_subscription(address.clone()).await?;
                     let transactions = subscription.state.transactions.subscribe();
+                    log::debug!("Created transactions iterator for {address}");
                     *state = AccountTransactionsAsyncIterState::Active {
                         transactions,
-                        _subscription: subscription,
+                        subscription,
                     };
                 }
                 _ => {}
             };
 
             match &mut *state {
-                AccountTransactionsAsyncIterState::Active { transactions, .. } => {
-                    match transactions.recv().await {
-                        Ok(batch) => Ok(batch),
-                        Err(_) => {
-                            *state = AccountTransactionsAsyncIterState::Closed;
-                            Err(PyStopAsyncIteration::new_err(()))
-                        }
+                AccountTransactionsAsyncIterState::Active {
+                    transactions,
+                    subscription,
+                } => match transactions.recv().await {
+                    Ok(batch) => Ok(batch),
+                    Err(_) => {
+                        log::debug!("Closed transactions iterator for {}", subscription.address);
+                        *state = AccountTransactionsAsyncIterState::Closed;
+                        Err(PyStopAsyncIteration::new_err(()))
                     }
-                }
+                },
                 _ => unreachable!(),
+            }
+        }) {
+            Ok(awaitable) => Ok(Some(awaitable)),
+            Err(e) => Err(e),
+        }
+    }
+}
+
+#[pyclass]
+pub struct TraceTransaction(Arc<tokio::sync::Mutex<TraceTransactionState>>);
+
+struct TraceTransactionState {
+    transport: Arc<TransportState>,
+    yield_root: bool,
+    root_hash: Option<ton_types::UInt256>,
+    root: Option<PyObject>,
+    queue: VecDeque<ton_types::UInt256>,
+}
+
+impl TraceTransactionState {
+    fn extract_messages(
+        tx: &ton_block::Transaction,
+        queue: &mut VecDeque<ton_types::UInt256>,
+    ) -> PyResult<()> {
+        let mut hashes = Vec::new();
+        tx.out_msgs
+            .iterate_slices(|slice| {
+                let Some(msg_cell) = slice.reference_opt(0) else {
+                    return Ok(true);
+                };
+
+                let message = ton_block::Message::construct_from_cell(msg_cell.clone())?;
+                if message.is_internal() {
+                    hashes.push(msg_cell.repr_hash());
+                }
+
+                Ok(true)
+            })
+            .handle_runtime_error()?;
+
+        queue.extend(hashes);
+        Ok(())
+    }
+
+    async fn next(&mut self) -> PyResult<Option<nt::transport::models::RawTransaction>> {
+        const MIN_INTERVAL_MS: u64 = 500;
+        const MAX_INTERVAL_MS: u64 = 3000;
+        const FACTOR: u64 = 2;
+
+        let transport = self.transport.handle.as_ref();
+
+        if let Some(root_hash) = &self.root_hash {
+            let Some(tx) = transport.get_transaction(root_hash).await.handle_runtime_error()? else {
+                return Err(PyRuntimeError::new_err("Root transaction not found"));
+            };
+
+            Self::extract_messages(&tx.data, &mut self.queue)?;
+
+            self.root_hash = None;
+            if std::mem::take(&mut self.yield_root) {
+                return Ok(Some(tx));
+            }
+        }
+
+        let Some(message_hash) = self.queue.front() else {
+            return Ok(None);
+        };
+
+        let mut interval_ms = MIN_INTERVAL_MS;
+        let tx = loop {
+            if let Ok(Some(tx)) = transport.get_dst_transaction(message_hash).await {
+                break tx;
+            }
+
+            tokio::time::sleep(Duration::from_millis(interval_ms)).await;
+            interval_ms = std::cmp::min(interval_ms * FACTOR, MAX_INTERVAL_MS);
+        };
+
+        Self::extract_messages(&tx.data, &mut self.queue)?;
+        self.queue.pop_front();
+
+        Ok(Some(tx))
+    }
+}
+
+#[pymethods]
+impl TraceTransaction {
+    fn close<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny> {
+        let state = self.0.clone();
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            let mut state = state.lock().await;
+            state.yield_root = false;
+            state.root_hash = None;
+            state.root = None;
+            state.queue.clear();
+            Ok(())
+        })
+    }
+
+    fn wait<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny> {
+        let state = self.0.clone();
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            let mut state = state.lock().await;
+            state.yield_root = false;
+            state.root = None;
+            while state.next().await?.is_some() {}
+            Ok(())
+        })
+    }
+
+    fn __aenter__<'a>(slf: PyRef<'a, Self>, py: Python<'a>) -> PyResult<&'a PyAny> {
+        let slf = slf.into_py(py);
+        pyo3_asyncio::tokio::future_into_py(py, async move { Ok(slf) })
+    }
+
+    fn __aexit__<'a>(
+        &self,
+        py: Python<'a>,
+        _exc_type: &'a PyAny,
+        _exc_value: &'a PyAny,
+        _traceback: &'a PyAny,
+    ) -> PyResult<&'a PyAny> {
+        self.close(py)
+    }
+
+    fn __aiter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    pub fn __anext__<'a>(&'a mut self, py: Python<'a>) -> PyResult<Option<&'a PyAny>> {
+        let state = self.0.clone();
+        match pyo3_asyncio::tokio::future_into_py(py, async move {
+            let mut state = state.lock().await;
+            if let Some(root) = state.root.take() {
+                state.yield_root = false;
+                return Ok(root);
+            }
+
+            match state.next().await? {
+                Some(tx) => {
+                    let tx = Transaction::try_from(tx)?;
+                    Python::with_gil(|py| Ok(tx.into_py(py)))
+                }
+                None => Err(PyStopAsyncIteration::new_err(())),
             }
         }) {
             Ok(awaitable) => Ok(Some(awaitable)),
@@ -652,6 +931,7 @@ impl TransportHandle {
 }
 
 struct SharedSubscription {
+    address: ton_block::MsgAddressInt,
     state: SubscriptionState,
     skip_iteration_signal: Arc<Notify>,
     subscription: tokio::sync::Mutex<nt::core::ContractSubscription>,
@@ -678,7 +958,7 @@ impl SharedSubscription {
             nt::core::ContractSubscription::subscribe(
                 clock.0,
                 transport.into(),
-                address,
+                address.clone(),
                 &mut |account_state| state.on_state_changed(account_state.clone()),
                 None,
             )
@@ -687,6 +967,7 @@ impl SharedSubscription {
         );
 
         let shared = Arc::new(SharedSubscription {
+            address,
             state,
             skip_iteration_signal: Arc::new(Default::default()),
             subscription,
@@ -746,8 +1027,15 @@ impl SharedSubscription {
 }
 
 async fn subscription_loop(shared: Arc<SharedSubscription>) {
-    fn split_shared(shared: Arc<SharedSubscription>) -> (Arc<Notify>, Weak<SharedSubscription>) {
+    fn split_shared(
+        shared: Arc<SharedSubscription>,
+    ) -> (
+        ton_block::MsgAddressInt,
+        Arc<Notify>,
+        Weak<SharedSubscription>,
+    ) {
         (
+            shared.address.clone(),
             shared.skip_iteration_signal.clone(),
             Arc::downgrade(&shared),
         )
@@ -756,7 +1044,7 @@ async fn subscription_loop(shared: Arc<SharedSubscription>) {
     const INTERVAL: Duration = Duration::from_secs(5);
     const SHORT_INTERVAL: Duration = Duration::from_secs(1);
 
-    let (skip_iteration_signal, shared) = split_shared(shared);
+    let (address, skip_iteration_signal, shared) = split_shared(shared);
 
     let mut polling_method = models::PollingMethod::Manual;
     loop {
@@ -772,6 +1060,7 @@ async fn subscription_loop(shared: Arc<SharedSubscription>) {
         }
 
         let Some(shared) = shared.upgrade() else {
+            log::debug!("Stopped subscription for {address}");
             return;
         };
 
@@ -792,7 +1081,7 @@ async fn subscription_loop(shared: Arc<SharedSubscription>) {
             .await;
 
         if let Err(e) = res {
-            log::error!("Subscription loop error: {e:?}");
+            log::error!("Subscription loop error for {address}: {e:?}");
         }
 
         polling_method = subscription.polling_method();

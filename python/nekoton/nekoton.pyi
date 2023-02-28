@@ -1744,11 +1744,11 @@ class Transport:
         """
         ...
 
-    async def get_dst_transaction(self, message_hash: bytes) -> Optional[Transaction]:
+    async def get_dst_transaction(self, message_hash: bytes | Message) -> Optional[Transaction]:
         """
         Searches for a transaction by the hash of incoming message.
 
-        :param message_hash: a hash of the incoming message.
+        :param message_hash: a hash of the incoming message, or the message itself.
         """
         ...
 
@@ -1780,6 +1780,15 @@ class Transport:
         Returns an async account transactions iterator.
 
         :param address: account address.
+        """
+        ...
+
+    def trace_transaction(self, transaction_hash: bytes | Transaction, yield_root: bool = False) -> TraceTransaction:
+        """
+        Returns an async transactions iterator over the transactions tree.
+
+        :param transaction_hash: hash of the root transaction, or the root transaction itself.
+        :param yield_root: whether to emit the root transaction.
         """
         ...
 
@@ -1816,7 +1825,7 @@ class JrpcTransport(Transport):
 
 class AccountStatesAsyncIter:
     """
-    Async states iterator.
+    Async account states iterator.
     """
 
     async def close(self):
@@ -1836,7 +1845,7 @@ class AccountStatesAsyncIter:
 
 class AccountTransactionsAsyncIter:
     """
-    Async transactions iterator.
+    Async account transactions iterator.
     """
 
     async def close(self):
@@ -1852,6 +1861,32 @@ class AccountTransactionsAsyncIter:
     def __aiter__(self) -> AccountTransactionsAsyncIter: ...
 
     def __anext__(self) -> Tuple[List[Transaction], TransactionsBatchInfo]: ...
+
+
+class TraceTransaction:
+    """
+    Async transactions tree iterator.
+    """
+
+    async def close(self):
+        """
+        Closes async iterator.
+        """
+        ...
+
+    async def wait(self):
+        """
+        Waits for the last transaction.
+        """
+        ...
+
+    async def __aenter__(self) -> TraceTransaction: ...
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb): ...
+
+    def __aiter__(self) -> TraceTransaction: ...
+
+    def __anext__(self) -> Transaction: ...
 
 
 class TransactionsBatchInfo:
