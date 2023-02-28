@@ -1775,6 +1775,14 @@ class Transport:
         """
         ...
 
+    def account_transactions(self, address: Address) -> AccountTransactionsAsyncIter:
+        """
+        Returns an async account transactions iterator.
+
+        :param address: account address.
+        """
+        ...
+
 
 class GqlTransport(Transport):
     """
@@ -1817,13 +1825,49 @@ class AccountStatesAsyncIter:
         """
         ...
 
-    def __aenter__(self): ...
+    async def __aenter__(self) -> AccountStatesAsyncIter: ...
 
-    def __aexit__(self, exc_type, exc_val, exc_tb): ...
+    async def __aexit__(self, exc_type, exc_val, exc_tb): ...
 
     def __aiter__(self) -> AccountStatesAsyncIter: ...
 
     def __anext__(self) -> Optional[AccountState]: ...
+
+
+class AccountTransactionsAsyncIter:
+    """
+    Async transactions iterator.
+    """
+
+    async def close(self):
+        """
+        Closes async iterator.
+        """
+        ...
+
+    async def __aenter__(self) -> AccountTransactionsAsyncIter: ...
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb): ...
+
+    def __aiter__(self) -> AccountTransactionsAsyncIter: ...
+
+    def __anext__(self) -> Tuple[List[Transaction], TransactionsBatchInfo]: ...
+
+
+class TransactionsBatchInfo:
+    """
+    Account transactions batch range info
+    """
+
+    @property
+    def min_lt(self) -> int:
+        """The lowest logical time in batch."""
+        ...
+
+    @property
+    def max_lt(self) -> int:
+        """The highest logical time in batch."""
+        ...
 
 
 class Clock:

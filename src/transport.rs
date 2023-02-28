@@ -4,7 +4,7 @@ use std::time::Duration;
 use nt::core::models;
 use pyo3::exceptions::{PyRuntimeError, PyStopAsyncIteration, PyValueError};
 use pyo3::prelude::*;
-use tokio::sync::{oneshot, watch, Notify};
+use tokio::sync::{broadcast, oneshot, watch, Notify};
 
 use crate::abi::SignedExternalMessage;
 use crate::models::{AccountState, Address, BlockchainConfig, Message, Transaction};
@@ -254,6 +254,15 @@ impl Transport {
             },
         )))
     }
+
+    pub fn account_transactions(&self, address: Address) -> AccountTransactionsAsyncIter {
+        AccountTransactionsAsyncIter(Arc::new(tokio::sync::Mutex::new(
+            AccountTransactionsAsyncIterState::Uninit {
+                transport: self.0.clone(),
+                address: address.0,
+            },
+        )))
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -406,6 +415,7 @@ impl AccountStatesAsyncIter {
                     }
 
                     if watch.changed().await.is_err() {
+                        *state = AccountStatesAsyncIterState::Closed;
                         return Err(PyStopAsyncIteration::new_err(()));
                     }
 
@@ -417,6 +427,122 @@ impl AccountStatesAsyncIter {
             Ok(awaitable) => Ok(Some(awaitable)),
             Err(e) => Err(e),
         }
+    }
+}
+
+#[pyclass]
+pub struct AccountTransactionsAsyncIter(Arc<tokio::sync::Mutex<AccountTransactionsAsyncIterState>>);
+
+enum AccountTransactionsAsyncIterState {
+    Uninit {
+        transport: Arc<TransportState>,
+        address: ton_block::MsgAddressInt,
+    },
+    Active {
+        transactions: broadcast::Receiver<PyObject>,
+        _subscription: Arc<SharedSubscription>,
+    },
+    Closed,
+}
+
+#[pymethods]
+impl AccountTransactionsAsyncIter {
+    fn close<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny> {
+        let state = self.0.clone();
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            *state.lock().await = AccountTransactionsAsyncIterState::Closed;
+            Ok(())
+        })
+    }
+
+    fn __aenter__<'a>(slf: PyRef<'a, Self>, py: Python<'a>) -> PyResult<&'a PyAny> {
+        let state = slf.0.clone();
+        let slf = slf.into_py(py);
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            let mut state = state.lock().await;
+            match &*state {
+                AccountTransactionsAsyncIterState::Active { .. } => Ok(slf),
+                AccountTransactionsAsyncIterState::Closed => Err(PyRuntimeError::new_err(
+                    "Entering closed transactions subscription",
+                )),
+                AccountTransactionsAsyncIterState::Uninit { transport, address } => {
+                    let subscription = transport.get_subscription(address.clone()).await?;
+                    let transactions = subscription.state.transactions.subscribe();
+                    *state = AccountTransactionsAsyncIterState::Active {
+                        transactions,
+                        _subscription: subscription,
+                    };
+                    Ok(slf)
+                }
+            }
+        })
+    }
+
+    fn __aexit__<'a>(
+        &self,
+        py: Python<'a>,
+        _exc_type: &'a PyAny,
+        _exc_value: &'a PyAny,
+        _traceback: &'a PyAny,
+    ) -> PyResult<&'a PyAny> {
+        self.close(py)
+    }
+
+    fn __aiter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    pub fn __anext__<'a>(&'a mut self, py: Python<'a>) -> PyResult<Option<&'a PyAny>> {
+        let state = self.0.clone();
+        match pyo3_asyncio::tokio::future_into_py(py, async move {
+            let mut state = state.lock().await;
+            match &*state {
+                AccountTransactionsAsyncIterState::Closed => {
+                    return Err(PyStopAsyncIteration::new_err(()))
+                }
+                AccountTransactionsAsyncIterState::Uninit { transport, address } => {
+                    let subscription = transport.get_subscription(address.clone()).await?;
+                    let transactions = subscription.state.transactions.subscribe();
+                    *state = AccountTransactionsAsyncIterState::Active {
+                        transactions,
+                        _subscription: subscription,
+                    };
+                }
+                _ => {}
+            };
+
+            match &mut *state {
+                AccountTransactionsAsyncIterState::Active { transactions, .. } => {
+                    match transactions.recv().await {
+                        Ok(batch) => Ok(batch),
+                        Err(_) => {
+                            *state = AccountTransactionsAsyncIterState::Closed;
+                            Err(PyStopAsyncIteration::new_err(()))
+                        }
+                    }
+                }
+                _ => unreachable!(),
+            }
+        }) {
+            Ok(awaitable) => Ok(Some(awaitable)),
+            Err(e) => Err(e),
+        }
+    }
+}
+
+#[pyclass(get_all)]
+pub struct TransactionsBatchInfo {
+    min_lt: u64,
+    max_lt: u64,
+}
+
+#[pymethods]
+impl TransactionsBatchInfo {
+    fn __repr__(&self) -> String {
+        format!(
+            "<TransactionsBatchInfo min_lt={}, max_lt={}>",
+            self.min_lt, self.max_lt
+        )
     }
 }
 
@@ -537,10 +663,14 @@ impl SharedSubscription {
         transport: TransportHandle,
         address: ton_block::MsgAddressInt,
     ) -> PyResult<Arc<Self>> {
+        const TX_CAPACITY: usize = 10;
+
         let (account_state, _) = watch::channel(py_none());
+        let (transactions_tx, _) = broadcast::channel(TX_CAPACITY);
 
         let state = SubscriptionState {
             account_state,
+            transactions: transactions_tx,
             pending_messages: Default::default(),
         };
 
@@ -651,9 +781,7 @@ async fn subscription_loop(shared: Arc<SharedSubscription>) {
         let res = subscription
             .refresh(
                 &mut |state| shared.state.on_state_changed(state.clone()),
-                &mut |_transactions, _batch_info| {
-                    // TODO: handle transactions
-                },
+                &mut |transactions, _| shared.state.on_transactions_found(transactions),
                 &mut |pending_transaction, transaction| {
                     shared
                         .state
@@ -673,6 +801,7 @@ async fn subscription_loop(shared: Arc<SharedSubscription>) {
 
 struct SubscriptionState {
     account_state: watch::Sender<PyObject>,
+    transactions: broadcast::Sender<PyObject>,
     pending_messages: FastDashMap<ton_types::UInt256, ResultTx>,
 }
 
@@ -683,6 +812,27 @@ impl SubscriptionState {
             ton_block::Account::Account(stuff) => AccountState(stuff).into_py(py),
         });
         self.account_state.send_replace(value);
+    }
+
+    fn on_transactions_found(&self, mut transactions: Vec<nt::transport::models::RawTransaction>) {
+        // Arrange transactions in ascending order
+        transactions.reverse();
+
+        let transactions = transactions
+            .into_iter()
+            .filter_map(|tx| Transaction::try_from(tx).ok())
+            .collect::<Vec<_>>();
+
+        let batch_info = match (transactions.first(), transactions.last()) {
+            (Some(first), Some(last)) => TransactionsBatchInfo {
+                min_lt: first.lt(),
+                max_lt: last.lt(),
+            },
+            _ => return,
+        };
+
+        let value = Python::with_gil(|py| (transactions, batch_info).into_py(py));
+        self.transactions.send(value).ok();
     }
 
     fn on_message_sent(

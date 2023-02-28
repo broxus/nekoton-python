@@ -215,6 +215,12 @@ async def main():
 
             break  # for tests
 
+    async with transport.account_transactions(config.elector_address) as batches:
+        async for batch, batch_info in batches:
+            print(batch)
+            assert len(batch) > 0
+            break
+
 
 if __name__ == "__main__":
     asyncio.run(main())
