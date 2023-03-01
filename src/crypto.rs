@@ -39,9 +39,15 @@ impl PublicKey {
         encoding.decode_pubkey(value).map(Self)
     }
 
-    fn check_signature(&self, data: &[u8], signature: &Signature) -> bool {
+    fn check_signature(
+        &self,
+        data: &[u8],
+        signature: &Signature,
+        signature_id: Option<i32>,
+    ) -> bool {
         use ed25519_dalek::Verifier;
-        self.0.verify(data, &signature.0).is_ok()
+        let data = ton_abi::extend_signature_with_id(data, signature_id);
+        self.0.verify(&data, &signature.0).is_ok()
     }
 
     fn encode(&self, encoding: Option<&str>) -> PyResult<String> {
@@ -117,9 +123,15 @@ impl KeyPair {
         Signature(self.0.sign(&data))
     }
 
-    pub fn check_signature(&self, data: &[u8], signature: &Signature) -> bool {
+    pub fn check_signature(
+        &self,
+        data: &[u8],
+        signature: &Signature,
+        signature_id: Option<i32>,
+    ) -> bool {
         use ed25519_dalek::Verifier;
-        self.0.public.verify(data, &signature.0).is_ok()
+        let data = ton_abi::extend_signature_with_id(data, signature_id);
+        self.0.public.verify(&data, &signature.0).is_ok()
     }
 
     fn __hash__(&self) -> u64 {

@@ -1966,12 +1966,13 @@ class PublicKey:
     @classmethod
     def __init__(cls, value: str, encoding: Optional[str] = None) -> None: ...
 
-    def check_signature(self, data: bytes, signature: Signature) -> bool:
+    def check_signature(self, data: bytes, signature: Signature, signature_id: Optional[int] = None) -> bool:
         """
         Returns `True` if the signature is correct.
 
         :param data: signed message.
         :param signature: signature to check.
+        :param signature_id: optional signature id.
         """
         ...
 
@@ -2049,12 +2050,13 @@ class KeyPair:
         """
         ...
 
-    def check_signature(self, data: bytes, signature: Signature) -> bool:
+    def check_signature(self, data: bytes, signature: Signature, signature_id: Optional[int] = None) -> bool:
         """
         Returns `True` if the signature is correct.
 
         :param data: signed message.
         :param signature: signature to check.
+        :param signature_id: optional signature id.
         """
         ...
 
