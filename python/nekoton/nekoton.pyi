@@ -1064,8 +1064,18 @@ class TransactionType:
     Ordinary: ClassVar[TransactionType] = ...
     """Ordinary transaction."""
 
-    TickTock: ClassVar[TransactionType] = ...
-    """Special TickTock transaction. (Without incoming message)."""
+    Tick: ClassVar[TransactionType] = ...
+    """Special TickTock transaction (at the beginning of the block, without incoming message)."""
+
+    Tock: ClassVar[TransactionType] = ...
+    """Special Tock transaction (at the end of the block, without incoming message)."""
+
+    @property
+    def is_ordinary(self) -> bool:
+        """
+        Returns `True` if the transaction type is `Ordinary`
+        """
+        ...
 
     def __eq__(self, other) -> Any: ...
 
@@ -1809,6 +1819,34 @@ class GqlTransport(Transport):
             clock: Optional[Clock] = None,
             local: Optional[bool] = None,
     ) -> None: ...
+
+    async def query_transactions(
+            self,
+            filter: str | GqlExprPart | List[GqlExprPart],
+            order_by: Optional[str | GqlExprPart | List[GqlExprPart]] = None,
+            limit: Optional[int] = None
+    ) -> List[Transaction]:
+        """
+        Transactions GQL query.
+
+        :param filter: filter parts.
+        :param order_by: optional orderBy parts.
+        :param limit: optional limit.
+        """
+        ...
+
+
+class GqlExprPart:
+    """
+    GQL query part.
+
+    :param value: part value.
+    """
+
+    @classmethod
+    def __init__(cls, value: str): ...
+
+    def __str__(self): ...
 
 
 class JrpcTransport(Transport):

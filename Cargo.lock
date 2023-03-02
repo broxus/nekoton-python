@@ -945,6 +945,8 @@ dependencies = [
  "pyo3-asyncio",
  "pyo3-log",
  "rand",
+ "serde",
+ "serde_json",
  "sha2",
  "tiny-bip39",
  "tiny-hderive",

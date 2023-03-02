@@ -5,6 +5,8 @@ use std::time::Duration;
 use nt::core::models;
 use pyo3::exceptions::{PyRuntimeError, PyStopAsyncIteration, PyValueError};
 use pyo3::prelude::*;
+use pyo3::types::PyString;
+use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, oneshot, watch, Notify};
 use tokio_util::sync::{CancellationToken, DropGuard};
 use ton_block::Deserializable;
@@ -379,9 +381,45 @@ impl TryFrom<TransactionOrHash<'_>> for ton_types::UInt256 {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[pyclass(subclass, extends = Transport)]
-pub struct GqlTransport;
+pub struct GqlTransport {
+    client: Arc<nekoton_transport::gql::GqlClient>,
+}
+
+impl GqlTransport {
+    async fn query_items<T>(
+        client: &nekoton_transport::gql::GqlClient,
+        query: String,
+    ) -> PyResult<Vec<T::Item>>
+    where
+        T: GqlBocResponse,
+    {
+        use nt::external::{GqlConnection, GqlRequest};
+
+        #[derive(Serialize)]
+        pub struct QueryBody {
+            pub query: String,
+        }
+        let data = serde_json::to_string(&QueryBody { query }).unwrap();
+
+        let response = client
+            .post(GqlRequest {
+                data,
+                long_query: false,
+            })
+            .await
+            .handle_runtime_error()?;
+
+        T::extract(&response)
+    }
+}
+
+trait GqlBocResponse {
+    type Item;
+
+    fn extract(response: &str) -> PyResult<Vec<Self::Item>>;
+}
 
 #[pymethods]
 impl GqlTransport {
@@ -400,14 +438,161 @@ impl GqlTransport {
         })
         .handle_value_error()?;
 
+        let gql = GqlTransport {
+            client: client.clone(),
+        };
+
         let transport = Arc::new(nt::transport::gql::GqlTransport::new(client));
         let handle = TransportHandle::GraphQl(transport);
         let clock = clock.unwrap_or_default();
 
         Ok(
             PyClassInitializer::from(Transport(TransportState::new(clock, handle)))
-                .add_subclass(Self),
+                .add_subclass(gql),
         )
+    }
+
+    fn query_transactions<'a>(
+        &self,
+        py: Python<'a>,
+        filter: GqlExprArg,
+        order_by: Option<GqlExprArg>,
+        limit: Option<usize>,
+    ) -> PyResult<&'a PyAny> {
+        use std::fmt::Write;
+
+        let mut query = String::from("query{transactions(filter:{");
+        filter.write(py, &mut query)?;
+
+        let mut closing = '}';
+        if let Some(order_by) = order_by {
+            write!(&mut query, "{closing},orderBy:[").unwrap();
+            order_by.write(py, &mut query)?;
+            closing = ']';
+        }
+
+        match limit {
+            Some(limit) => write!(&mut query, "{closing},limit:{limit}){{boc}}}}"),
+            None => write!(&mut query, "{closing}){{boc}}}}"),
+        }
+        .unwrap();
+
+        log::debug!("Transactions query: {query}");
+
+        struct TransactionsResponse;
+
+        impl GqlBocResponse for TransactionsResponse {
+            type Item = Transaction;
+
+            fn extract(response: &str) -> PyResult<Vec<Self::Item>> {
+                #[derive(Deserialize)]
+                struct Response<'a> {
+                    #[serde(default)]
+                    errors: Option<serde_json::Value>,
+                    #[serde(default, borrow = "'a")]
+                    data: Option<Transactions<'a>>,
+                }
+
+                #[derive(Deserialize)]
+                struct Transactions<'a> {
+                    #[serde(borrow = "'a")]
+                    transactions: Option<Vec<Item<'a>>>,
+                }
+
+                #[derive(Deserialize)]
+                struct Item<'a> {
+                    #[serde(borrow)]
+                    boc: &'a str,
+                }
+
+                let Response { errors, data } =
+                    serde_json::from_str(response).handle_runtime_error()?;
+                if let Some(errors) = errors {
+                    return Err(PyRuntimeError::new_err(
+                        serde_json::to_string_pretty(&errors).unwrap_or_default(),
+                    ));
+                }
+
+                let Some(Transactions { transactions: Some(transactions) }) = data else {
+                    return Err(PyRuntimeError::new_err("Invalid response"));
+                };
+
+                transactions
+                    .into_iter()
+                    .map(|Item { boc }| {
+                        let tx_cell = Encoding::Base64.decode_cell(boc)?;
+                        Transaction::try_from(tx_cell)
+                    })
+                    .collect()
+            }
+        }
+
+        let client = self.client.clone();
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            Self::query_items::<TransactionsResponse>(&client, query).await
+        })
+    }
+}
+
+#[derive(FromPyObject)]
+enum GqlExprArg<'a> {
+    #[pyo3(transparent, annotation = "str")]
+    String(&'a str),
+    #[pyo3(transparent, annotation = "GqlExprPart")]
+    SingleExpr(GqlExprPart),
+    #[pyo3(transparent, annotation = "List[GqlExprPart]")]
+    MultipleExpr(Vec<GqlExprPart>),
+}
+
+impl GqlExprArg<'_> {
+    fn write(&self, py: Python<'_>, target: &mut String) -> PyResult<()> {
+        use std::fmt::Write;
+
+        match self {
+            Self::String(str) => {
+                target.write_str(str).unwrap();
+            }
+            Self::SingleExpr(expr) => {
+                target.write_str(expr.try_as_str(py)?).unwrap();
+            }
+            Self::MultipleExpr(exprs) => {
+                let mut exprs = exprs.iter();
+                if let Some(first) = exprs.next() {
+                    target.write_str(first.try_as_str(py)?).unwrap();
+                    for expr in exprs {
+                        write!(target, ",{}", expr.try_as_str(py)?).unwrap();
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Clone)]
+#[pyclass(subclass)]
+pub struct GqlExprPart(Py<PyString>);
+
+impl GqlExprPart {
+    fn try_as_str<'a>(&'a self, py: Python<'a>) -> PyResult<&'a str> {
+        self.0.as_ref(py).to_str()
+    }
+}
+
+#[pymethods]
+impl GqlExprPart {
+    #[new]
+    fn new(value: Py<PyString>) -> Self {
+        Self(value)
+    }
+
+    fn __str__(&self) -> Py<PyString> {
+        self.0.clone()
+    }
+
+    fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
+        Ok(format!("GqlExprPart(\"{}\")", self.try_as_str(py)?))
     }
 }
 

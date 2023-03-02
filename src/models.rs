@@ -205,6 +205,17 @@ impl TryFrom<nt::transport::models::RawTransaction> for Transaction {
     }
 }
 
+impl TryFrom<ton_types::Cell> for Transaction {
+    type Error = PyErr;
+
+    fn try_from(value: ton_types::Cell) -> Result<Self, Self::Error> {
+        let hash = value.repr_hash();
+        let data = ton_block::Transaction::construct_from_cell(value).handle_runtime_error()?;
+        let descr = data.read_description().handle_runtime_error()?;
+        Ok(Self(Arc::new(SharedTransaction { data, descr, hash })))
+    }
+}
+
 #[pymethods]
 impl Transaction {
     #[getter]
@@ -216,7 +227,13 @@ impl Transaction {
     fn get_type(&self) -> PyResult<TransactionType> {
         match &self.0.descr {
             ton_block::TransactionDescr::Ordinary(_) => Ok(TransactionType::Ordinary),
-            ton_block::TransactionDescr::TickTock(_) => Ok(TransactionType::TickTock),
+            ton_block::TransactionDescr::TickTock(descr) => {
+                Ok(if descr.tt == ton_block::TransactionTickTock::Tick {
+                    TransactionType::Tick
+                } else {
+                    TransactionType::Tock
+                })
+            }
             _ => Err(PyRuntimeError::new_err("Unsupported transaction type")),
         }
     }
@@ -392,7 +409,7 @@ impl Transaction {
         format!(
             "<Transaction hash='{:x}', {:?}>",
             self.0.hash,
-            self.get_type().unwrap_or(TransactionType::TickTock)
+            self.get_type().unwrap_or(TransactionType::Ordinary)
         )
     }
 
@@ -609,12 +626,18 @@ impl TransactionBouncePhase {
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 #[pyclass]
 pub enum TransactionType {
-    Ordinary,
-    TickTock,
+    Ordinary = 0,
+    Tick = 2,
+    Tock = 3,
 }
 
 #[pymethods]
 impl TransactionType {
+    #[getter]
+    fn is_ordinary(&self) -> bool {
+        matches!(self, Self::Ordinary)
+    }
+
     fn __str__(&self) -> String {
         format!("{:?}", self)
     }
