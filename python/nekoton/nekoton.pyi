@@ -1362,14 +1362,14 @@ class ExternalOutMessageHeader(MessageHeader):
 class MessageType:
     """Message type."""
 
+    Internal: ClassVar[MessageType] = ...
+    """Internal message. (Messages between accounts)."""
+
     ExternalIn: ClassVar[MessageType] = ...
     """External incoming message. (External calls)."""
 
     ExternalOut: ClassVar[MessageType] = ...
     """External outgoing message. (Events)."""
-
-    Internal: ClassVar[MessageType] = ...
-    """Internal message. (Messages between accounts)."""
 
     def __eq__(self, other) -> Any: ...
 
@@ -1828,6 +1828,21 @@ class GqlTransport(Transport):
     ) -> List[Transaction]:
         """
         Transactions GQL query.
+
+        :param filter: filter parts.
+        :param order_by: optional orderBy parts.
+        :param limit: optional limit.
+        """
+        ...
+
+    async def query_messages(
+            self,
+            filter: str | GqlExprPart | List[GqlExprPart],
+            order_by: Optional[str | GqlExprPart | List[GqlExprPart]] = None,
+            limit: Optional[int] = None
+    ) -> List[Transaction]:
+        """
+        Messages GQL query.
 
         :param filter: filter parts.
         :param order_by: optional orderBy parts.

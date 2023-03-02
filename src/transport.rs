@@ -413,6 +413,34 @@ impl GqlTransport {
 
         T::extract(&response)
     }
+
+    fn build_query(
+        py: Python<'_>,
+        field: &str,
+        filter: GqlExprArg,
+        order_by: Option<GqlExprArg>,
+        limit: Option<usize>,
+    ) -> PyResult<String> {
+        use std::fmt::Write;
+
+        let mut query = format!("query{{{field}(filter:{{");
+        filter.write(py, &mut query)?;
+
+        let mut closing = '}';
+        if let Some(order_by) = order_by {
+            write!(&mut query, "{closing},orderBy:[").unwrap();
+            order_by.write(py, &mut query)?;
+            closing = ']';
+        }
+
+        match limit {
+            Some(limit) => write!(&mut query, "{closing},limit:{limit}){{boc}}}}"),
+            None => write!(&mut query, "{closing}){{boc}}}}"),
+        }
+        .unwrap();
+
+        Ok(query)
+    }
 }
 
 trait GqlBocResponse {
@@ -459,24 +487,7 @@ impl GqlTransport {
         order_by: Option<GqlExprArg>,
         limit: Option<usize>,
     ) -> PyResult<&'a PyAny> {
-        use std::fmt::Write;
-
-        let mut query = String::from("query{transactions(filter:{");
-        filter.write(py, &mut query)?;
-
-        let mut closing = '}';
-        if let Some(order_by) = order_by {
-            write!(&mut query, "{closing},orderBy:[").unwrap();
-            order_by.write(py, &mut query)?;
-            closing = ']';
-        }
-
-        match limit {
-            Some(limit) => write!(&mut query, "{closing},limit:{limit}){{boc}}}}"),
-            None => write!(&mut query, "{closing}){{boc}}}}"),
-        }
-        .unwrap();
-
+        let query = Self::build_query(py, "transactions", filter, order_by, limit)?;
         log::debug!("Transactions query: {query}");
 
         struct TransactionsResponse;
@@ -530,6 +541,70 @@ impl GqlTransport {
         let client = self.client.clone();
         pyo3_asyncio::tokio::future_into_py(py, async move {
             Self::query_items::<TransactionsResponse>(&client, query).await
+        })
+    }
+
+    fn query_messages<'a>(
+        &self,
+        py: Python<'a>,
+        filter: GqlExprArg,
+        order_by: Option<GqlExprArg>,
+        limit: Option<usize>,
+    ) -> PyResult<&'a PyAny> {
+        let query = Self::build_query(py, "messages", filter, order_by, limit)?;
+        log::debug!("Messages query: {query}");
+
+        struct MessagesResponse;
+
+        impl GqlBocResponse for MessagesResponse {
+            type Item = Message;
+
+            fn extract(response: &str) -> PyResult<Vec<Self::Item>> {
+                #[derive(Deserialize)]
+                struct Response<'a> {
+                    #[serde(default)]
+                    errors: Option<serde_json::Value>,
+                    #[serde(default, borrow = "'a")]
+                    data: Option<Messages<'a>>,
+                }
+
+                #[derive(Deserialize)]
+                struct Messages<'a> {
+                    #[serde(borrow = "'a")]
+                    messages: Option<Vec<Item<'a>>>,
+                }
+
+                #[derive(Deserialize)]
+                struct Item<'a> {
+                    #[serde(borrow)]
+                    boc: &'a str,
+                }
+
+                let Response { errors, data } =
+                    serde_json::from_str(response).handle_runtime_error()?;
+                if let Some(errors) = errors {
+                    return Err(PyRuntimeError::new_err(
+                        serde_json::to_string_pretty(&errors).unwrap_or_default(),
+                    ));
+                }
+
+                let Some(Messages { messages: Some(messages) }) = data else {
+                    return Err(PyRuntimeError::new_err("Invalid response"));
+                };
+
+                messages
+                    .into_iter()
+                    .map(|Item { boc }| {
+                        let msg_cell = Encoding::Base64.decode_cell(boc)?;
+                        Message::try_from(msg_cell)
+                    })
+                    .collect()
+            }
+        }
+
+        let client = self.client.clone();
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            Self::query_items::<MessagesResponse>(&client, query).await
         })
     }
 }

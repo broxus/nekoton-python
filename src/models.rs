@@ -738,14 +738,22 @@ pub struct Message {
     pub hash: ton_types::UInt256,
 }
 
+impl TryFrom<ton_types::Cell> for Message {
+    type Error = PyErr;
+
+    fn try_from(msg_cell: ton_types::Cell) -> Result<Self, Self::Error> {
+        let hash = msg_cell.repr_hash();
+        let data = ton_block::Message::construct_from_cell(msg_cell).handle_value_error()?;
+        Ok(Self { data, hash })
+    }
+}
+
 #[pymethods]
 impl Message {
     #[staticmethod]
     fn from_bytes(mut bytes: &[u8]) -> PyResult<Self> {
         let cell = ton_types::deserialize_tree_of_cells(&mut bytes).handle_runtime_error()?;
-        let hash = cell.repr_hash();
-        let data = ton_block::Message::construct_from_cell(cell).handle_value_error()?;
-        Ok(Self { data, hash })
+        Self::try_from(cell)
     }
 
     #[staticmethod]
@@ -1005,9 +1013,9 @@ impl ExternalOutMessageHeader {
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 #[pyclass]
 pub enum MessageType {
-    Internal,
-    ExternalIn,
-    ExternalOut,
+    Internal = 0,
+    ExternalIn = 1,
+    ExternalOut = 2,
 }
 
 #[pymethods]

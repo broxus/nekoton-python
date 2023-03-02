@@ -21,5 +21,13 @@ async def main():
     ])
     print(transactions)
 
+    messages = await transport.query_messages(gql.or_([
+        gql.msg.Src() == strange_addr,
+        gql.msg.Dst() == strange_addr,
+    ]), order_by=[
+        gql.msg.CreatedLt().desc(),
+    ])
+    print(messages)
+
 
 asyncio.run(main())

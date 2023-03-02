@@ -1,6 +1,6 @@
 from typing import Iterable as _Iterable
 
-from nekoton import Address as _Address, Tokens as _Tokens, TransactionType as _TransactionType, GqlExprPart
+from nekoton import Address as _Address, Tokens as _Tokens, TransactionType as _TransactionType, MessageType as _MessageType, GqlExprPart
 
 
 class OrderBy:
@@ -232,4 +232,27 @@ class TransactionTypeFilter(IntFilter):
         return self._op("lt", int(other))
 
     def __le__(self, other: _TransactionType | str) -> GqlExprPart:
+        return self._op("le", int(other))
+
+
+class MessageTypeFilter(IntFilter):
+    def any_of(self, values: _Iterable[_MessageType | int]) -> GqlExprPart:
+        return self._multi_op('in', map(int, values))
+
+    def not_any_of(self, values: _Iterable[_MessageType | str]) -> GqlExprPart:
+        return self._multi_op('notIn', map(int, values))
+
+    def __eq__(self, other: _MessageType | str) -> GqlExprPart:
+        return self._op("eq", int(other))
+
+    def __ne__(self, other: _MessageType | str) -> GqlExprPart:
+        return self._op("ne", int(other))
+
+    def __gt__(self, other: _MessageType | str) -> GqlExprPart:
+        return self._op("gt", int(other))
+
+    def __lt__(self, other: _MessageType | str) -> GqlExprPart:
+        return self._op("lt", int(other))
+
+    def __le__(self, other: _MessageType | str) -> GqlExprPart:
         return self._op("le", int(other))
