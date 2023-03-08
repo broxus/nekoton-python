@@ -20,8 +20,7 @@ class TransactionExecutor:
     check_signature: bool
     """Whether to require valid signatures."""
 
-    @classmethod
-    def __init__(cls, config: BlockchainConfig, clock: Optional[Clock] = None,
+    def __init__(self, config: BlockchainConfig, clock: Optional[Clock] = None,
                  check_signature: Optional[bool] = None) -> None: ...
 
     def execute(
@@ -50,8 +49,7 @@ class ContractAbi:
         """Reads ABI from file."""
         ...
 
-    @classmethod
-    def __init__(cls, abi: str) -> None: ...
+    def __init__(self, abi: str) -> None: ...
 
     @property
     def abi_version(self) -> AbiVersion:
@@ -468,8 +466,7 @@ class AbiUint(AbiParam):
     :param size: uint size in bits.
     """
 
-    @classmethod
-    def __init__(cls, size: int) -> None: ...
+    def __init__(self, size: int) -> None: ...
 
 
 class AbiInt(AbiParam):
@@ -479,8 +476,7 @@ class AbiInt(AbiParam):
     :param size: int size in bits.
     """
 
-    @classmethod
-    def __init__(cls, size: int) -> None: ...
+    def __init__(self, size: int) -> None: ...
 
 
 class AbiVarUint(AbiParam):
@@ -490,8 +486,7 @@ class AbiVarUint(AbiParam):
     :param size: varuint size in bytes.
     """
 
-    @classmethod
-    def __init__(cls, size: int) -> None: ...
+    def __init__(self, size: int) -> None: ...
 
 
 class AbiVarInt(AbiParam):
@@ -501,8 +496,7 @@ class AbiVarInt(AbiParam):
     :param size: varint size in bytes.
     """
 
-    @classmethod
-    def __init__(cls, size: int) -> None: ...
+    def __init__(self, size: int) -> None: ...
 
 
 class AbiBool(AbiParam):
@@ -510,8 +504,7 @@ class AbiBool(AbiParam):
     A class for a `bool` ABI type.
     """
 
-    @classmethod
-    def __init__(cls) -> None: ...
+    def __init__(self) -> None: ...
 
 
 class AbiTuple(AbiParam):
@@ -521,8 +514,7 @@ class AbiTuple(AbiParam):
     :param items: ABI types of inner values.
     """
 
-    @classmethod
-    def __init__(cls, items: List[Tuple[str, AbiParam]]) -> None: ...
+    def __init__(self, items: List[Tuple[str, AbiParam]]) -> None: ...
 
 
 class AbiArray(AbiParam):
@@ -532,8 +524,7 @@ class AbiArray(AbiParam):
     :param value_type: the ABI type of array items.
     """
 
-    @classmethod
-    def __init__(cls, value_type: AbiParam) -> None: ...
+    def __init__(self, value_type: AbiParam) -> None: ...
 
 
 class AbiFixedArray(AbiParam):
@@ -544,8 +535,7 @@ class AbiFixedArray(AbiParam):
     :param len: number of array items.
     """
 
-    @classmethod
-    def __init__(cls, value_type: AbiParam, len: int) -> None: ...
+    def __init__(self, value_type: AbiParam, len: int) -> None: ...
 
 
 class AbiCell(AbiParam):
@@ -553,8 +543,7 @@ class AbiCell(AbiParam):
     A class for a `cell` ABI type.
     """
 
-    @classmethod
-    def __init__(cls) -> None: ...
+    def __init__(self) -> None: ...
 
 
 class AbiMap(AbiParam):
@@ -565,8 +554,7 @@ class AbiMap(AbiParam):
     :param value_type: the ABI type of mapping values.
     """
 
-    @classmethod
-    def __init__(cls, key_type: AbiParam, value_type: AbiParam) -> None: ...
+    def __init__(self, key_type: AbiParam, value_type: AbiParam) -> None: ...
 
 
 class AbiAddress(AbiParam):
@@ -574,8 +562,7 @@ class AbiAddress(AbiParam):
     A class for a `address` ABI type.
     """
 
-    @classmethod
-    def __init__(cls) -> None: ...
+    def __init__(self) -> None: ...
 
 
 class AbiBytes(AbiParam):
@@ -583,8 +570,7 @@ class AbiBytes(AbiParam):
     A class for a `bytes` ABI type.
     """
 
-    @classmethod
-    def __init__(cls) -> None: ...
+    def __init__(self) -> None: ...
 
 
 class AbiFixedBytes(AbiParam):
@@ -594,8 +580,7 @@ class AbiFixedBytes(AbiParam):
     :param len: number of bytes.
     """
 
-    @classmethod
-    def __init__(cls, len: int) -> None: ...
+    def __init__(self, len: int) -> None: ...
 
 
 class AbiString(AbiParam):
@@ -603,8 +588,7 @@ class AbiString(AbiParam):
     A class for `string` ABI type.
     """
 
-    @classmethod
-    def __init__(cls) -> None: ...
+    def __init__(self) -> None: ...
 
 
 class AbiToken(AbiParam):
@@ -612,8 +596,7 @@ class AbiToken(AbiParam):
     A class for `token` ABI type.
     """
 
-    @classmethod
-    def __init__(cls) -> None: ...
+    def __init__(self) -> None: ...
 
 
 class AbiOptional(AbiParam):
@@ -623,8 +606,7 @@ class AbiOptional(AbiParam):
     :param value_type: the ABI type of the inner value.
     """
 
-    @classmethod
-    def __init__(cls, value_type: AbiParam) -> None: ...
+    def __init__(self, value_type: AbiParam) -> None: ...
 
 
 class AbiRef(AbiParam):
@@ -634,8 +616,7 @@ class AbiRef(AbiParam):
     :param value_type: the ABI type of the inner value.
     """
 
-    @classmethod
-    def __init__(cls, value_type: AbiParam) -> None: ...
+    def __init__(self, value_type: AbiParam) -> None: ...
 
 
 class AbiVersion:
@@ -652,8 +633,7 @@ class AbiVersion:
     minor: int
     """Minor TVM ABI version component."""
 
-    @classmethod
-    def __init__(cls, major: int, minor: int) -> None: ...
+    def __init__(self, major: int, minor: int) -> None: ...
 
     def __eq__(self, other) -> Any: ...
 
@@ -1411,8 +1391,7 @@ class StateInit:
         """
         ...
 
-    @classmethod
-    def __init__(cls, code: Optional[Cell], data: Optional[Cell]) -> None: ...
+    def __init__(self, code: Optional[Cell], data: Optional[Cell]) -> None: ...
 
     @property
     def code_hash(self) -> Optional[bytes]:
@@ -1487,8 +1466,7 @@ class Address:
         """
         ...
 
-    @classmethod
-    def __init__(cls, addr: str) -> None: ...
+    def __init__(self, addr: str) -> None: ...
 
     @property
     def account(self) -> bytes:
@@ -1549,8 +1527,7 @@ class Cell:
         """
         ...
 
-    @classmethod
-    def __init__(cls) -> None: ...
+    def __init__(self) -> None: ...
 
     @property
     def repr_hash(self) -> bytes:
@@ -1619,8 +1596,7 @@ class Tokens:
         """Wraps amount in nano."""
         ...
 
-    @classmethod
-    def __init__(cls, value: str | int):
+    def __init__(self, value: str | int):
         """Constructs tokens from decimal or integer value."""
         ...
 
@@ -1812,9 +1788,8 @@ class GqlTransport(Transport):
     :param local: whether the connection is with local node.
     """
 
-    @classmethod
     def __init__(
-            cls,
+            self,
             endpoints: List[str],
             clock: Optional[Clock] = None,
             local: Optional[bool] = None,
@@ -1858,8 +1833,7 @@ class GqlExprPart:
     :param value: part value.
     """
 
-    @classmethod
-    def __init__(cls, value: str): ...
+    def __init__(self, value: str): ...
 
     def __str__(self): ...
 
@@ -1872,8 +1846,7 @@ class JrpcTransport(Transport):
     :param clock: optional clock to modify timestamp.
     """
 
-    @classmethod
-    def __init__(cls, endpoint: str, clock: Optional[Clock] = None) -> None: ...
+    def __init__(self, endpoint: str, clock: Optional[Clock] = None) -> None: ...
 
 
 class AccountStatesAsyncIter:
@@ -1968,8 +1941,7 @@ class Clock:
     offset: int
     """Clock offset in milliseconds."""
 
-    @classmethod
-    def __init__(cls, offset: Optional[int] = None) -> None: ...
+    def __init__(self, offset: Optional[int] = None) -> None: ...
 
     @property
     def now_sec(self) -> int:
@@ -2016,8 +1988,7 @@ class PublicKey:
         """
         ...
 
-    @classmethod
-    def __init__(cls, value: str, encoding: Optional[str] = None) -> None: ...
+    def __init__(self, value: str, encoding: Optional[str] = None) -> None: ...
 
     def check_signature(self, data: bytes, signature: Signature, signature_id: Optional[int] = None) -> bool:
         """
@@ -2072,8 +2043,7 @@ class KeyPair:
         """Generates a new keypair."""
         ...
 
-    @classmethod
-    def __init__(cls, secret: bytes) -> None: ...
+    def __init__(self, secret: bytes) -> None: ...
 
     @property
     def secret_key(self) -> PublicKey:
@@ -2145,8 +2115,7 @@ class Signature:
         """
         ...
 
-    @classmethod
-    def __init__(cls, value: str, encoding: Optional[str] = None) -> None: ...
+    def __init__(self, value: str, encoding: Optional[str] = None) -> None: ...
 
     def encode(self, encoding: Optional[str] = None) -> str:
         """
@@ -2196,8 +2165,7 @@ class LegacySeed(Seed):
         """Generates a new legacy seed."""
         ...
 
-    @classmethod
-    def __init__(cls, phrase: str) -> None: ...
+    def __init__(self, phrase: str) -> None: ...
 
     def derive(self) -> KeyPair:
         """Derives a key pair."""
@@ -2225,8 +2193,7 @@ class Bip39Seed(Seed):
         """
         ...
 
-    @classmethod
-    def __init__(cls, phrase: str) -> None: ...
+    def __init__(self, phrase: str) -> None: ...
 
     def derive(self, path: Optional[str] = None) -> KeyPair:
         """

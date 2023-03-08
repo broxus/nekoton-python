@@ -40,10 +40,9 @@ assert send_grams is not None
 
 
 class Giver:
-    @classmethod
-    def __init__(cls, transport: nt.Transport, address: nt.Address):
-        cls._transport = transport
-        cls._address = address
+    def __init__(self, transport: nt.Transport, address: nt.Address):
+        self._transport = transport
+        self._address = address
 
     @property
     def address(self) -> nt.Address:

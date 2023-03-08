@@ -44,15 +44,14 @@ class EverWallet:
         })
         return nt.StateInit(wallet_code, data)
 
-    @classmethod
-    def __init__(cls, transport: nt.Transport, keypair: nt.KeyPair, workchain: int = 0):
-        state_init = cls.compute_state_init(keypair.public_key)
+    def __init__(self, transport: nt.Transport, keypair: nt.KeyPair, workchain: int = 0):
+        state_init = self.compute_state_init(keypair.public_key)
 
-        cls._initialized = False
-        cls._transport = transport
-        cls._keypair = keypair
-        cls._state_init = state_init
-        cls._address = state_init.compute_address(workchain)
+        self._initialized = False
+        self._transport = transport
+        self._keypair = keypair
+        self._state_init = state_init
+        self._address = state_init.compute_address(workchain)
 
     @property
     def address(self) -> nt.Address:
