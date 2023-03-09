@@ -2,106 +2,91 @@ from .filters import *
 
 
 class WorkchainId(IntFilter, OrderBy):
-    @classmethod
-    def __init__(cls):
+    def __init__(self):
         field = "workchain_id"
-        IntFilter.__init__(field)
-        OrderBy.__init__(field)
+        IntFilter.__init__(self, field)
+        OrderBy.__init__(self, field)
 
 
 class Id(HashFilter, OrderBy):
-    @classmethod
-    def __init__(cls):
+    def __init__(self):
         field = "id"
-        HashFilter.__init__(field)
-        OrderBy.__init__(field)
+        HashFilter.__init__(self, field)
+        OrderBy.__init__(self, field)
 
 
 class Aborted(BoolFilter):
-    @classmethod
-    def __init__(cls):
-        BoolFilter.__init__("aborted")
+    def __init__(self):
+        BoolFilter.__init__(self, "aborted")
 
 
 class AccountAddr(AddressFilter, OrderBy):
-    @classmethod
-    def __init__(cls):
+    def __init__(self):
         field = "account_addr"
-        AddressFilter.__init__(field)
-        OrderBy.__init__(field)
+        AddressFilter.__init__(self, field)
+        OrderBy.__init__(self, field)
 
 
 class BalanceDelta(TokensFilter, OrderBy):
-    @classmethod
-    def __init__(cls):
+    def __init__(self):
         field = "balance_delta"
-        TokensFilter.__init__(field)
-        OrderBy.__init__(field)
+        TokensFilter.__init__(self, field)
+        OrderBy.__init__(self, field)
 
 
 class BlockId(HashFilter):
-    @classmethod
-    def __init__(cls):
-        HashFilter.__init__("block_id")
+    def __init__(self):
+        HashFilter.__init__(self, "block_id")
 
 
 class CreditFirst(BoolFilter):
-    @classmethod
-    def __init__(cls):
-        BoolFilter.__init__("credit_first")
+    def __init__(self):
+        BoolFilter.__init__(self, "credit_first")
 
 
 class Destroyed(BoolFilter):
-    @classmethod
-    def __init__(cls):
-        BoolFilter.__init__("destroyed")
+    def __init__(self):
+        BoolFilter.__init__(self, "destroyed")
 
 
 class Now(IntFilter, OrderBy):
-    @classmethod
-    def __init__(cls):
+    def __init__(self):
         field = "now"
-        IntFilter.__init__(field)
-        OrderBy.__init__(field)
+        IntFilter.__init__(self, field)
+        OrderBy.__init__(self, field)
 
 
 class Lt(IntAsStringFilter, OrderBy):
-    @classmethod
-    def __init__(cls):
+    def __init__(self):
         field = "lt"
-        IntAsStringFilter.__init__(field)
-        OrderBy.__init__(field)
+        IntAsStringFilter.__init__(self, field)
+        OrderBy.__init__(self, field)
 
 
 class PrevTransHash(HashFilter, OrderBy):
-    @classmethod
-    def __init__(cls):
+    def __init__(self):
         field = "prev_trans_hash"
-        HashFilter.__init__(field)
-        OrderBy.__init__(field)
+        HashFilter.__init__(self, field)
+        OrderBy.__init__(self, field)
 
 
 class PrevTransLt(IntAsStringFilter, OrderBy):
-    @classmethod
-    def __init__(cls):
+    def __init__(self):
         field = "prev_trans_lt"
-        IntAsStringFilter.__init__(field)
-        OrderBy.__init__(field)
+        IntAsStringFilter.__init__(self, field)
+        OrderBy.__init__(self, field)
 
 
 class OldHash(HashFilter):
-    @classmethod
-    def __init__(cls):
-        HashFilter.__init__("old_hash")
+    def __init__(self):
+        HashFilter.__init__(self, "old_hash")
 
 
 class NewHash(HashFilter):
-    @classmethod
-    def __init__(cls):
-        HashFilter.__init__("new_hash")
+    def __init__(self):
+        HashFilter.__init__(self, "new_hash")
 
 
 class TrType(TransactionTypeFilter):
-    @classmethod
-    def __init__(cls):
-        TransactionTypeFilter.__init__("tr_type")
+    def __init__(self):
+        TransactionTypeFilter.__init__(self, "tr_type")

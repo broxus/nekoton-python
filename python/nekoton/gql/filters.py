@@ -4,9 +4,8 @@ from nekoton import Address as _Address, Tokens as _Tokens, TransactionType as _
 
 
 class OrderBy:
-    @classmethod
-    def __init__(cls, path: str):
-        cls._field_path = path
+    def __init__(self, path: str):
+        self._field_path = path
 
     def asc(self) -> GqlExprPart:
         return GqlExprPart('{{path:"{}",direction:ASC}}'.format(self._field_path))
@@ -16,9 +15,8 @@ class OrderBy:
 
 
 class BoolFilter:
-    @classmethod
-    def __init__(cls, field: str):
-        cls._field = field
+    def __init__(self, field: str):
+        self._field = field
 
     def _op(self, value: bool) -> GqlExprPart:
         if value:
@@ -37,9 +35,8 @@ class BoolFilter:
 
 
 class IntFilter:
-    @classmethod
-    def __init__(cls, field: str):
-        cls._field = field
+    def __init__(self, field: str):
+        self._field = field
 
     def any_of(self, values: _Iterable[int]) -> GqlExprPart:
         return self._multi_op('in', values)
@@ -70,9 +67,8 @@ class IntFilter:
 
 
 class StringFilter:
-    @classmethod
-    def __init__(cls, field: str):
-        cls._field = field
+    def __init__(self, field: str):
+        self._field = field
 
     def any_of(self, values: _Iterable[str]) -> GqlExprPart:
         return self._multi_op('in', values)

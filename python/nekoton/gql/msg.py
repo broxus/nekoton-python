@@ -2,108 +2,93 @@ from .filters import *
 
 
 class Id(HashFilter, OrderBy):
-    @classmethod
-    def __init__(cls):
+    def __init__(self):
         field = "id"
-        HashFilter.__init__(field)
-        OrderBy.__init__(field)
+        HashFilter.__init__(self, field)
+        OrderBy.__init__(self, field)
 
 
 class BlockId(HashFilter):
-    @classmethod
-    def __init__(cls):
-        HashFilter.__init__("block_id")
+    def __init__(self):
+        HashFilter.__init__(self, "block_id")
 
 
 class BodyHash(HashFilter):
-    @classmethod
-    def __init__(cls):
-        HashFilter.__init__("body_hash")
+    def __init__(self):
+        HashFilter.__init__(self, "body_hash")
 
 
 class IhrDisabled(BoolFilter):
-    @classmethod
-    def __init__(cls):
-        BoolFilter.__init__("ihr_disabled")
+    def __init__(self):
+        BoolFilter.__init__(self, "ihr_disabled")
 
 
 class IhrFee(TokensFilter, OrderBy):
-    @classmethod
-    def __init__(cls):
+    def __init__(self):
         field = "ihr_fee"
-        TokensFilter.__init__(field)
-        OrderBy.__init__(field)
+        TokensFilter.__init__(self, field)
+        OrderBy.__init__(self, field)
 
 
-class ImportFee(TokensFilter):
-    @classmethod
-    def __init__(cls):
+class ImportFee(TokensFilter, OrderBy):
+    def __init__(self):
         field = "import_fee"
-        TokensFilter.__init__(field)
-        OrderBy.__init__(field)
+        TokensFilter.__init__(self, field)
+        OrderBy.__init__(self, field)
 
 
 class Bounce(BoolFilter):
-    @classmethod
-    def __init__(cls):
-        BoolFilter.__init__("bounce")
+    def __init__(self):
+        BoolFilter.__init__(self, "bounce")
 
 
 class Bounced(BoolFilter):
-    @classmethod
-    def __init__(cls):
-        BoolFilter.__init__("bounced")
+    def __init__(self):
+        BoolFilter.__init__(self, "bounced")
 
 
 class Src(AddressFilter, OrderBy):
-    @classmethod
-    def __init__(cls):
+    def __init__(self):
         field = "src"
-        AddressFilter.__init__(field)
-        OrderBy.__init__(field)
+        AddressFilter.__init__(self, field)
+        OrderBy.__init__(self, field)
 
 
 class SrcWorkchainId(IntFilter, OrderBy):
-    @classmethod
-    def __init__(cls):
+    def __init__(self):
         field = "src_workchain_id"
-        IntFilter.__init__(field)
-        OrderBy.__init__(field)
+        IntFilter.__init__(self, field)
+        OrderBy.__init__(self, field)
 
 
 class Dst(AddressFilter, OrderBy):
-    @classmethod
-    def __init__(cls):
+    def __init__(self):
         field = "dst"
-        AddressFilter.__init__(field)
-        OrderBy.__init__(field)
+        AddressFilter.__init__(self, field)
+        OrderBy.__init__(self, field)
 
 
 class DstWorkchainId(IntFilter, OrderBy):
-    @classmethod
-    def __init__(cls):
+    def __init__(self):
         field = "dst_workchain_id"
-        IntFilter.__init__(field)
-        OrderBy.__init__(field)
+        IntFilter.__init__(self, field)
+        OrderBy.__init__(self, field)
 
 
 class MsgType(MessageTypeFilter):
-    @classmethod
-    def __init__(cls):
-        MessageTypeFilter.__init__("msg_type")
+    def __init__(self):
+        MessageTypeFilter.__init__(self, "msg_type")
 
 
 class CreatedAt(IntFilter, OrderBy):
-    @classmethod
-    def __init__(cls):
+    def __init__(self):
         field = "created_at"
-        IntFilter.__init__(field)
-        OrderBy.__init__(field)
+        IntFilter.__init__(self, field)
+        OrderBy.__init__(self, field)
 
 
 class CreatedLt(IntAsStringFilter, OrderBy):
-    @classmethod
-    def __init__(cls):
+    def __init__(self):
         field = "created_lt"
-        IntAsStringFilter.__init__(field)
-        OrderBy.__init__(field)
+        IntAsStringFilter.__init__(self, field)
+        OrderBy.__init__(self, field)
