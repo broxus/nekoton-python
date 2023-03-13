@@ -1,6 +1,6 @@
 [package]
 name = "nekoton-python"
-version = "0.1.8"
+version = "0.1.9"
 edition = "2021"
 
 [lib]
@@ -33,7 +33,10 @@ ed25519-dalek = { git = "https://github.com/broxus/ed25519-dalek.git" }
 tiny-bip39 = { git = "https://github.com/broxus/tiny-bip39.git", default-features = false }
 tiny-hderive = { git = "https://github.com/broxus/tiny-hderive.git" }
 
-nekoton-transport = { git = "https://github.com/broxus/nekoton.git", features = ["gql_transport", "jrpc_transport"] }
+nekoton-transport = { git = "https://github.com/broxus/nekoton.git", features = [
+    "gql_transport",
+    "jrpc_transport",
+] }
 
 ton_abi = { git = "https://github.com/broxus/ton-labs-abi.git" }
 ton_block = { git = "https://github.com/broxus/ton-labs-block.git" }

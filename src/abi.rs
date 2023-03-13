@@ -250,6 +250,39 @@ impl ContractAbi {
         Ok((pubkey, convert_tokens(py, tokens)?))
     }
 
+    fn decode_fields<'a>(
+        &self,
+        py: Python<'a>,
+        data: DataOrState<'a>,
+        allow_partial: Option<bool>,
+    ) -> PyResult<&'a PyDict> {
+        let data = match data {
+            DataOrState::Data(cell) => cell.0.clone(),
+            DataOrState::State(state) => match &state.0.storage.state {
+                ton_block::AccountState::AccountActive { state_init } => match state_init.data() {
+                    Some(cell) => cell.clone(),
+                    None => return Err(PyValueError::new_err("Account state without data")),
+                },
+                ton_block::AccountState::AccountFrozen { .. } => {
+                    return Err(PyValueError::new_err("Account frozen"));
+                }
+                ton_block::AccountState::AccountUninit => {
+                    return Err(PyValueError::new_err("Account not deployed"));
+                }
+            },
+        };
+
+        let contract = &self.0.contract;
+        let tokens = ton_abi::TokenValue::decode_params(
+            &contract.fields,
+            data.into(),
+            &contract.abi_version,
+            allow_partial.unwrap_or_default(),
+        )
+        .handle_value_error()?;
+        convert_tokens(py, tokens)
+    }
+
     fn decode_transaction(
         &self,
         py: Python<'_>,
@@ -385,6 +418,14 @@ struct SharedContractAbi {
     contract: ton_abi::Contract,
     functions: FastHashMap<String, FunctionAbi>,
     events: FastHashMap<String, EventAbi>,
+}
+
+#[derive(FromPyObject)]
+enum DataOrState<'a> {
+    #[pyo3(transparent, annotation = "Cell")]
+    Data(PyRef<'a, Cell>),
+    #[pyo3(transparent, annotation = "AccountState")]
+    State(PyRef<'a, AccountState>),
 }
 
 #[derive(Clone)]

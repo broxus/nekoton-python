@@ -8,10 +8,12 @@ logging.getLogger().setLevel(logging.DEBUG)
 
 
 async def main():
-    transport = GqlTransport(endpoints=["mainnet.evercloud.dev/89a3b8f46a484f2ea3bdd364ddaee3a3"])
+    transport = GqlTransport(
+        endpoints=["mainnet.evercloud.dev/89a3b8f46a484f2ea3bdd364ddaee3a3"])
     await transport.check_connection()
 
-    strange_addr = Address("-1:04f64c6afbff3dd10d8ba6707790ac9670d540f37a9448b0337baa6a5a92acac")
+    strange_addr = Address(
+        "-1:04f64c6afbff3dd10d8ba6707790ac9670d540f37a9448b0337baa6a5a92acac")
 
     transactions = await transport.query_transactions([
         gql.tx.AccountAddr() == strange_addr,

@@ -95,6 +95,14 @@ class ContractAbi:
         """
         ...
 
+    def decode_fields(self, data: Cell | AccountState) -> Dict[str, Any]:
+        """
+        Decodes fields from the contract data.
+
+        :param data: data of the deployed contract or its state.
+        """
+        ...
+
     def decode_transaction(self, transaction: Transaction) -> Optional[FunctionCallFull]:
         """
         Decodes function call and events from the specified transaction.
@@ -1789,10 +1797,10 @@ class GqlTransport(Transport):
     """
 
     def __init__(
-            self,
-            endpoints: List[str],
-            clock: Optional[Clock] = None,
-            local: Optional[bool] = None,
+        self,
+        endpoints: List[str],
+        clock: Optional[Clock] = None,
+        local: Optional[bool] = None,
     ) -> None: ...
 
     async def query_transactions(
@@ -1846,7 +1854,8 @@ class JrpcTransport(Transport):
     :param clock: optional clock to modify timestamp.
     """
 
-    def __init__(self, endpoint: str, clock: Optional[Clock] = None) -> None: ...
+    def __init__(self, endpoint: str,
+                 clock: Optional[Clock] = None) -> None: ...
 
 
 class AccountStatesAsyncIter:
