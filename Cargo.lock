@@ -940,6 +940,7 @@ dependencies = [
  "nekoton-transport",
  "num-bigint",
  "once_cell",
+ "parking_lot",
  "pbkdf2",
  "pyo3",
  "pyo3-asyncio",

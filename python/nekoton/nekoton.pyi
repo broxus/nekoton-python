@@ -1081,6 +1081,41 @@ class TransactionType:
 
     def __ne__(self, other) -> Any: ...
 
+class TxNode:
+    @property
+    def transaction(self) -> Transaction:
+        """
+        Get blockchain transaction representation of current node.
+        """
+        ...
+    @property
+    def children(self) -> [TxNode]:
+        """
+        Get list of children nodes
+        """
+        ...
+
+
+class TransactionTree:
+    @staticmethod
+    def from_bytes(bytes: bytes) -> TransactionTree:
+        """
+        Decodes tree from raw bytes.
+
+        :param bytes: raw bytes with BOC.
+        """
+        ...
+
+    @staticmethod
+    def decode(value: str, encoding: Optional[str] = None) -> TransactionTree:
+        """
+        Decodes the tree from the encoded BOC.
+
+        :param value: a string with encoded BOC.
+        :param encoding: encoding type. `base64` (default) or `hex`.
+        """
+        ...
+    def __iter__(self) -> TransactionTree: ...
 
 class AccountStatus:
     """
