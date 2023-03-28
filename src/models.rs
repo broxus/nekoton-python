@@ -1,9 +1,11 @@
+§use std::collections::VecDeque;
 use std::sync::Arc;
 
 use pyo3::exceptions::*;
 use pyo3::prelude::*;
 use pyo3::types::*;
 use ton_block::{Deserializable, Serializable};
+use ton_types::{deserialize_tree_of_cells, SliceData, UInt256};
 
 use crate::abi::{convert_tokens, parse_tokens, AbiParam, AbiVersion};
 use crate::util::{Encoding, HandleError};
@@ -821,7 +823,6 @@ impl Message {
             ton_block::CommonMsgInfo::ExtInMsgInfo(_) => None,
         }
     }
-
     #[getter]
     fn created_lt(&self) -> Option<u64> {
         match self.data.header() {
@@ -1547,5 +1548,129 @@ impl Tokens {
 
     fn __abs__(&self) -> Self {
         Self(self.0.abs())
+    }
+}
+
+#[derive(Debug, Clone)]
+#[pyclass]
+pub struct TransactionTree {
+    root: Arc<TransactionNode>,
+}
+
+#[pymethods]
+impl TransactionTree {
+    #[staticmethod]
+    fn from_bytes(mut bytes: &[u8], py: Python<'_>) -> PyResult<Self> {
+        let deserialized_cell = deserialize_tree_of_cells(&mut bytes).handle_runtime_error()?;
+        let mut slice_data = SliceData::from(deserialized_cell);
+        let root = crate::util::tree_unpack::unpack_tree_from_cell(&mut slice_data, py)
+            .handle_runtime_error()?;
+
+        Ok(Self {
+            root: Arc::new(root),
+        })
+    }
+
+    #[staticmethod]
+    fn decode(value: &str, encoding: Option<&str>, py: Python<'_>) -> PyResult<Self> {
+        let encoding = Encoding::from_optional_param(encoding, Encoding::Base64)?;
+        let bytes = encoding.decode_bytes(value)?;
+        Self::from_bytes(&bytes, py)
+    }
+
+    fn __iter__(slf: PyRef<'_, Self>) -> PyResult<Py<TransactionTreeIter>> {
+        let mut queue = VecDeque::new();
+        queue.push_front(slf.root.clone());
+        let iter = TransactionTreeIter(Arc::new(parking_lot::Mutex::new(
+            TransactionNodeIterState {
+                search_queue: queue,
+            },
+        )));
+        Py::new(slf.py(), iter)
+    }
+}
+
+#[derive(Debug, Clone)]
+#[pyclass]
+pub struct TransactionNodeIterState {
+    search_queue: VecDeque<Arc<TransactionNode>>,
+}
+
+#[derive(Debug, Clone)]
+#[pyclass]
+pub struct TransactionTreeIter(pub Arc<parking_lot::Mutex<TransactionNodeIterState>>);
+
+#[pymethods]
+impl TransactionTreeIter {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(slf: PyRef<'_, Self>) -> Option<TxNode> {
+        let mut guard = slf.0.lock();
+        let node = match guard.search_queue.pop_back() {
+            Some(next) => {
+                let n = next.clone();
+                for i in next.children.iter() {
+                    guard.search_queue.push_front(i.clone());
+                }
+                Some(TxNode(n))
+            }
+            None => None,
+        };
+        node
+    }
+}
+
+#[derive(Debug, Clone)]
+#[pyclass]
+pub struct TxNode(pub Arc<TransactionNode>);
+
+#[pymethods]
+impl TxNode {
+    #[getter]
+    pub fn transaction(&self) -> Py<Transaction> {
+        self.0.transaction.clone()
+    }
+
+    #[getter]
+    pub fn children(&self, py: Python<'_>) -> PyResult<Py<Vec<TxNode>>> {
+        let nodes = self
+            .0
+            .children
+            .iter()
+            .map(|x| TxNode(x.clone()))
+            .collect::<Vec<_>>();
+        Py::new(py, nodes)
+    }
+}
+
+#[derive(Debug, Clone)]
+#[pyclass]
+pub struct TransactionNode {
+    hash: UInt256,
+    transaction: Py<Transaction>,
+    children: Vec<Arc<TransactionNode>>,
+}
+
+impl TransactionNode {
+    pub fn new(
+        transaction: Transaction,
+        children: Vec<Arc<TransactionNode>>,
+        py: Python<'_>,
+    ) -> PyResult<Self> {
+        let node = TransactionNode {
+            hash: transaction.0.hash.clone(),
+            transaction: Py::new(py, transaction).handle_runtime_error()?,
+            children,
+        };
+        Ok(node)
+    }
+
+    pub fn append_child(&mut self, tx: TransactionNode) {
+        if !self.children.iter().any(|x| x.hash == tx.hash) {
+            let child = Arc::new(tx);
+            self.children.push(child);
+        }
     }
 }
