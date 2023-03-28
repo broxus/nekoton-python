@@ -1081,26 +1081,12 @@ class TransactionType:
 
     def __ne__(self, other) -> Any: ...
 
-class TxNode:
-    @property
-    def transaction(self) -> Transaction:
-        """
-        Get blockchain transaction representation of current node.
-        """
-        ...
-    @property
-    def children(self) -> [TxNode]:
-        """
-        Get list of children nodes
-        """
-        ...
-
 
 class TransactionTree:
     @staticmethod
     def from_bytes(bytes: bytes) -> TransactionTree:
         """
-        Decodes tree from raw bytes.
+        Decodes transaction tree from raw bytes.
 
         :param bytes: raw bytes with BOC.
         """
@@ -1115,7 +1101,33 @@ class TransactionTree:
         :param encoding: encoding type. `base64` (default) or `hex`.
         """
         ...
-    def __iter__(self) -> TransactionTree: ...
+
+    @property
+    def root(self) -> Transaction:
+        """
+        Returns the root transaction.
+        """
+        ...
+
+    @property
+    def children(self) -> [Transaction]:
+        """
+        Get list of children nodes
+        """
+        ...
+
+    def __iter__(self) -> TransactionTreeIter: ...
+
+
+class TransactionTreeIter:
+    """
+    Plain transaction tree iterator.
+    """
+
+    def __iter__(self) -> TransactionTreeIter: ...
+
+    def __next__(self) -> Transaction: ...
+
 
 class AccountStatus:
     """
@@ -1832,10 +1844,10 @@ class GqlTransport(Transport):
     """
 
     def __init__(
-        self,
-        endpoints: List[str],
-        clock: Optional[Clock] = None,
-        local: Optional[bool] = None,
+            self,
+            endpoints: List[str],
+            clock: Optional[Clock] = None,
+            local: Optional[bool] = None,
     ) -> None: ...
 
     async def query_transactions(

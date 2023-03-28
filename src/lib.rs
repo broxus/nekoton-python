@@ -50,7 +50,6 @@ fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<Address>()?;
     m.add_class::<Cell>()?;
     m.add_class::<Tokens>()?;
-    m.add_class::<TxNode>()?;
     m.add_class::<TransactionTree>()?;
     m.add_class::<TransactionTreeIter>()?;
 
