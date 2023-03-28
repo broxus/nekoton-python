@@ -94,7 +94,7 @@ asyncio.run(main())
   ```
 * Publish
   ```bash
-  maturin build --release --zig
+  docker run --rm -v $(pwd):/io ghcr.io/pyo3/maturin build --release
   maturin upload path/to/generated/file.whl
   ```
 

@@ -1560,12 +1560,11 @@ pub struct TransactionTree {
 impl TransactionTree {
     fn unpack(py: Python<'_>, mut slice: ton_types::SliceData) -> PyResult<Py<Self>> {
         if !slice.get_next_bit().handle_value_error()? {
-            return Err(PyValueError::new_err("Invalid transaction tree root"));
+            return Err(PyValueError::new_err("Invalid transaction tree node"));
         }
 
         let mut root = {
             let cell = slice.checked_drain_reference().handle_value_error()?;
-            slice.get_next_bit().handle_value_error()?; // TODO: remove?
             Self::unpack_only_root(py, cell)?
         };
 
@@ -1574,6 +1573,15 @@ impl TransactionTree {
         root.finalize(py);
 
         Py::new(py, root)
+    }
+
+    fn unpack_only_root(py: Python<'_>, cell: ton_types::Cell) -> PyResult<Self> {
+        let tx = Transaction::try_from(cell)?;
+        Ok(Self {
+            root: Py::new(py, tx)?,
+            children_raw: Vec::new(),
+            children: py_none(),
+        })
     }
 
     fn unpack_children(
@@ -1592,15 +1600,6 @@ impl TransactionTree {
             }
         }
         Ok(())
-    }
-
-    fn unpack_only_root(py: Python<'_>, cell: ton_types::Cell) -> PyResult<Self> {
-        let tx = Transaction::try_from(cell)?;
-        Ok(Self {
-            root: Py::new(py, tx)?,
-            children_raw: Vec::new(),
-            children: py_none(),
-        })
     }
 
     fn finalize(&mut self, py: Python<'_>) {
