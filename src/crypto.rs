@@ -123,6 +123,13 @@ impl KeyPair {
         Signature(self.0.sign(&data))
     }
 
+    pub fn sign_hashed(&self, data: [u8; 32], signature_id: Option<i32>) -> Signature {
+        use ed25519_dalek::Signer;
+
+        let data = ton_abi::extend_signature_with_id(&data, signature_id);
+        Signature(self.0.sign(&data))
+    }
+
     pub fn check_signature(
         &self,
         data: &[u8],

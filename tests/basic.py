@@ -1,6 +1,7 @@
 import asyncio
 import os
 import logging
+from hashlib import sha256
 
 from nekoton import *
 
@@ -79,6 +80,20 @@ print(seed)
 keypair0 = seed.derive()
 assert (len(keypair0.public_key.to_bytes()) == 32)
 assert (seed.derive() == seed.derive(path=Bip39Seed.path_for_account(0)))
+
+data = b"hello world"
+data_hash = sha256(data)
+
+signature1 = keypair0.sign(data)
+signature2 = keypair0.sign_hashed(data_hash.digest())
+
+assert (signature1 == signature2)
+
+try:
+    keypair0.sign_hashed(b'invalid hash')
+    assert False
+except ValueError:
+    pass
 
 keypair1 = seed.derive(path=Bip39Seed.path_for_account(1))
 assert (keypair0 != keypair1)

@@ -1,5 +1,5 @@
 from os import PathLike
-from typing import Any, ClassVar, Optional, List, Tuple, Dict
+from typing import Any, ClassVar, Optional, List, Tuple, Dict, Annotated
 
 
 #########
@@ -2129,7 +2129,18 @@ class KeyPair:
         """
         ...
 
-    def check_signature(self, data: bytes, signature: Signature, signature_id: Optional[int] = None) -> bool:
+    def sign_hashed(self, hash: Annotated[bytes, 32],
+                    signature_id: Optional[int]) -> Signature:
+        """
+        Signs a hash.
+
+        :param hash: hash to sign.
+        :param signature_id: optional signature id.
+        """
+        ...
+
+    def check_signature(self, data: bytes, signature: Signature,
+                        signature_id: Optional[int] = None) -> bool:
         """
         Returns `True` if the signature is correct.
 
