@@ -925,7 +925,7 @@ impl UnsignedBody {
     }
 
     fn sign(&self, keypair: &KeyPair, signature_id: Option<i32>) -> PyResult<Cell> {
-        let signature = keypair.sign(self.hash.as_ref(), signature_id);
+        let signature = keypair.sign_raw(self.hash.as_ref(), signature_id);
         self.fill_signature(Some(signature.0.as_ref()))
     }
 
