@@ -1880,6 +1880,21 @@ class GqlTransport(Transport):
         """
         ...
 
+    async def query_accounts(
+            self,
+            filter: str | GqlExprPart | List[GqlExprPart],
+            order_by: Optional[str | GqlExprPart | List[GqlExprPart]] = None,
+            limit: Optional[int] = None
+    ) -> List[Tuple[Address, Optional[AccountState]]]:
+        """
+        Accounts GQL query.
+
+        :param filter: filter parts.
+        :param order_by: optional orderBy parts.
+        :param limit: optional limit.
+        """
+        ...
+
 
 class GqlExprPart:
     """

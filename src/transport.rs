@@ -417,6 +417,7 @@ impl GqlTransport {
     fn build_query(
         py: Python<'_>,
         field: &str,
+        with_id: bool,
         filter: GqlExprArg,
         order_by: Option<GqlExprArg>,
         limit: Option<usize>,
@@ -434,8 +435,15 @@ impl GqlTransport {
         }
 
         match limit {
-            Some(limit) => write!(&mut query, "{closing},limit:{limit}){{boc}}}}"),
-            None => write!(&mut query, "{closing}){{boc}}}}"),
+            Some(limit) => write!(&mut query, "{closing},limit:{limit}){{boc"),
+            None => write!(&mut query, "{closing}){{boc"),
+        }
+        .unwrap();
+
+        if with_id {
+            write!(&mut query, ",id}}}}")
+        } else {
+            write!(&mut query, "}}}}")
         }
         .unwrap();
 
@@ -487,7 +495,7 @@ impl GqlTransport {
         order_by: Option<GqlExprArg>,
         limit: Option<usize>,
     ) -> PyResult<&'a PyAny> {
-        let query = Self::build_query(py, "transactions", filter, order_by, limit)?;
+        let query = Self::build_query(py, "transactions", false, filter, order_by, limit)?;
         log::debug!("Transactions query: {query}");
 
         struct TransactionsResponse;
@@ -551,7 +559,7 @@ impl GqlTransport {
         order_by: Option<GqlExprArg>,
         limit: Option<usize>,
     ) -> PyResult<&'a PyAny> {
-        let query = Self::build_query(py, "messages", filter, order_by, limit)?;
+        let query = Self::build_query(py, "messages", false, filter, order_by, limit)?;
         log::debug!("Messages query: {query}");
 
         struct MessagesResponse;
@@ -605,6 +613,84 @@ impl GqlTransport {
         let client = self.client.clone();
         pyo3_asyncio::tokio::future_into_py(py, async move {
             Self::query_items::<MessagesResponse>(&client, query).await
+        })
+    }
+
+    fn query_accounts<'a>(
+        &self,
+        py: Python<'a>,
+        filter: GqlExprArg,
+        order_by: Option<GqlExprArg>,
+        limit: Option<usize>,
+    ) -> PyResult<&'a PyAny> {
+        let query = Self::build_query(py, "accounts", true, filter, order_by, limit)?;
+        log::debug!("Accounts query: {query}");
+
+        struct AccountsResponse;
+
+        impl GqlBocResponse for AccountsResponse {
+            type Item = (Address, Option<AccountState>);
+
+            fn extract(response: &str) -> PyResult<Vec<Self::Item>> {
+                #[derive(Deserialize)]
+                struct Response<'a> {
+                    #[serde(default)]
+                    errors: Option<serde_json::Value>,
+                    #[serde(default, borrow = "'a")]
+                    data: Option<Accounts<'a>>,
+                }
+
+                #[derive(Deserialize)]
+                struct Accounts<'a> {
+                    #[serde(borrow = "'a")]
+                    accounts: Option<Vec<Item<'a>>>,
+                }
+
+                #[derive(Deserialize)]
+                struct Item<'a> {
+                    #[serde(borrow)]
+                    boc: Option<&'a str>,
+                    #[serde(borrow)]
+                    id: &'a str,
+                }
+
+                let Response { errors, data } =
+                    serde_json::from_str(response).handle_runtime_error()?;
+                if let Some(errors) = errors {
+                    return Err(PyRuntimeError::new_err(
+                        serde_json::to_string_pretty(&errors).unwrap_or_default(),
+                    ));
+                }
+
+                let Some(Accounts { accounts: Some(accounts) }) = data else {
+                    return Err(PyRuntimeError::new_err("Invalid response"));
+                };
+
+                accounts
+                    .into_iter()
+                    .map(|Item { id, boc }| {
+                        let id = Address::new(id)?;
+                        let state = match boc {
+                            Some(boc) => {
+                                let cell = Encoding::Base64.decode_cell(boc)?;
+                                match ton_block::Account::construct_from_cell(cell)
+                                    .handle_runtime_error()?
+                                {
+                                    ton_block::Account::Account(state) => Some(AccountState(state)),
+                                    ton_block::Account::AccountNone => None,
+                                }
+                            }
+                            None => None,
+                        };
+                        Ok((id, state))
+                    })
+                    .collect()
+            }
+        }
+
+        let client = self.client.clone();
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            Self::query_items::<AccountsResponse>(&client, query).await
         })
     }
 }

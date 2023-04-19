@@ -1177,7 +1177,7 @@ impl Address {
     }
 
     #[new]
-    fn new(addr: &str) -> PyResult<Self> {
+    pub fn new(addr: &str) -> PyResult<Self> {
         nt::utils::repack_address(addr.trim())
             .map(Self)
             .handle_value_error()

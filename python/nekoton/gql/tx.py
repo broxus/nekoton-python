@@ -1,92 +1,94 @@
-from .filters import *
+from .filters import IntFilter as _IntFilter, OrderBy as _OrderBy, HashFilter as _HashFilter, BoolFilter as _BoolFilter, \
+    AddressFilter as _AddressFilter, TokensFilter as _TokensFilter, IntAsStringFilter as _IntAsStringFilter, \
+    TransactionTypeFilter as _TransactionTypeFilter
 
 
-class WorkchainId(IntFilter, OrderBy):
+class WorkchainId(_IntFilter, _OrderBy):
     def __init__(self):
         field = "workchain_id"
-        IntFilter.__init__(self, field)
-        OrderBy.__init__(self, field)
+        _IntFilter.__init__(self, field)
+        _OrderBy.__init__(self, field)
 
 
-class Id(HashFilter, OrderBy):
+class Id(_HashFilter, _OrderBy):
     def __init__(self):
         field = "id"
-        HashFilter.__init__(self, field)
-        OrderBy.__init__(self, field)
+        _HashFilter.__init__(self, field)
+        _OrderBy.__init__(self, field)
 
 
-class Aborted(BoolFilter):
+class Aborted(_BoolFilter):
     def __init__(self):
-        BoolFilter.__init__(self, "aborted")
+        _BoolFilter.__init__(self, "aborted")
 
 
-class AccountAddr(AddressFilter, OrderBy):
+class AccountAddr(_AddressFilter, _OrderBy):
     def __init__(self):
         field = "account_addr"
-        AddressFilter.__init__(self, field)
-        OrderBy.__init__(self, field)
+        _AddressFilter.__init__(self, field)
+        _OrderBy.__init__(self, field)
 
 
-class BalanceDelta(TokensFilter, OrderBy):
+class BalanceDelta(_TokensFilter, _OrderBy):
     def __init__(self):
         field = "balance_delta"
-        TokensFilter.__init__(self, field)
-        OrderBy.__init__(self, field)
+        _TokensFilter.__init__(self, field)
+        _OrderBy.__init__(self, field)
 
 
-class BlockId(HashFilter):
+class BlockId(_HashFilter):
     def __init__(self):
-        HashFilter.__init__(self, "block_id")
+        _HashFilter.__init__(self, "block_id")
 
 
-class CreditFirst(BoolFilter):
+class CreditFirst(_BoolFilter):
     def __init__(self):
-        BoolFilter.__init__(self, "credit_first")
+        _BoolFilter.__init__(self, "credit_first")
 
 
-class Destroyed(BoolFilter):
+class Destroyed(_BoolFilter):
     def __init__(self):
-        BoolFilter.__init__(self, "destroyed")
+        _BoolFilter.__init__(self, "destroyed")
 
 
-class Now(IntFilter, OrderBy):
+class Now(_IntFilter, _OrderBy):
     def __init__(self):
         field = "now"
-        IntFilter.__init__(self, field)
-        OrderBy.__init__(self, field)
+        _IntFilter.__init__(self, field)
+        _OrderBy.__init__(self, field)
 
 
-class Lt(IntAsStringFilter, OrderBy):
+class Lt(_IntAsStringFilter, _OrderBy):
     def __init__(self):
         field = "lt"
-        IntAsStringFilter.__init__(self, field)
-        OrderBy.__init__(self, field)
+        _IntAsStringFilter.__init__(self, field)
+        _OrderBy.__init__(self, field)
 
 
-class PrevTransHash(HashFilter, OrderBy):
+class PrevTransHash(_HashFilter, _OrderBy):
     def __init__(self):
         field = "prev_trans_hash"
-        HashFilter.__init__(self, field)
-        OrderBy.__init__(self, field)
+        _HashFilter.__init__(self, field)
+        _OrderBy.__init__(self, field)
 
 
-class PrevTransLt(IntAsStringFilter, OrderBy):
+class PrevTransLt(_IntAsStringFilter, _OrderBy):
     def __init__(self):
         field = "prev_trans_lt"
-        IntAsStringFilter.__init__(self, field)
-        OrderBy.__init__(self, field)
+        _IntAsStringFilter.__init__(self, field)
+        _OrderBy.__init__(self, field)
 
 
-class OldHash(HashFilter):
+class OldHash(_HashFilter):
     def __init__(self):
-        HashFilter.__init__(self, "old_hash")
+        _HashFilter.__init__(self, "old_hash")
 
 
-class NewHash(HashFilter):
+class NewHash(_HashFilter):
     def __init__(self):
-        HashFilter.__init__(self, "new_hash")
+        _HashFilter.__init__(self, "new_hash")
 
 
-class TrType(TransactionTypeFilter):
+class TrType(_TransactionTypeFilter):
     def __init__(self):
-        TransactionTypeFilter.__init__(self, "tr_type")
+        _TransactionTypeFilter.__init__(self, "tr_type")

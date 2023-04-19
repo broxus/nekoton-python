@@ -31,5 +31,14 @@ async def main():
     ])
     print(messages)
 
+    accounts = await transport.query_accounts(gql.or_([
+        gql.acc.Id() == Address("-1:3333333333333333333333333333333333333333333333333333333333333333"),
+        gql.acc.CodeHash() == "80d6c47c4a25543c9b397b71716f3fae1e2c5d247174c52e2c19bd896442b105"
+    ]), order_by=[
+        gql.acc.LastTransLt().asc()
+    ])
+    for addr, state in accounts:
+        print(addr, state)
+
 
 asyncio.run(main())

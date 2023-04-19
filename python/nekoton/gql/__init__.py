@@ -4,6 +4,7 @@ from nekoton import GqlExprPart
 from . import filters
 from . import msg
 from . import tx
+from . import acc
 
 
 def and_(expressions: str | GqlExprPart | _List[GqlExprPart]) -> GqlExprPart:

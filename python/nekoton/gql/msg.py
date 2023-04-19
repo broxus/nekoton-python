@@ -1,94 +1,96 @@
-from .filters import *
+from .filters import OrderBy as _OrderBy, IntFilter as _IntFilter, HashFilter as _HashFilter, TokensFilter as _TokensFilter, \
+    BoolFilter as _BoolFilter, AddressFilter as _AddressFilter, MessageTypeFilter as _MessageTypeFilter, \
+    IntAsStringFilter as _IntAsStringFilter
 
 
-class Id(HashFilter, OrderBy):
+class Id(_HashFilter, _OrderBy):
     def __init__(self):
         field = "id"
-        HashFilter.__init__(self, field)
-        OrderBy.__init__(self, field)
+        _HashFilter.__init__(self, field)
+        _OrderBy.__init__(self, field)
 
 
-class BlockId(HashFilter):
+class BlockId(_HashFilter):
     def __init__(self):
-        HashFilter.__init__(self, "block_id")
+        _HashFilter.__init__(self, "block_id")
 
 
-class BodyHash(HashFilter):
+class BodyHash(_HashFilter):
     def __init__(self):
-        HashFilter.__init__(self, "body_hash")
+        _HashFilter.__init__(self, "body_hash")
 
 
-class IhrDisabled(BoolFilter):
+class IhrDisabled(_BoolFilter):
     def __init__(self):
-        BoolFilter.__init__(self, "ihr_disabled")
+        _BoolFilter.__init__(self, "ihr_disabled")
 
 
-class IhrFee(TokensFilter, OrderBy):
+class IhrFee(_TokensFilter, _OrderBy):
     def __init__(self):
         field = "ihr_fee"
-        TokensFilter.__init__(self, field)
-        OrderBy.__init__(self, field)
+        _TokensFilter.__init__(self, field)
+        _OrderBy.__init__(self, field)
 
 
-class ImportFee(TokensFilter, OrderBy):
+class ImportFee(_TokensFilter, _OrderBy):
     def __init__(self):
         field = "import_fee"
-        TokensFilter.__init__(self, field)
-        OrderBy.__init__(self, field)
+        _TokensFilter.__init__(self, field)
+        _OrderBy.__init__(self, field)
 
 
-class Bounce(BoolFilter):
+class Bounce(_BoolFilter):
     def __init__(self):
-        BoolFilter.__init__(self, "bounce")
+        _BoolFilter.__init__(self, "bounce")
 
 
-class Bounced(BoolFilter):
+class Bounced(_BoolFilter):
     def __init__(self):
-        BoolFilter.__init__(self, "bounced")
+        _BoolFilter.__init__(self, "bounced")
 
 
-class Src(AddressFilter, OrderBy):
+class Src(_AddressFilter, _OrderBy):
     def __init__(self):
         field = "src"
-        AddressFilter.__init__(self, field)
-        OrderBy.__init__(self, field)
+        _AddressFilter.__init__(self, field)
+        _OrderBy.__init__(self, field)
 
 
-class SrcWorkchainId(IntFilter, OrderBy):
+class SrcWorkchainId(_IntFilter, _OrderBy):
     def __init__(self):
         field = "src_workchain_id"
-        IntFilter.__init__(self, field)
-        OrderBy.__init__(self, field)
+        _IntFilter.__init__(self, field)
+        _OrderBy.__init__(self, field)
 
 
-class Dst(AddressFilter, OrderBy):
+class Dst(_AddressFilter, _OrderBy):
     def __init__(self):
         field = "dst"
-        AddressFilter.__init__(self, field)
-        OrderBy.__init__(self, field)
+        _AddressFilter.__init__(self, field)
+        _OrderBy.__init__(self, field)
 
 
-class DstWorkchainId(IntFilter, OrderBy):
+class DstWorkchainId(_IntFilter, _OrderBy):
     def __init__(self):
         field = "dst_workchain_id"
-        IntFilter.__init__(self, field)
-        OrderBy.__init__(self, field)
+        _IntFilter.__init__(self, field)
+        _OrderBy.__init__(self, field)
 
 
-class MsgType(MessageTypeFilter):
+class MsgType(_MessageTypeFilter):
     def __init__(self):
-        MessageTypeFilter.__init__(self, "msg_type")
+        _MessageTypeFilter.__init__(self, "msg_type")
 
 
-class CreatedAt(IntFilter, OrderBy):
+class CreatedAt(_IntFilter, _OrderBy):
     def __init__(self):
         field = "created_at"
-        IntFilter.__init__(self, field)
-        OrderBy.__init__(self, field)
+        _IntFilter.__init__(self, field)
+        _OrderBy.__init__(self, field)
 
 
-class CreatedLt(IntAsStringFilter, OrderBy):
+class CreatedLt(_IntAsStringFilter, _OrderBy):
     def __init__(self):
         field = "created_lt"
-        IntAsStringFilter.__init__(self, field)
-        OrderBy.__init__(self, field)
+        _IntAsStringFilter.__init__(self, field)
+        _OrderBy.__init__(self, field)
