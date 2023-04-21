@@ -219,6 +219,24 @@ impl TryFrom<ton_types::Cell> for Transaction {
 
 #[pymethods]
 impl Transaction {
+    #[staticmethod]
+    fn from_bytes(mut bytes: &[u8]) -> PyResult<Self> {
+        let cell = ton_types::deserialize_tree_of_cells(&mut bytes).handle_runtime_error()?;
+        Self::try_from(cell)
+    }
+
+    #[staticmethod]
+    fn from_cell(cell: &Cell) -> PyResult<Self> {
+        Self::try_from(cell.0.clone())
+    }
+
+    #[staticmethod]
+    fn decode(value: &str, encoding: Option<&str>) -> PyResult<Self> {
+        let encoding = Encoding::from_optional_param(encoding, Encoding::Base64)?;
+        let bytes = encoding.decode_bytes(value)?;
+        Self::from_bytes(&bytes)
+    }
+
     #[getter]
     pub fn hash<'a>(&self, py: Python<'a>) -> &'a PyBytes {
         PyBytes::new(py, self.0.hash.as_slice())
@@ -404,6 +422,22 @@ impl Transaction {
             })
             .handle_runtime_error()?;
         Ok(result)
+    }
+
+    fn encode(&self, encoding: Option<&str>) -> PyResult<String> {
+        let encoding = Encoding::from_optional_param(encoding, Encoding::Base64)?;
+        let cell = self.0.data.serialize().handle_runtime_error()?;
+        encoding.encode_cell(&cell)
+    }
+
+    fn to_bytes<'a>(&self, py: Python<'a>) -> PyResult<&'a PyBytes> {
+        let cell = self.0.data.serialize().handle_runtime_error()?;
+        let bytes = ton_types::serialize_toc(&cell).handle_runtime_error()?;
+        Ok(PyBytes::new(py, &bytes))
+    }
+
+    fn build_cell(&self) -> PyResult<Cell> {
+        self.0.data.serialize().handle_runtime_error().map(Cell)
     }
 
     fn __repr__(&self) -> String {
@@ -758,6 +792,11 @@ impl Message {
     }
 
     #[staticmethod]
+    fn from_cell(cell: &Cell) -> PyResult<Self> {
+        Self::try_from(cell.0.clone())
+    }
+
+    #[staticmethod]
     fn decode(value: &str, encoding: Option<&str>) -> PyResult<Self> {
         let encoding = Encoding::from_optional_param(encoding, Encoding::Base64)?;
         let bytes = encoding.decode_bytes(value)?;
@@ -1057,6 +1096,20 @@ impl StateInit {
         ton_block::StateInit::construct_from_bytes(bytes)
             .handle_value_error()
             .map(Self)
+    }
+
+    #[staticmethod]
+    fn from_cell(cell: &Cell) -> PyResult<Self> {
+        ton_block::StateInit::construct_from_cell(cell.0.clone())
+            .handle_value_error()
+            .map(Self)
+    }
+
+    #[staticmethod]
+    fn decode(value: &str, encoding: Option<&str>) -> PyResult<Self> {
+        let encoding = Encoding::from_optional_param(encoding, Encoding::Base64)?;
+        let bytes = encoding.decode_bytes(value)?;
+        Self::from_bytes(&bytes)
     }
 
     #[new]
