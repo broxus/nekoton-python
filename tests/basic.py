@@ -139,7 +139,7 @@ for field, item in send_transaction_input.items():
 unsigned_body = send_transaction_func.encode_external_input(
     send_transaction_input, public_key=None, address=my_addr)
 assert (unsigned_body.sign(keypair0, signature_id=None) == unsigned_body.with_signature(
-    keypair0.sign(unsigned_body.hash, signature_id=None)))
+    keypair0.sign_raw(unsigned_body.hash, signature_id=None)))
 
 unsigned_message = send_transaction_func.encode_external_message(
     my_addr, send_transaction_input, public_key=None)

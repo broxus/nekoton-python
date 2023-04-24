@@ -149,3 +149,11 @@ pub fn py_none() -> PyObject {
     TRUE.get_or_init(|| Python::with_gil(|py| py.None()))
         .clone()
 }
+
+pub fn serialize_state_init_data_key(key: u64) -> ton_types::SliceData {
+    use ton_block::Serializable;
+
+    key.serialize()
+        .and_then(ton_types::SliceData::load_cell)
+        .unwrap()
+}

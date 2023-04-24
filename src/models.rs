@@ -11,23 +11,43 @@ use crate::util::{py_none, Encoding, HandleError};
 
 #[derive(Clone)]
 #[pyclass]
-pub struct BlockchainConfig(pub Arc<ton_executor::BlockchainConfig>);
+pub struct BlockchainConfig {
+    pub global_id: i32,
+    pub config: Arc<ton_executor::BlockchainConfig>,
+}
 
 #[pymethods]
 impl BlockchainConfig {
     #[getter]
+    fn global_id(&self) -> i32 {
+        self.global_id
+    }
+
+    #[getter]
     fn capabilities(&self) -> u64 {
-        self.0.capabilites()
+        self.config.capabilites()
+    }
+
+    #[getter]
+    fn signature_id(&self) -> Option<i32> {
+        if self
+            .config
+            .has_capability(ton_block::GlobalCapabilities::CapSignatureWithId)
+        {
+            Some(self.global_id)
+        } else {
+            None
+        }
     }
 
     #[getter]
     fn global_version(&self) -> u32 {
-        self.0.global_version()
+        self.config.global_version()
     }
 
     #[getter]
     fn config_address(&self) -> PyResult<Address> {
-        let config = self.0.raw_config();
+        let config = self.config.raw_config();
         let addr = config.config_address().handle_runtime_error()?;
         ton_block::MsgAddressInt::with_standart(None, -1, addr.into())
             .handle_runtime_error()
@@ -36,7 +56,7 @@ impl BlockchainConfig {
 
     #[getter]
     fn elector_address(&self) -> PyResult<Address> {
-        let config = self.0.raw_config();
+        let config = self.config.raw_config();
         let addr = config.elector_address().handle_runtime_error()?;
         ton_block::MsgAddressInt::with_standart(None, -1, addr.into())
             .handle_runtime_error()
@@ -45,7 +65,7 @@ impl BlockchainConfig {
 
     #[getter]
     fn minter_address(&self) -> PyResult<Address> {
-        let config = self.0.raw_config();
+        let config = self.config.raw_config();
         let addr = config.minter_address().handle_runtime_error()?;
         ton_block::MsgAddressInt::with_standart(None, -1, addr.into())
             .handle_runtime_error()
@@ -54,7 +74,7 @@ impl BlockchainConfig {
 
     #[getter]
     fn fee_collector_address(&self) -> PyResult<Address> {
-        let config = self.0.raw_config();
+        let config = self.config.raw_config();
         let addr = config.fee_collector_address().handle_runtime_error()?;
         ton_block::MsgAddressInt::with_standart(None, -1, addr.into())
             .handle_runtime_error()
@@ -64,10 +84,13 @@ impl BlockchainConfig {
     // TODO: add other params
 
     fn contains_param(&self, index: u32) -> PyResult<bool> {
-        let config = &self.0.raw_config().config_params;
-        let key = index.serialize().unwrap();
+        let config = &self.config.raw_config().config_params;
+        let key = index
+            .serialize()
+            .and_then(ton_types::SliceData::load_cell)
+            .unwrap();
         Ok(
-            if let Some(value) = config.get(key.into()).handle_runtime_error()? {
+            if let Some(value) = config.get(key).handle_runtime_error()? {
                 value.remaining_references() != 0
             } else {
                 false
@@ -76,17 +99,21 @@ impl BlockchainConfig {
     }
 
     fn get_raw_param(&self, index: u32) -> PyResult<Option<Cell>> {
-        let config = &self.0.raw_config().config_params;
-        let key = index.serialize().unwrap();
-        let value = config.get(key.into()).handle_runtime_error()?;
+        let config = &self.config.raw_config().config_params;
+        let key = index
+            .serialize()
+            .and_then(ton_types::SliceData::load_cell)
+            .unwrap();
+        let value = config.get(key).handle_runtime_error()?;
         Ok(value.and_then(|slice| slice.reference_opt(0)).map(Cell))
     }
 
     fn __repr__(&self) -> String {
         format!(
-            "<BlockchainConfig capabilities=0x{:016x}, global_version=0x{}>",
+            "<BlockchainConfig global_id={} capabilities=0x{:016x}, global_version=0x{}>",
+            self.global_id,
             self.capabilities(),
-            self.0.global_version()
+            self.config.global_version()
         )
     }
 }
@@ -166,17 +193,17 @@ pub struct StorageUsed(ton_block::StorageUsed);
 impl StorageUsed {
     #[getter]
     fn cells(&self) -> u64 {
-        self.0.cells.0
+        self.0.cells.as_u64()
     }
 
     #[getter]
     fn bits(&self) -> u64 {
-        self.0.bits.0
+        self.0.bits.as_u64()
     }
 
     #[getter]
     fn public_cells(&self) -> u64 {
-        self.0.public_cells.0
+        self.0.public_cells.as_u64()
     }
 
     fn __repr__(&self) -> String {
@@ -219,6 +246,24 @@ impl TryFrom<ton_types::Cell> for Transaction {
 
 #[pymethods]
 impl Transaction {
+    #[staticmethod]
+    fn from_bytes(mut bytes: &[u8]) -> PyResult<Self> {
+        let cell = ton_types::deserialize_tree_of_cells(&mut bytes).handle_runtime_error()?;
+        Self::try_from(cell)
+    }
+
+    #[staticmethod]
+    fn from_cell(cell: &Cell) -> PyResult<Self> {
+        Self::try_from(cell.0.clone())
+    }
+
+    #[staticmethod]
+    fn decode(value: &str, encoding: Option<&str>) -> PyResult<Self> {
+        let encoding = Encoding::from_optional_param(encoding, Encoding::Base64)?;
+        let bytes = encoding.decode_bytes(value)?;
+        Self::from_bytes(&bytes)
+    }
+
     #[getter]
     pub fn hash<'a>(&self, py: Python<'a>) -> &'a PyBytes {
         PyBytes::new(py, self.0.hash.as_slice())
@@ -406,6 +451,22 @@ impl Transaction {
         Ok(result)
     }
 
+    fn encode(&self, encoding: Option<&str>) -> PyResult<String> {
+        let encoding = Encoding::from_optional_param(encoding, Encoding::Base64)?;
+        let cell = self.0.data.serialize().handle_runtime_error()?;
+        encoding.encode_cell(&cell)
+    }
+
+    fn to_bytes<'a>(&self, py: Python<'a>) -> PyResult<&'a PyBytes> {
+        let cell = self.0.data.serialize().handle_runtime_error()?;
+        let bytes = ton_types::serialize_toc(&cell).handle_runtime_error()?;
+        Ok(PyBytes::new(py, &bytes))
+    }
+
+    fn build_cell(&self) -> PyResult<Cell> {
+        self.0.data.serialize().handle_runtime_error().map(Cell)
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "<Transaction hash='{:x}', {:?}>",
@@ -493,17 +554,17 @@ impl TransactionComputePhase {
 
     #[getter]
     fn gas_used(&self) -> u64 {
-        self.0.gas_used.0
+        self.0.gas_used.as_u64()
     }
 
     #[getter]
     fn gas_limit(&self) -> u64 {
-        self.0.gas_limit.0
+        self.0.gas_limit.as_u64()
     }
 
     #[getter]
     fn gas_credit(&self) -> Option<u32> {
-        self.0.gas_credit.map(|credit| credit.0)
+        self.0.gas_credit.map(|credit| credit.as_u32())
     }
 
     #[getter]
@@ -758,6 +819,11 @@ impl Message {
     }
 
     #[staticmethod]
+    fn from_cell(cell: &Cell) -> PyResult<Self> {
+        Self::try_from(cell.0.clone())
+    }
+
+    #[staticmethod]
     fn decode(value: &str, encoding: Option<&str>) -> PyResult<Self> {
         let encoding = Encoding::from_optional_param(encoding, Encoding::Base64)?;
         let bytes = encoding.decode_bytes(value)?;
@@ -817,8 +883,8 @@ impl Message {
     #[getter]
     fn created_at(&self) -> Option<u32> {
         match self.data.header() {
-            ton_block::CommonMsgInfo::IntMsgInfo(x) => Some(x.created_at.0),
-            ton_block::CommonMsgInfo::ExtOutMsgInfo(x) => Some(x.created_at.0),
+            ton_block::CommonMsgInfo::IntMsgInfo(x) => Some(x.created_at.as_u32()),
+            ton_block::CommonMsgInfo::ExtOutMsgInfo(x) => Some(x.created_at.as_u32()),
             ton_block::CommonMsgInfo::ExtInMsgInfo(_) => None,
         }
     }
@@ -959,7 +1025,7 @@ impl InternalMessageHeader {
 
     #[getter]
     pub fn created_at(&self) -> u32 {
-        self.0.created_at.0
+        self.0.created_at.as_u32()
     }
 
     #[getter]
@@ -1001,7 +1067,7 @@ impl ExternalOutMessageHeader {
 
     #[getter]
     pub fn created_at(&self) -> u32 {
-        self.0.created_at.0
+        self.0.created_at.as_u32()
     }
 
     #[getter]
@@ -1057,6 +1123,20 @@ impl StateInit {
         ton_block::StateInit::construct_from_bytes(bytes)
             .handle_value_error()
             .map(Self)
+    }
+
+    #[staticmethod]
+    fn from_cell(cell: &Cell) -> PyResult<Self> {
+        ton_block::StateInit::construct_from_cell(cell.0.clone())
+            .handle_value_error()
+            .map(Self)
+    }
+
+    #[staticmethod]
+    fn decode(value: &str, encoding: Option<&str>) -> PyResult<Self> {
+        let encoding = Encoding::from_optional_param(encoding, Encoding::Base64)?;
+        let bytes = encoding.decode_bytes(value)?;
+        Self::from_bytes(&bytes)
     }
 
     #[new]
@@ -1320,10 +1400,10 @@ impl Cell {
         };
 
         let allow_partial = allow_partial.unwrap_or_default();
+        let data = ton_types::SliceData::load_cell_ref(&self.0).handle_runtime_error()?;
 
-        let tokens =
-            nt::abi::unpack_from_cell(&params, self.0.clone().into(), allow_partial, abi_version)
-                .handle_runtime_error()?;
+        let tokens = nt::abi::unpack_from_cell(&params, data, allow_partial, abi_version)
+            .handle_runtime_error()?;
 
         convert_tokens(py, tokens)
     }
@@ -1375,7 +1455,7 @@ pub struct Tokens(pub i128);
 impl From<ton_block::Grams> for Tokens {
     #[inline]
     fn from(value: ton_block::Grams) -> Self {
-        Tokens(value.0 as i128)
+        Tokens(value.as_u128() as i128)
     }
 }
 
@@ -1591,7 +1671,7 @@ impl TransactionTree {
     ) -> PyResult<()> {
         while let Ok(bit) = slice.get_next_bit() {
             let cell = slice.checked_drain_reference().handle_runtime_error()?;
-            let slice = ton_types::SliceData::from(&cell);
+            let slice = ton_types::SliceData::load_cell(cell).handle_runtime_error()?;
 
             if bit {
                 root.children_raw.push(Self::unpack(py, slice)?);
@@ -1612,7 +1692,7 @@ impl TransactionTree {
     #[staticmethod]
     fn from_bytes(py: Python<'_>, mut bytes: &[u8]) -> PyResult<Py<Self>> {
         let cell = ton_types::deserialize_tree_of_cells(&mut bytes).handle_runtime_error()?;
-        let slice = ton_types::SliceData::from(cell);
+        let slice = ton_types::SliceData::load_cell(cell).handle_runtime_error()?;
         TransactionTree::unpack(py, slice)
     }
 

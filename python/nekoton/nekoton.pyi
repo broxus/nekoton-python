@@ -788,6 +788,34 @@ class StorageUsed:
 class Transaction:
     """Blockchain transaction."""
 
+    @staticmethod
+    def from_bytes(bytes: bytes) -> Transaction:
+        """
+        Decodes the transaction from raw bytes.
+
+        :param bytes: raw bytes with BOC.
+        """
+        ...
+
+    @staticmethod
+    def from_cell(cell: Cell) -> Transaction:
+        """
+        Decodes transaction from the cell.
+
+        :param cell: root transaction cell.
+        """
+        ...
+
+    @staticmethod
+    def decode(value: str, encoding: Optional[str] = None) -> Transaction:
+        """
+        Decodes the transaction from the encoded BOC.
+
+        :param value: a string with encoded BOC.
+        :param encoding: encoding type. `base64` (default) or `hex`.
+        """
+        ...
+
     @property
     def hash(self) -> bytes:
         """Hash of the root cell."""
@@ -904,6 +932,22 @@ class Transaction:
 
     def get_out_msgs(self) -> List[Message]:
         """Loads outgoing messages."""
+        ...
+
+    def encode(self, encoding: Optional[str] = None) -> str:
+        """
+        Encodes the transaction into BOC.
+
+        :param encoding: encoding type. `base64` (default) or `hex`.
+        """
+        ...
+
+    def to_bytes(self) -> bytes:
+        """Encodes transaction into raw bytes."""
+        ...
+
+    def build_cell(self) -> Cell:
+        """Encodes transaction into a new cell."""
         ...
 
     def __eq__(self, other) -> Any: ...
@@ -1209,6 +1253,15 @@ class Message:
         ...
 
     @staticmethod
+    def from_cell(cell: Cell) -> Message:
+        """
+        Decodes message from the cell.
+
+        :param cell: root message cell.
+        """
+        ...
+
+    @staticmethod
     def decode(value: str, encoding: Optional[str] = None) -> Message:
         """
         Decodes the message from the encoded BOC.
@@ -1443,6 +1496,25 @@ class StateInit:
         Decodes state init from raw bytes.
 
         :param bytes: raw bytes with BOC.
+        """
+        ...
+
+    @staticmethod
+    def from_cell(cell: Cell) -> StateInit:
+        """
+        Decodes state init from the cell.
+
+        :param cell: root state init cell.
+        """
+        ...
+
+    @staticmethod
+    def decode(value: str, encoding: Optional[str] = None) -> StateInit:
+        """
+        Decodes the state init from the encoded BOC.
+
+        :param value: a string with encoded BOC.
+        :param encoding: encoding type. `base64` (default) or `hex`.
         """
         ...
 

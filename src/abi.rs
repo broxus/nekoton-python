@@ -60,7 +60,7 @@ impl TransactionExecutor {
         };
 
         let mut executor =
-            ton_executor::OrdinaryTransactionExecutor::new(self.config.0.as_ref().clone());
+            ton_executor::OrdinaryTransactionExecutor::new(self.config.config.as_ref().clone());
         executor.set_signature_check_disabled(!self.check_signature);
 
         let clock = match &self.clock {
@@ -76,6 +76,8 @@ impl TransactionExecutor {
             block_lt,
             last_tr_lt: Arc::new(AtomicU64::new(block_lt)),
             seed_block: ton_types::UInt256::from(rand::thread_rng().gen::<[u8; 32]>()),
+            behavior_modifiers: Some(executor.behavior_modifiers()),
+            signature_id: self.config.global_id,
             ..Default::default()
         };
 
@@ -178,7 +180,7 @@ impl ContractAbi {
 
         if let Some(public_key) = public_key {
             map.set_builder(
-                0u64.write_to_new_cell().unwrap().into(),
+                serialize_state_init_data_key(0),
                 ton_types::BuilderData::new()
                     .append_raw(public_key.0.as_bytes(), 256)
                     .unwrap(),
@@ -201,7 +203,7 @@ impl ContractAbi {
                     .pack_into_chain(&self.0.contract.abi_version)
                     .handle_runtime_error()?;
 
-                map.set_builder(param.key.write_to_new_cell().unwrap().into(), &builder)
+                map.set_builder(serialize_state_init_data_key(param.key), &builder)
                     .handle_runtime_error()?;
             }
         }
@@ -224,7 +226,7 @@ impl ContractAbi {
             );
 
             let value = map
-                .get(0u64.write_to_new_cell().unwrap().into())
+                .get(serialize_state_init_data_key(0))
                 .handle_value_error()?;
             match value {
                 Some(mut value) => {
@@ -242,11 +244,9 @@ impl ContractAbi {
             }
         };
 
-        let tokens = self
-            .0
-            .contract
-            .decode_data(data.0.clone().into())
-            .handle_value_error()?;
+        let data = ton_types::SliceData::load_cell_ref(&data.0).handle_value_error()?;
+
+        let tokens = self.0.contract.decode_data(data).handle_value_error()?;
         Ok((pubkey, convert_tokens(py, tokens)?))
     }
 
@@ -271,11 +271,12 @@ impl ContractAbi {
                 }
             },
         };
+        let data = ton_types::SliceData::load_cell(data).handle_value_error()?;
 
         let contract = &self.0.contract;
         let tokens = ton_abi::TokenValue::decode_params(
             &contract.fields,
-            data.into(),
+            data,
             &contract.abi_version,
             allow_partial.unwrap_or_default(),
         )
@@ -556,11 +557,14 @@ impl FunctionAbi {
     ) -> PyResult<Message> {
         let value = value.try_into()?;
         let body = self.encode_internal_input(input)?;
+        let body: ton_types::SliceData =
+            ton_types::SliceData::load_cell(body.0).handle_value_error()?;
 
+        let value = ton_block::Grams::new(value).handle_value_error()?;
         let mut message = ton_block::Message::with_int_header(ton_block::InternalMessageHeader {
             ihr_disabled: true,
             bounce,
-            value: ton_block::CurrencyCollection::from_grams(ton_block::Grams(value)),
+            value: ton_block::CurrencyCollection::from_grams(value),
             src: src
                 .map(|src| ton_block::MsgAddressIntOrNone::Some(src.0))
                 .unwrap_or(ton_block::MsgAddressIntOrNone::None),
@@ -572,7 +576,7 @@ impl FunctionAbi {
             message.set_state_init(state_init.0.clone())
         }
 
-        message.set_body(body.0.into());
+        message.set_body(body);
 
         let hash = message.hash().handle_runtime_error()?;
 
@@ -627,7 +631,7 @@ impl FunctionAbi {
         allow_partial: Option<bool>,
     ) -> PyResult<&'a PyDict> {
         let abi = self.0.as_ref();
-        let body = message_body.0.clone().into();
+        let body = ton_types::SliceData::load_cell_ref(&message_body.0).handle_value_error()?;
         let values = if matches!(allow_partial, Some(true)) {
             abi.decode_input_partial(body, internal)
         } else {
@@ -645,7 +649,7 @@ impl FunctionAbi {
         allow_partial: Option<bool>,
     ) -> PyResult<&'a PyDict> {
         let abi = self.0.as_ref();
-        let body = message_body.0.clone().into();
+        let body = ton_types::SliceData::load_cell_ref(&message_body.0).handle_value_error()?;
         let values = if matches!(allow_partial, Some(true)) {
             abi.decode_output_partial(body, false)
         } else {
@@ -750,10 +754,8 @@ impl EventAbi {
     }
 
     fn decode_message_body<'a>(&self, py: Python<'a>, message_body: &Cell) -> PyResult<&'a PyDict> {
-        let values = self
-            .0
-            .decode_input(message_body.0.clone().into())
-            .handle_runtime_error()?;
+        let body = ton_types::SliceData::load_cell_ref(&message_body.0).handle_value_error()?;
+        let values = self.0.decode_input(body).handle_runtime_error()?;
         convert_tokens(py, values)
     }
 
@@ -823,7 +825,9 @@ impl UnsignedExternalMessage {
             message.set_state_init(state_init.0.clone())
         }
 
-        message.set_body(body.0.into());
+        let body = ton_types::SliceData::load_cell(body.0).handle_runtime_error()?;
+
+        message.set_body(body);
 
         let hash = message.hash().handle_runtime_error()?;
 
@@ -1326,7 +1330,7 @@ fn convert_token(py: Python, value: ton_abi::TokenValue) -> PyResult<PyObject> {
             PyBytes::new(py, &bytes).to_object(py)
         }
         ton_abi::TokenValue::String(string) => PyString::new(py, &string).to_object(py),
-        ton_abi::TokenValue::Token(number) => number.0.to_object(py),
+        ton_abi::TokenValue::Token(number) => number.as_u128().to_object(py),
         ton_abi::TokenValue::Time(number) => number.to_object(py),
         ton_abi::TokenValue::Expire(number) => number.to_object(py),
         ton_abi::TokenValue::PublicKey(pubkey) => match pubkey {

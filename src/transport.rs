@@ -169,8 +169,17 @@ impl Transport {
                 .get_blockchain_config(state.clock.as_ref(), force)
                 .await
                 .handle_runtime_error()?;
+            let capabilities = state
+                .handle
+                .as_ref()
+                .get_capabilities(state.clock.as_ref())
+                .await
+                .handle_runtime_error()?;
 
-            Ok(BlockchainConfig(Arc::new(config)))
+            Ok(BlockchainConfig {
+                global_id: capabilities.global_id,
+                config: Arc::new(config),
+            })
         })
     }
 
