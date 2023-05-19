@@ -60,7 +60,7 @@ impl TransactionExecutor {
         };
 
         let mut executor =
-            ton_executor::OrdinaryTransactionExecutor::new(self.config.config.as_ref().clone());
+            ton_executor::OrdinaryTransactionExecutor::new(self.config.as_ref().clone());
         executor.set_signature_check_disabled(!self.check_signature);
 
         let clock = match &self.clock {
@@ -77,7 +77,6 @@ impl TransactionExecutor {
             last_tr_lt: Arc::new(AtomicU64::new(block_lt)),
             seed_block: ton_types::UInt256::from(rand::thread_rng().gen::<[u8; 32]>()),
             behavior_modifiers: Some(executor.behavior_modifiers()),
-            signature_id: self.config.global_id,
             ..Default::default()
         };
 
@@ -462,6 +461,7 @@ impl FunctionAbi {
         input: &PyDict,
         responsible: Option<bool>,
         clock: Option<&Clock>,
+        config: Option<BlockchainConfig>,
     ) -> PyResult<ExecutionOutput> {
         use nt::abi::FunctionExt;
 
@@ -471,13 +471,16 @@ impl FunctionAbi {
             None => &nt::utils::SimpleClock,
         };
 
-        let execution_output = if matches!(responsible, Some(true)) {
-            self.0
-                .run_local_responsible(clock, account_state.0.clone(), &input)
-        } else {
-            self.0.run_local(clock, account_state.0.clone(), &input)
-        }
-        .handle_runtime_error()?;
+        let config = match &config {
+            Some(config) => config.as_ref(),
+            None => nt::abi::default_blockchain_config(),
+        };
+
+        let responsible = matches!(responsible, Some(true));
+        let execution_output = self
+            .0
+            .run_local_ext(clock, account_state.0.clone(), &input, responsible, config)
+            .handle_runtime_error()?;
 
         Ok(ExecutionOutput {
             exit_code: execution_output.result_code,

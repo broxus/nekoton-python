@@ -11,30 +11,27 @@ use crate::util::{py_none, Encoding, HandleError};
 
 #[derive(Clone)]
 #[pyclass]
-pub struct BlockchainConfig {
-    pub global_id: i32,
-    pub config: Arc<ton_executor::BlockchainConfig>,
-}
+pub struct BlockchainConfig(Arc<ton_executor::BlockchainConfig>);
 
 #[pymethods]
 impl BlockchainConfig {
     #[getter]
     fn global_id(&self) -> i32 {
-        self.global_id
+        self.0.global_id()
     }
 
     #[getter]
     fn capabilities(&self) -> u64 {
-        self.config.capabilites()
+        self.0.capabilites()
     }
 
     #[getter]
     fn signature_id(&self) -> Option<i32> {
         if self
-            .config
+            .0
             .has_capability(ton_block::GlobalCapabilities::CapSignatureWithId)
         {
-            Some(self.global_id)
+            Some(self.0.global_id())
         } else {
             None
         }
@@ -42,12 +39,12 @@ impl BlockchainConfig {
 
     #[getter]
     fn global_version(&self) -> u32 {
-        self.config.global_version()
+        self.0.global_version()
     }
 
     #[getter]
     fn config_address(&self) -> PyResult<Address> {
-        let config = self.config.raw_config();
+        let config = self.0.raw_config();
         let addr = config.config_address().handle_runtime_error()?;
         ton_block::MsgAddressInt::with_standart(None, -1, addr.into())
             .handle_runtime_error()
@@ -56,7 +53,7 @@ impl BlockchainConfig {
 
     #[getter]
     fn elector_address(&self) -> PyResult<Address> {
-        let config = self.config.raw_config();
+        let config = self.0.raw_config();
         let addr = config.elector_address().handle_runtime_error()?;
         ton_block::MsgAddressInt::with_standart(None, -1, addr.into())
             .handle_runtime_error()
@@ -65,7 +62,7 @@ impl BlockchainConfig {
 
     #[getter]
     fn minter_address(&self) -> PyResult<Address> {
-        let config = self.config.raw_config();
+        let config = self.0.raw_config();
         let addr = config.minter_address().handle_runtime_error()?;
         ton_block::MsgAddressInt::with_standart(None, -1, addr.into())
             .handle_runtime_error()
@@ -74,7 +71,7 @@ impl BlockchainConfig {
 
     #[getter]
     fn fee_collector_address(&self) -> PyResult<Address> {
-        let config = self.config.raw_config();
+        let config = self.0.raw_config();
         let addr = config.fee_collector_address().handle_runtime_error()?;
         ton_block::MsgAddressInt::with_standart(None, -1, addr.into())
             .handle_runtime_error()
@@ -84,7 +81,7 @@ impl BlockchainConfig {
     // TODO: add other params
 
     fn contains_param(&self, index: u32) -> PyResult<bool> {
-        let config = &self.config.raw_config().config_params;
+        let config = &self.0.raw_config().config_params;
         let key = index
             .serialize()
             .and_then(ton_types::SliceData::load_cell)
@@ -99,7 +96,7 @@ impl BlockchainConfig {
     }
 
     fn get_raw_param(&self, index: u32) -> PyResult<Option<Cell>> {
-        let config = &self.config.raw_config().config_params;
+        let config = &self.0.raw_config().config_params;
         let key = index
             .serialize()
             .and_then(ton_types::SliceData::load_cell)
@@ -111,10 +108,23 @@ impl BlockchainConfig {
     fn __repr__(&self) -> String {
         format!(
             "<BlockchainConfig global_id={} capabilities=0x{:016x}, global_version=0x{}>",
-            self.global_id,
+            self.global_id(),
             self.capabilities(),
-            self.config.global_version()
+            self.0.global_version()
         )
+    }
+}
+
+impl From<ton_executor::BlockchainConfig> for BlockchainConfig {
+    fn from(value: ton_executor::BlockchainConfig) -> Self {
+        Self(Arc::new(value))
+    }
+}
+
+impl AsRef<ton_executor::BlockchainConfig> for BlockchainConfig {
+    #[inline]
+    fn as_ref(&self) -> &ton_executor::BlockchainConfig {
+        self.0.as_ref()
     }
 }
 
