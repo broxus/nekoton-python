@@ -827,7 +827,7 @@ dependencies = [
 [[package]]
 name = "nekoton"
 version = "0.13.0"
-source = "git+https://github.com/broxus/nekoton.git#2adcf367ac8d2c6ab04ad35a8bc345b1f9c0d634"
+source = "git+https://github.com/broxus/nekoton.git#25ebe307c51f54b68c2be48ea8c9ba8f95a1ec54"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -871,7 +871,7 @@ dependencies = [
 [[package]]
 name = "nekoton-abi"
 version = "0.13.0"
-source = "git+https://github.com/broxus/nekoton.git#2adcf367ac8d2c6ab04ad35a8bc345b1f9c0d634"
+source = "git+https://github.com/broxus/nekoton.git#25ebe307c51f54b68c2be48ea8c9ba8f95a1ec54"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
@@ -898,7 +898,7 @@ dependencies = [
 [[package]]
 name = "nekoton-contracts"
 version = "0.13.0"
-source = "git+https://github.com/broxus/nekoton.git#2adcf367ac8d2c6ab04ad35a8bc345b1f9c0d634"
+source = "git+https://github.com/broxus/nekoton.git#25ebe307c51f54b68c2be48ea8c9ba8f95a1ec54"
 dependencies = [
  "anyhow",
  "nekoton-abi",
@@ -912,7 +912,7 @@ dependencies = [
 [[package]]
 name = "nekoton-derive"
 version = "0.13.0"
-source = "git+https://github.com/broxus/nekoton.git#2adcf367ac8d2c6ab04ad35a8bc345b1f9c0d634"
+source = "git+https://github.com/broxus/nekoton.git#25ebe307c51f54b68c2be48ea8c9ba8f95a1ec54"
 dependencies = [
  "either",
  "proc-macro2",
@@ -922,7 +922,7 @@ dependencies = [
 
 [[package]]
 name = "nekoton-python"
-version = "0.1.15"
+version = "0.1.16"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -959,7 +959,7 @@ dependencies = [
 [[package]]
 name = "nekoton-transport"
 version = "0.13.0"
-source = "git+https://github.com/broxus/nekoton.git#2adcf367ac8d2c6ab04ad35a8bc345b1f9c0d634"
+source = "git+https://github.com/broxus/nekoton.git#25ebe307c51f54b68c2be48ea8c9ba8f95a1ec54"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -976,7 +976,7 @@ dependencies = [
 [[package]]
 name = "nekoton-utils"
 version = "0.13.0"
-source = "git+https://github.com/broxus/nekoton.git#2adcf367ac8d2c6ab04ad35a8bc345b1f9c0d634"
+source = "git+https://github.com/broxus/nekoton.git#25ebe307c51f54b68c2be48ea8c9ba8f95a1ec54"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
