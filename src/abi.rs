@@ -472,14 +472,14 @@ impl FunctionAbi {
         };
 
         let config = match &config {
-            Some(config) => config.as_ref(),
-            None => nt::abi::default_blockchain_config(),
+            Some(config) => nt::abi::BriefBlockchainConfig::from(config.as_ref()),
+            None => nt::abi::BriefBlockchainConfig::default(),
         };
 
         let responsible = matches!(responsible, Some(true));
         let execution_output = self
             .0
-            .run_local_ext(clock, account_state.0.clone(), &input, responsible, config)
+            .run_local_ext(clock, account_state.0.clone(), &input, responsible, &config)
             .handle_runtime_error()?;
 
         Ok(ExecutionOutput {

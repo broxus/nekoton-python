@@ -1,6 +1,6 @@
 [package]
 name = "nekoton-python"
-version = "0.1.14"
+version = "0.1.15"
 edition = "2021"
 
 [lib]
@@ -40,7 +40,7 @@ nekoton-transport = { git = "https://github.com/broxus/nekoton.git", features = 
 ] }
 
 ton_abi = { git = "https://github.com/broxus/ton-labs-abi.git" }
-ton_block = { git = "https://github.com/broxus/ton-labs-block.git" }
+ton_block = { git = "https://github.com/broxus/ton-labs-block.git", features = ["venom"] }
 ton_types = { git = "https://github.com/broxus/ton-labs-types.git" }
 ton_executor = { git = "https://github.com/broxus/ton-labs-executor.git" }
 
