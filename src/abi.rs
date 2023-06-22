@@ -429,7 +429,7 @@ enum DataOrState<'a> {
 }
 
 #[derive(Clone)]
-#[pyclass]
+#[pyclass(subclass)]
 pub struct FunctionAbi(Arc<ton_abi::Function>);
 
 #[pymethods]
@@ -452,6 +452,13 @@ impl FunctionAbi {
     #[getter]
     fn output_id(&self) -> u32 {
         self.0.output_id
+    }
+
+    fn with_args(&self, py: Python<'_>, args: &PyDict) -> FunctionAbiWithArgs {
+        FunctionAbiWithArgs {
+            abi: self.clone(),
+            args: args.into_py(py),
+        }
     }
 
     fn call(
@@ -683,6 +690,121 @@ impl FunctionAbi {
             pyo3::basic::CompareOp::Gt => self.0.input_id > other.0.input_id,
             pyo3::basic::CompareOp::Ge => self.0.input_id >= other.0.input_id,
         }
+    }
+}
+
+#[derive(Clone)]
+#[pyclass]
+pub struct FunctionAbiWithArgs {
+    abi: FunctionAbi,
+    args: Py<PyDict>,
+}
+
+#[pymethods]
+impl FunctionAbiWithArgs {
+    #[getter]
+    fn abi(&self) -> FunctionAbi {
+        self.abi.clone()
+    }
+
+    #[getter]
+    fn args(&self) -> Py<PyDict> {
+        self.args.clone()
+    }
+
+    fn call(
+        &self,
+        py: Python<'_>,
+        account_state: &AccountState,
+        responsible: Option<bool>,
+        clock: Option<&Clock>,
+        config: Option<BlockchainConfig>,
+    ) -> PyResult<ExecutionOutput> {
+        let input = self.args.as_ref(py);
+        self.abi
+            .call(py, account_state, input, responsible, clock, config)
+    }
+
+    fn encode_external_message(
+        &self,
+        py: Python<'_>,
+        dst: Address,
+        public_key: Option<&PublicKey>,
+        state_init: Option<&StateInit>,
+        timeout: Option<u32>,
+        clock: Option<&Clock>,
+    ) -> PyResult<UnsignedExternalMessage> {
+        let input = self.args.as_ref(py);
+        self.abi
+            .encode_external_message(dst, input, public_key, state_init, timeout, clock)
+    }
+
+    fn encode_external_input(
+        &self,
+        py: Python<'_>,
+        public_key: Option<&PublicKey>,
+        timeout: Option<u32>,
+        address: Option<&Address>,
+        clock: Option<&Clock>,
+    ) -> PyResult<UnsignedBody> {
+        let input = self.args.as_ref(py);
+        self.abi
+            .encode_external_input(input, public_key, timeout, address, clock)
+    }
+
+    fn encode_internal_message(
+        &self,
+        py: Python<'_>,
+        value: Tokens,
+        bounce: bool,
+        dst: Address,
+        src: Option<Address>,
+        state_init: Option<&StateInit>,
+    ) -> PyResult<Message> {
+        let input = self.args.as_ref(py);
+        self.abi
+            .encode_internal_message(input, value, bounce, dst, src, state_init)
+    }
+
+    fn encode_internal_input(&self, py: Python<'_>) -> PyResult<Cell> {
+        let input = self.args.as_ref(py);
+        self.abi.encode_internal_input(input)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "<FunctionAbiWithArgs name='{}', input_id=0x{:08x}, output_id=0x{:08x}>",
+            self.abi.name(),
+            self.abi.input_id(),
+            self.abi.output_id()
+        )
+    }
+
+    fn __hash__(&self, py: Python<'_>) -> PyResult<u64> {
+        #[derive(Hash)]
+        struct HashHelper {
+            input_id: u64,
+            args_hash: u64,
+        }
+
+        let args = self.args.as_ref(py);
+
+        Ok(ahash::RandomState::new().hash_one(HashHelper {
+            input_id: self.abi.input_id() as u64,
+            args_hash: args.hash()? as u64,
+        }))
+    }
+
+    fn __richcmp__(
+        &self,
+        py: Python<'_>,
+        other: &Self,
+        op: pyo3::basic::CompareOp,
+    ) -> PyResult<bool> {
+        let args = self.args.as_ref(py);
+        let other_args = other.args.as_ref(py);
+
+        Ok(self.abi.__richcmp__(&other.abi, op) && args.rich_compare(other_args, op)?.is_true()?)
     }
 }
 

@@ -143,6 +143,14 @@ class FunctionAbi:
         """Output id."""
         ...
 
+    def with_args(self, input: Dict) -> FunctionAbiWithArgs:
+        """
+        Wraps function ABI and input args into a new type
+
+        :param input: function intput.
+        """
+        ...
+
     def call(
             self,
             account_state: AccountState,
@@ -258,6 +266,110 @@ class FunctionAbi:
 
         :param message_body: message body to decode.
         :param allow_partial: whether to decode only the prefix of the body.
+        """
+        ...
+
+    def __eq__(self, other) -> Any: ...
+
+    def __ge__(self, other) -> Any: ...
+
+    def __gt__(self, other) -> Any: ...
+
+    def __hash__(self) -> Any: ...
+
+    def __le__(self, other) -> Any: ...
+
+    def __lt__(self, other) -> Any: ...
+
+    def __ne__(self, other) -> Any: ...
+
+
+class FunctionAbiWithArgs:
+    """Parsed function ABI."""
+
+    @property
+    def abi(self) -> AbiVersion:
+        """Returns an underlying function ABI."""
+        ...
+
+    @property
+    def args(self) -> str:
+        """Returns function input args."""
+        ...
+
+    def call(
+            self,
+            account_state: AccountState,
+            responsible: Optional[bool] = None,
+            clock: Optional[Clock] = None,
+    ) -> ExecutionOutput:
+        """
+        Runs this function as a getter.
+
+        :param account_state: a state of existing account which will be used for execution.
+        :param responsible: whether to run this getter as responsible.
+        :param clock: optional clock to modify execution timestamp.
+        """
+        ...
+
+    def encode_external_message(
+            self,
+            dst: Address,
+            public_key: Optional[PublicKey],
+            state_init: Optional[StateInit] = None,
+            timeout: Optional[int] = None,
+            clock: Optional[Clock] = None
+    ) -> UnsignedExternalMessage:
+        """
+        Encodes external message using the function ABI.
+
+        :param dst: destination account address.
+        :param public_key: public key which will be used for signature.
+        :param state_init: optional state init.
+        :param timeout: expiration timeout.
+        :param clock: optional clock to modify used timestamp.
+        """
+        ...
+
+    def encode_external_input(
+            self,
+            public_key: Optional[PublicKey],
+            timeout: Optional[int] = None,
+            address: Optional[Address] = None,
+            clock: Optional[Clock] = None
+    ) -> UnsignedBody:
+        """
+        Encodes external function input using the function ABI.
+
+        :param public_key: public key which will be used for signature.
+        :param timeout: expiration timeout.
+        :param address: destination account address (for ABI 2.3).
+        :param clock: optional clock to modify used timestamp.
+        """
+        ...
+
+    def encode_internal_message(
+            self,
+            value: Tokens,
+            bounce: bool,
+            dst: Address,
+            src: Optional[Address] = None,
+            state_init: Optional[StateInit] = None,
+    ) -> Message:
+        """
+        Encodes internal message using the function ABI.
+
+        :param value: attached amount of nano EVERs.
+        :param bounce: whether to return the amount in case of error.
+        :param dst: destination account address.
+        :param src: source account address.
+        :param state_init: optional state init.
+        """
+        ...
+
+    def encode_internal_input(self) -> Cell:
+        """
+        Encodes internal function input using the function ABI.
         """
         ...
 
