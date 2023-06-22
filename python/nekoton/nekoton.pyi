@@ -1266,7 +1266,7 @@ class TransactionTree:
         ...
 
     @property
-    def children(self) -> [Transaction]:
+    def children(self) -> List[Transaction]:
         """
         Get list of children nodes
         """
