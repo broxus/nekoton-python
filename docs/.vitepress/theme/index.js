@@ -12,6 +12,7 @@ import BDKOutlineComponent from './components/shared/outline/BDKOutline.vue';
 import BDKOutlineItem from './components/shared/outline/BDKOutlineItem.vue';
 import BDKAccordionComponent from './components/shared/BDKAccordion.vue';
 import BDKDisconnectIcon from './components/shared/BDKDisconnectIcon.vue';
+import BDKImgContainer from './components/shared/BDKImgContainer.vue';
 // Demo components
 import PackDataSample from './../../src/components/demos/PackDataSample.vue';
 
@@ -47,6 +48,7 @@ export default {
     app.component('BDKOutlineItem', BDKOutlineItem);
     app.component('BDKDisconnectIcon', BDKDisconnectIcon);
     app.component('BDKAccordion', BDKAccordionComponent);
+    app.component('BDKImgContainer', BDKImgContainer);
 
     app.component('PackDataSample', PackDataSample);
   },

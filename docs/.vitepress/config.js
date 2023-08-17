@@ -5,11 +5,20 @@ const FEEDBACK_URL = '';
 const GITHUB_URL = '';
 
 module.exports = {
-  title: 'nekoton-python-docs',
+  title: 'Nekoton Python Docs',
   base: '/',
   description: 'nekoton-python',
 
   plugins: [vue()],
+  rewrites: {
+    'src/pages/index.md': 'index.md',
+    'src/pages/concepts/data-representation.md': 'concepts/data-representation.md',
+    'src/pages/concepts/abi.md': 'concepts/abi.md',
+    'src/pages/guides/installation-and-quick-start.md': 'installation-and-quick-start.md',
+    'src/pages/guides/keys-and-signatures.md': 'guides/keys-and-signatures.md',
+    'src/pages/guides/working-with-cells.md': 'guides/working-with-cells.md',
+    'src/pages/guides/working-with-abi.md': 'guides/working-with-abi.md',
+  },
   themeConfig: {
     search: {
       provider: 'local',
@@ -19,28 +28,40 @@ module.exports = {
       { text: 'Community', link: HELP_URL },
     ],
     sidebar: [
-      { text: 'Introduction', link: '/' },
+      { text: 'Overview', link: '/' },
+      {
+        text: 'Installation & Quick Start',
+        link: '/installation-and-quick-start.md',
+      },
+
+      {
+        text: 'Concepts',
+        collapsable: false,
+        items: [
+          {
+            text: 'Data Representation',
+            link: '/concepts/data-representation.md',
+          },
+          { text: 'ABI', link: '/concepts/abi.md' },
+        ],
+      },
+
       {
         text: 'Guide',
         collapsable: false,
 
         items: [
           {
-            text: 'Sample Page',
-            collapsable: false,
-            link: '/guides/sample-guide.md',
+            text: 'Keys & Signatures',
+            link: '/guides/keys-and-signatures.md',
           },
-        ],
-      },
-      {
-        text: 'API Reference',
-        collapsable: false,
-
-        items: [
           {
-            text: 'Sample Page',
-            collapsable: false,
-            link: '/api-reference/sample-page.md',
+            text: 'Working with Cells',
+            link: '/guides/working-with-cells.md',
+          },
+          {
+            text: 'Working with ABI',
+            link: '/guides/working-with-abi.md',
           },
         ],
       },
