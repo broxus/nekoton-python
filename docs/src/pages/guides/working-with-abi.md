@@ -161,25 +161,109 @@ cell = abi.encode_init_data(data, public_key, existing_data)
 
 The `FunctionAbi` class facilitates interaction with the functions defined in the smart contract ABI.
 
-### Encoding Messages & Input
+### Calling ABI Functions
 
-#### External
+ABI functions can be invoked using the `call` method provided by the `FunctionAbi` class. This method takes two arguments: the current account state and a dictionary of input parameters. The account state can be obtained using the `getFullAccountState` method of the `TonClient` class.
 
-The `encode_external_message` and `encode_external_input` methods encode external messages and inputs.
+#### Calling Simple Getters
+
+Simple getters are functions that allow you to retrieve publicly visible data from the contract. They do not require user interaction and can be called without any parameters or with parameters, depending on the function definition in the ABI. Here's an example of how to call a simple getter:
 
 ```python
-external_message = function_abi.encode_external_message(dst, input, public_key, state_init, timeout, clock)
+# Initialize the ABI and get the function
+function_abi = abi.get_function("getComplexState")
 
-external_input = function_abi.encode_external_input(input, public_key, timeout, address, clock)
+# Call the function
+result = function_abi.call(account_state, input={})
+
+print(result)
+print(result.output)
+
+>> <ExecutionOutput exit_code=0, has_output=True>
+>> {'value0': {'first': 42, 'second': 'test'}}
 ```
 
-#### Internal
-
-The `encode_internal_message` and `encode_internal_input` methods encode internal messages and inputs.
+If the getter requires parameters, they can be provided in the `input` dictionary:
 
 ```python
-internal_message = function_abi.encode_internal_message(input, value, bounce, dst, src, state_init)
-internal_input = function_abi.encode_internal_input(input)
+# Initialize the ABI and get the function
+function_abi = abi.get_function("getSecondElementWithPrefix")
+
+# Call the function with parameters
+result = function_abi.call(account_state, input={"prefix": "foo"})
+
+print(result.output)
+
+>> {'value0': 'footest'}
+```
+
+Note that the arguments must have the same type as described in the ABI, and they are merged into one object by `name`.
+
+#### Calling Responsible Methods
+
+Responsible methods are a special type of functions that can either be called via an internal message or locally as a getter via an external message. They differ from simple getters as they have an additional argument of type `uint32` which is usually called `answerId`.
+
+When a responsible method is called on-chain, it returns the result in an outgoing internal message to the caller with `answerId` as a function id. When it is called locally, it behaves the same way as simple getters. Here's an example of how to call a responsible method:
+
+```python
+# Initialize the ABI and get the function
+function_abi = abi.get_function("computeSmth")
+
+# Call the function with parameters
+result = function_abi.call(account_state, input={"offset": 999, "answerId": 42})
+```
+
+### Encoding External Messages & Input
+
+#### External Messages
+
+The `encode_external_message` and `encode_external_input` methods are used to prepare an external message for sending. External messages are used to call functions in smart contracts from off-chain applications. Here's an example of how to use these methods:
+
+```python
+# Initialize the ABI and get the function
+function_abi = abi.get_function("setVariableExternal")
+
+# Define the input parameters
+input_params = {"someParam": 42}
+
+# Define other necessary parameters
+dst = "0:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+public_key = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+state_init = None
+timeout = 0
+clock = 0
+
+# Encode the external message
+external_message = function_abi.encode_external_message(dst, input_params, public_key, state_init, timeout, clock)
+
+# Encode the external input
+external_input = function_abi.encode_external_input(input_params, public_key, timeout, dst, clock)
+```
+
+In this example, we're preparing an external message to call the `setVariableExternal` function on the contract. The `input_params` dictionary contains the parameters for the function call.
+
+#### Internal Messages
+
+The `encode_internal_message` and `encode_internal_input` methods are used to prepare an internal message for sending. Internal messages are used for function calls between contracts on-chain. Here's an example of how to use these methods:
+
+```python
+# Initialize the ABI and get the function
+function_abi = abi.get_function("setVariable")
+
+# Define the input parameters
+input_params = {"someParam": 1337}
+
+# Define other necessary parameters
+value = 1 * 10 ** 9  # 1 Native coin
+bounce = True
+dst = "0:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+src = "0:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+
+# Encode the internal message
+internal_message = function_abi.encode_internal_message(input_params, value, bounce, dst, src, state_init)
+
+# Encode the internal input
+internal_input = function_abi.encode_internal_input(input_params)
 ```
 
 ### Decoding Transactions as Function Calls
