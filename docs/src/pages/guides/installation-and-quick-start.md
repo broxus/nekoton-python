@@ -5,7 +5,6 @@ This section will guide you through the process of installing Nekoton-Python and
 ## Prerequisites
 
 - Python 3.9 or higher. You can check your Python version by running `python --version` in your terminal.
-- Pip, a package installer for Python. It comes pre-installed with Python.
 
 ## Installation
 
