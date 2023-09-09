@@ -163,11 +163,14 @@ The `FunctionAbi` class facilitates interaction with the functions defined in th
 
 ### Calling ABI Functions
 
-ABI functions can be invoked using the `call` method provided by the `FunctionAbi` class. This method takes two arguments: the current account state and a dictionary of input parameters. The account state can be obtained using the `getFullAccountState` method of the `TonClient` class.
+ABI functions can be invoked using the `call` method provided by the `FunctionAbi` class.
+This method takes two arguments: the current account state and a dictionary of input parameters.
+The account state can be obtained using the `get_account_state` method of the `Transport` class.
 
 #### Calling Simple Getters
 
-Simple getters are functions that allow you to retrieve publicly visible data from the contract. They do not require user interaction and can be called without any parameters or with parameters, depending on the function definition in the ABI. Here's an example of how to call a simple getter:
+Simple getters are functions that allow you to retrieve publicly visible data from the contract.
+They do not require user interaction and can be called without any parameters or with parameters, depending on the function definition in the ABI. Here's an example of how to call a simple getter:
 
 ```python
 # Initialize the ABI and get the function
@@ -211,40 +214,51 @@ function_abi = abi.get_function("computeSmth")
 
 # Call the function with parameters
 result = function_abi.call(account_state, input={"offset": 999, "answerId": 42})
+
+print(result)
+print(result.output)
+
+>> <ExecutionOutput exit_code=0, has_output=True>
+>> {'res': {'first': 42, 'second': 'test'}}
 ```
 
 ### Encoding External Messages & Input
 
 #### External Messages
 
-The `encode_external_message` and `encode_external_input` methods are used to prepare an external message for sending. External messages are used to call functions in smart contracts from off-chain applications. Here's an example of how to use these methods:
+The `encode_external_message` and `encode_external_input` methods are used to prepare an external message for sending.
+External messages are used to call functions in smart contracts from off-chain applications. Here's an example of how to use these methods:
 
 ```python
 # Initialize the ABI and get the function
 function_abi = abi.get_function("setVariableExternal")
 
 # Define the input parameters
-input_params = {"someParam": 42}
+input_params = {"someParam": 66}
 
 # Define other necessary parameters
-dst = "0:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-public_key = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-state_init = None
+dst = nt.Address("0:06c404998bb4a6f5cfe465939e3e3562ed573e27f7906355b1a9e1cf61f5ba2e")
 timeout = 0
-clock = 0
+clock = nt.Clock()
+state_init = nt.StateInit.decode(base64, encoding="base64")
 
 # Encode the external message
 external_message = function_abi.encode_external_message(dst, input_params, public_key, state_init, timeout, clock)
 
 # Encode the external input
 external_input = function_abi.encode_external_input(input_params, public_key, timeout, dst, clock)
-```
 
-In this example, we're preparing an external message to call the `setVariableExternal` function on the contract. The `input_params` dictionary contains the parameters for the function call.
+print(external_message)
+print(external_input)
+
+>> <UnsignedExternalMessage hash='c07407d60d09753fc41d32b1124264df0d6033100bd36fd7c77211e47297f38e', expire_at=1694215298>
+>> <UnsignedBody hash='a14be6da67c3395f57c48eabecd443549316933e94cbca929f6224c16e7dd7aa', expire_at=1694215298>
+```
 
 #### Internal Messages
 
-The `encode_internal_message` and `encode_internal_input` methods are used to prepare an internal message for sending. Internal messages are used for function calls between contracts on-chain. Here's an example of how to use these methods:
+The `encode_internal_message` and `encode_internal_input` methods are used to prepare an internal message for sending.
+Internal messages are used for function calls between contracts on-chain. Here's an example of how to use these methods:
 
 ```python
 # Initialize the ABI and get the function
@@ -254,33 +268,69 @@ function_abi = abi.get_function("setVariable")
 input_params = {"someParam": 1337}
 
 # Define other necessary parameters
-value = 1 * 10 ** 9  # 1 Native coin
+value = nt.Tokens(1 * 10**9) # 1 Native coin
 bounce = True
-dst = "0:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-src = "0:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+dst = nt.Address("0:06c404998bb4a6f5cfe465939e3e3562ed573e27f7906355b1a9e1cf61f5ba2e")
+account = nt.Address("your_account_address")
 
 # Encode the internal message
-internal_message = function_abi.encode_internal_message(input_params, value, bounce, dst, src, state_init)
+internal_message = function_abi.encode_internal_message(input_params, value, bounce, dst, account, state_init)
 
 # Encode the internal input
 internal_input = function_abi.encode_internal_input(input_params)
+
+print(internal_message)
+print(internal_input)
+
+>> <Message hash='b25915ce08b5ba4ade9323a0011d155f6cfe2bc9439d923d67d9dd0501113f03', Internal>
+>> <Cell repr_hash='13e1b0dc2a0f092c40a99ccbdd3022d8660c818651aaecff9932333cfb09ca36', bits=160, refs=0>
 ```
 
 ### Decoding Transactions as Function Calls
 
-The `decode_transaction` method decodes a transaction as a function call. It takes a `Transaction` object as an argument and returns a `FunctionCall` object.
+The `decode_transaction` method decodes a transaction as a function call.
+It takes a `Transaction` object as an argument and returns a `FunctionCall` object.
+
+:::info
+Please note that we have not yet covered the Transport aspect.
+
+For information on how to set it up and its various functions, please refer to [Working with Transport](working-with-transport.md).
+:::
 
 ```python
-function_call = function_abi.decode_transaction(transaction)
+set_variable_tx = await transport.get_transaction(
+    bytes.fromhex(
+        "b0e21d98e2536491a9cd4b56a72a38a8a41e7c25cd7163c95aba186f54700ec1"
+    )
+)
+
+function_call = function_abi.decode_transaction(set_variable_tx)
+
+print(function_call)
+print(function_call.input, function_call.output)
+
+>> <builtins.FunctionCall object at 0x101d23600>
+>> {'someParam': 42} {}
 ```
 
 ### Decoding Message Bodies as Input or Output
 
-The `decode_input` and `decode_output` methods decode a message body as input or output. They take a `Cell` object and an optional boolean value as arguments, and return a dictionary with the decoded data.
+The `decode_input` and `decode_output` methods decode a message body as input or output.
+They take a `Cell` object and an optional boolean value as arguments, and return a dictionary with the decoded data.
 
 ```python
-input_data = function_abi.decode_input(message_body, internal, allow_partial)
-output_data = function_abi.decode_output(message_body, allow_partial)
+
+# Setting up the ABI for a specific function.
+function_abi = abi.get_function("setVariable")
+
+# Decoding a message body as an input using `decode_input` method from `function_abi` object.
+message_body_cell = nt.Cell.decode("te6ccgEBAQEAFgAAKDja0OwAAAAAAAAAAAAAAAAAAAU5")
+
+input_data = function_abi.decode_input(message_body_cell, True)
+
+print(input_data)
+
+>> {'someParam': 1337}
 ```
 
 ## Event ABI
@@ -306,10 +356,18 @@ The `EventAbi` class is used to interact with the events defined in the smart co
 
 ### Searching for Event ABI
 
-The `get_event` method of the `ContractAbi` class searches for an event ABI by its name. It returns `EventAbi` objects, or `None` if no event with the specified name exists.
+The `get_event` method of the `ContractAbi` class searches for an event ABI by its name.
+It returns `EventAbi` objects, or `None` if no event with the specified name exists.
 
 ```python
+# Searching for an event ABI by its name using `get_event` method of `abi` object.
 event_abi = abi.get_event("StateChanged")
+
+# Printing the details of the found event ABI.
+print(event_abi)
+
+
+>> <EventAbi name='StateChanged', id=0x5339c8a5>
 ```
 
 ### Decoding Event Data
@@ -317,8 +375,30 @@ event_abi = abi.get_event("StateChanged")
 The `decode_message` and `decode_message_body` methods decode event data from a message or a message body. They take a `Message` or `Cell` object as an argument respectively, and return a dictionary with the decoded data.
 
 ```python
+# Firstly, we retrieve the ABI for a specific event by calling the `get_event` method.
+event_abi = abi.get_event("StateChanged")
+
+# Here, we decode two different message bodies (as 'Cell' objects) to extract the data they contain.
+message_body = nt.Cell.decode("te6ccgEBAgEAEQABEFM5yKUAAAFRAQAIdGVzdA==")
+message_boc = nt.Cell.decode(
+    "te6ccgEBAgEAQAABbeAANiAkzF2lN65/Iyyc8fGrF2q58T+8gxqtjU8Oew+t0XAAACbh/GVjCMn3j2wpnORSgAAAqMABAAh0ZXN0"
+)
+
+# Next, we create a 'Message' object from one of the previously decoded 'Cell' objects.
+message = nt.Message.from_cell(message_boc)
+
+# Using the `event_abi` object, we call `decode_message` and `decode_message_body` methods
+# to decode the event data from the message and the message body, respectively.
 event_data_from_message = event_abi.decode_message(message)
 event_data_from_body = event_abi.decode_message_body(message_body)
+
+
+print(event_data_from_message)
+print(event_data_from_body)
+
+
+>> {'complexState': {'first': 337, 'second': 'test'}}
+>> {'complexState': {'first': 337, 'second': 'test'}}
 ```
 
 ## Working with Tokens
