@@ -2,7 +2,7 @@
 outline: deep
 ---
 
-# Abi
+# Application Binary Interface (ABI)
 
 Application Binary Interface (ABI) is a critical component in the interaction between smart contracts and the outside world within the TVM blockchains. It is responsible for defining how functions in a contract are called, including how their data is encoded and decoded. The ABI is a scheme that specifies how to transform high-level data types into a binary representation in TVM cells and vice versa.
 

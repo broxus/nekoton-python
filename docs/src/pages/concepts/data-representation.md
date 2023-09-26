@@ -1,6 +1,6 @@
 # Data Representation
 
-In the context of TVM (Threaded Virtual Machine) based blockchains, data representation plays a crucial role. This document aims to provide a comprehensive overview of how data is represented and stored in these blockchains.
+In the context of TVM (TON Virtual Machine) based blockchains, data representation plays a crucial role. This document aims to provide a comprehensive overview of how data is represented and stored in these blockchains.
 
 At the most basic level, everything in a blockchain is stored in a structure called a `cell`. A cell can contain up to **1023 data bits** and **up to 4 references** to other cells. Any value can be represented as a tree of cells. The specific structure for representing various data types is described in the ABI specification.
 

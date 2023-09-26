@@ -20,21 +20,31 @@ Examples of generating and using both types of seeds are provided below:
 from nekoton import LegacySeed
 
 legacy_seed = LegacySeed.generate()
-print(legacy_seed)
 
-# away october another abuse bridge woman local lottery ostrich genuine
-# obvious minor brand wall upper column response bus nose lonely question
-# useful grocery unable
+print(legacy_seed)
+```
+
+##### Result
+
+```python
+away october another abuse bridge woman local lottery ostrich genuine
+obvious minor brand wall upper column response bus nose lonely question
+useful grocery unable
 ```
 
 ```python
 from nekoton import Bip39Seed
 
 bip39_seed = Bip39Seed.generate()
-print(bip39_seed)
 
-# cricket prize gain hidden dragon fossil repeat blue dream already shaft
-# exclude
+print(bip39_seed)
+```
+
+##### Result
+
+```python
+cricket prize gain hidden dragon fossil repeat blue dream already shaft
+exclude
 ```
 
 ### Derivation Path
@@ -45,9 +55,8 @@ Here's how you can get the derivation path for a specified account number using 
 
 ```python
 path = bip39_seed.path_for_account(0)
-print(path)
 
-# m/44'/396'/0'/0/1
+print(path) # m/44'/396'/0'/0/1
 ```
 
 ## KeyPair
@@ -62,11 +71,16 @@ A `KeyPair` can be generated randomly using the `KeyPair.generate()` method:
 from nekoton import KeyPair
 
 keypair = KeyPair.generate()
-print(keypair.public_key, keypair.secret_key)
 
-# c32a0df58d495c15c37d19e0d9c0437a53280676d7941dd7256a3de057a80c51
-# b"~\xe3P\na\xa6\xa5D\xf1\xd2z\x89I'
-# 'W\xe7)\xb1\xe3c\xad!\xc7{\xe4\xc1\x06{W\xd24"
+print(keypair.public_key, keypair.secret_key)
+```
+
+##### Result
+
+```python
+c32a0df58d495c15c37d19e0d9c0437a53280676d7941dd7256a3de057a80c51
+
+b"~\xe3P\na\xa6\xa5D\xf1\xd2z\x89I'\n'W\xe7)\xb1\xe3c\xad!\xc7{\xe4\xc1\x06{W\xd24"
 ```
 
 ### Deriving a KeyPair
@@ -76,10 +90,16 @@ A `KeyPair` can also be derived from a seed. Here is an example of deriving a `K
 ```python
 legacy_seed = LegacySeed.generate()
 keypair = legacy_seed.derive()
-print(keypair.public_key, keypair.secret_key)
 
-# 7ec3e8c544c021808be23b10829440ea45175e76b9d5ede46a7e8d59085c3228
-# b'{I\xd1\x02*>\x16\x1c\xa7Z\x97\x01<\x1a\x07\x0b\xcc\xb0\x1d\x18i\xbar\xe7aE\x1e\x9d\xb3\xc3\xd8\xaf'
+print(keypair.public_key, keypair.secret_key)
+```
+
+##### Result
+
+```python
+7ec3e8c544c021808be23b10829440ea45175e76b9d5ede46a7e8d59085c3228
+
+b'{I\xd1\x02*>\x16\x1c\xa7Z\x97\x01<\x1a\x07\x0b\xcc\xb0\x1d\x18i\xbar\xe7aE\x1e\x9d\xb3\xc3\xd8\xaf'
 ```
 
 And here is an example of deriving a `KeyPair` from a `Bip39` seed:
@@ -89,31 +109,74 @@ from nekoton.crypto import Bip39Seed
 
 bip39_seed = Bip39Seed.generate()
 keypair = bip39_seed.derive()
-print(keypair.public_key, keypair.secret_key)
 
-# 3247bd75e041a03c9029297b89bb40132744df380596fb4bda4591f1dd9313d7
-# b"\xbd\xac\xcd\x0e\x89c\xab\xaeZ:!\xf7\xe6\xd9\x9f\xe5a=\x06z0-n'\xc5\xd0\xed\x8e\xee\xb5\x93\x94"
+print(keypair.public_key, keypair.secret_key)
 ```
 
-## Public Key Operationsэ
+##### Result
 
-Public keys can be initialized from an integer, bytes, or a string using the `PublicKey.from_int()`, `PublicKey.from_bytes()` methods respectively. They can be encoded to a string using the `PublicKey.encode()` method and can be converted to bytes using the `PublicKey.to_bytes()` method.
+```python
+3247bd75e041a03c9029297b89bb40132744df380596fb4bda4591f1dd9313d7
 
-Examples of initializing, encoding, and converting a `PublicKey`:
+b"\xbd\xac\xcd\x0e\x89c\xab\xaeZ:!\xf7\xe6\xd9\x9f\xe5a=\x06z0-n'\xc5\xd0\xed\x8e\xee\xb5\x93\x94"
+```
+
+## Public Key Operations
+
+The `nekoton` library provides various methods to work with public keys. You can initialize, encode, and convert a `PublicKey` using the provided methods.
+
+### Initialization
+
+Public keys can be initialized from different formats:
+
+#### From Integer
+
+You can initialize a public key from an integer using the `PublicKey.from_int()` method.
 
 ```python
 from nekoton import PublicKey
 
 public_key = PublicKey.from_int(63837483679490186262641015239053288982995430350508212654141177365814141551489)
-print(public_key)
 
+print(public_key)
+```
+
+###### Result
+
+```python
+8d22bc3f156f400934340607e372076b9a023c6ec5915aa2f790ba9bce088381
+```
+
+#### From Bytes
+
+You can initialize a public key from bytes using the `PublicKey.from_bytes()` method.
+
+```python
 public_key = PublicKey.from_bytes(b'\x8d"\xbc?\x15o@\t44\x06\x07\xe3r\x07k\x9a\x02<n\xc5\x91Z\xa2\xf7\x90\xba\x9b\xce\x08\x83\x81')
-print(public_key)
 
+print(public_key)
+```
+
+###### Result
+
+```python
+8d22bc3f156f400934340607e372076b9a023c6ec5915aa2f790ba9bce088381
+```
+
+#### From String
+
+You can initialize a public key from a string directly.
+
+```python
 public_key = PublicKey("8d22bc3f156f400934340607e372076b9a023c6ec5915aa2f790ba9bce088381")
-print(public_key)
 
-# 8d22bc3f156f400934340607e372076b9a023c6ec5915aa2f790ba9bce088381
+print(public_key)
+```
+
+###### Result
+
+```python
+8d22bc3f156f400934340607e372076b9a023c6ec5915aa2f790ba9bce088381
 ```
 
 ### Encoding
@@ -121,23 +184,34 @@ print(public_key)
 A `PublicKey` can be encoded to a string using the `PublicKey.encode()` method.
 
 ```python
-public_key = PublicKey.from_bytes(b'\x8d"\xbc?\x15o@\t44\x06\x07\xe3r\x07k\x9a\x02<n\xc5\x91Z\xa2\xf7\x90\xba\x9b\xce\x08\x83\x81')
 encoded = public_key.encode()
-print(encoded)
 
-# 8d22bc3f156f400934340607e372076b9a023c6ec5915aa2f790ba9bce088381
+print(encoded)
+```
+
+##### Result
+
+```python
+8d22bc3f156f400934340607e372076b9a023c6ec5915aa2f790ba9bce088381
 ```
 
 ### Byte Conversion
 
-A `PublicKey` can be converted to bytes using the `PublicKey.to_bytes()` method.
+Convert a `PublicKey` to bytes using the `PublicKey.to_bytes()` method.
 
 ```python
-bytes = public_key.to_bytes()
-print(bytes)
+bytes_representation = public_key.to_bytes()
 
-# b'\x8d"\xbc?\x15o@\t44\x06\x07\xe3r\x07k\x9a\x02<n\xc5\x91Z\xa2\xf7\x90\xba\x9b\xce\x08\x83\x81'
+print(bytes_representation)
 ```
+
+##### Result
+
+```python
+b'\x8d"\xbc?\x15o@\t44\x06\x07\xe3r\x07k\x9a\x02<n\xc5\x91Z\xa2\xf7\x90\xba\x9b\xce\x08\x83\x81'
+```
+
+This structure provides a clear distinction between the different methods of initializing a `PublicKey`, as well as its encoding and conversion functionalities.
 
 ## Signing Data
 
@@ -150,9 +224,14 @@ The `sign()` method hashes the data before signing it. This ensures the authenti
 ```python
 data = b"Hello, World 42!"
 signature = keypair.sign(data)
-print(signature)
 
-# Signature('117f4a23998bb476aaef44963ba0f4d7a979cfb1290e262618acc3a2067967706edc8ced33373f25fe9486b78b9a55648731dae31f0f230eef37f2838c65df02')
+print(signature)
+```
+
+##### Result
+
+```python
+Signature('117f4a23998bb476aaef44963ba0f4d7a979cfb1290e262618acc3a2067967706edc8ced33373f25fe9486b78b9a55648731dae31f0f230eef37f2838c65df02')
 ```
 
 ## Verifying Signatures
@@ -169,9 +248,8 @@ import hashlib
 data = hashlib.sha256(b"Hello, World 42!").digest()
 
 is_valid = public_key.check_signature(data, signature)
-print(is_valid)
 
-# True
+print(is_valid) # True
 ```
 
 ### Raw Signature
@@ -183,7 +261,6 @@ data = hashlib.sha256(b"Hello, World 42!").digest()
 
 signature_raw = keypair.sign_raw(data)
 is_valid_raw = public_key.check_signature_raw(data, signature_raw)
-print(is_valid_raw)
 
-# True
+print(is_valid_raw) # True
 ```

@@ -1,6 +1,6 @@
 # Nekoton-Python
 
-Nekoton-Python is a Python binding for [Nekoton](https://github.com/broxus/nekoton), a Rust library that acts as the foundation for wallets interacting with TVM (Threaded Virtual Machine) compatible blockchains. This binding allows Python developers to utilize Nekoton's functionality in their applications, offering an abstraction over transport and support for [TIP-3.1](https://docs.everscale.network/standard/TIP-3) / Ever tokens. It can be used to develop Python applications that interact with TVM compatible blockchains, including creating and managing wallets, sending and receiving TIP-3.1 / Ever tokens, and interacting with smart contracts.
+Nekoton-Python is a Python binding for [Nekoton](https://github.com/broxus/nekoton), a Rust library that acts as the foundation for wallets interacting with TVM (TON Virtual Machine) compatible blockchains. This binding allows Python developers to utilize Nekoton's functionality in their applications, offering an abstraction over transport and support for [TIP-3.1](https://docs.everscale.network/standard/TIP-3) / Ever tokens. It can be used to develop Python applications that interact with TVM compatible blockchains, including creating and managing wallets, sending and receiving TIP-3.1 / Ever tokens, and interacting with smart contracts.
 
 Nekoton-Python primarily consists of the following modules:
 
