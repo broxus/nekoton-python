@@ -73,3 +73,8 @@ docs/_build/
 .python-version
 
 python/**/*.so
+
+# Docs
+docs/.vitepress/dist
+docs/.vitepress/cache
+docs/node_modules
