@@ -1,0 +1,34 @@
+on:
+  push:
+    branches:
+      - master
+
+name: master
+
+jobs:
+  docs:
+    name: Generate docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v1
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: cd docs && npm install
+
+      - name: Build website
+        run: cd docs && npm run build:docs
+
+      - name: Set CNAME
+        run: echo 'nekoton-py-docs.broxus.com' > ./docs/.vitepress/dist/CNAME
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/.vitepress/dist

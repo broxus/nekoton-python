@@ -7,14 +7,11 @@ import Toast from 'vue-toastification';
 import BDKSimpleToast from './components/BDKSimpleToast.vue';
 
 import BDKLayout from './components/BDKLayout.vue';
-import BDKPage from './components/BDKPage.vue';
 import BDKOutlineComponent from './components/shared/outline/BDKOutline.vue';
 import BDKOutlineItem from './components/shared/outline/BDKOutlineItem.vue';
 import BDKAccordionComponent from './components/shared/BDKAccordion.vue';
 import BDKDisconnectIcon from './components/shared/BDKDisconnectIcon.vue';
 import BDKImgContainer from './components/shared/BDKImgContainer.vue';
-// Demo components
-import PackDataSample from './../../src/components/demos/PackDataSample.vue';
 
 import { toast } from '../../src/helpers';
 
@@ -43,13 +40,10 @@ export default {
     };
 
     app.component('BDKSimpleToast', BDKSimpleToast);
-    app.component('BDKPage', BDKPage);
     app.component('BDKOutline', BDKOutlineComponent);
     app.component('BDKOutlineItem', BDKOutlineItem);
     app.component('BDKDisconnectIcon', BDKDisconnectIcon);
     app.component('BDKAccordion', BDKAccordionComponent);
     app.component('BDKImgContainer', BDKImgContainer);
-
-    app.component('PackDataSample', PackDataSample);
   },
 };

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "clean:docs": "rm -rf ./docs/build",
+    "clean:docs": "rm -rf .vitepress/dist",
     "build:docs": "npm run lint && npm run clean:docs && npx vitepress build",
     "lint": "eslint './**/*.{js,ts,jsx,tsx,vue}'",
     "lint:fix": "eslint './**/*.{js,ts,jsx,tsx,vue}' --fix",
@@ -22,7 +22,7 @@
     "eslint-import-resolver-typescript": "^3.5.0",
     "eslint-plugin-flowtype": "^8.0.3",
     "eslint-plugin-import": "^2.27.5",
-    "eslint-plugin-prettier": "^4.2.1",
+    "eslint-plugin-prettier": "^5.0.0",
     "eslint-plugin-sonarjs": "^0.19.0",
     "eslint-plugin-vue": "^9.15.1",
     "everscale-inpage-provider": "0.3.61",
