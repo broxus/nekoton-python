@@ -8,7 +8,7 @@ In the world of blockchain technology, the concept of transaction finalization i
 
 ## Actor Model & Async Transactions
 
-TVM-compatible blockchains operate based on a pure actor model, an asynchronous and concurrent computational model. In this system, each contract acts as an independent actor, processing its own messages. Hence, the execution of a smart contract or transaction is not a single, atomic operation. Instead, it's a sequence of actions that can happen asynchronously.
+TVM-compatible blockchains operate based on the pure actor model, an asynchronous and concurrent computational model. Within this system, each contract functions as an independent actor, processing its individual messages. The execution of a smart contract or a transaction within a single contract is a synchronous atomic operation. However, when an operation involves multiple contracts, interactions between them can occur asynchronously.
 
 <BDKImgContainer src="./../transaction-finalization.png" padding="20px 0 20px 0"/>
 

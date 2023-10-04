@@ -1,5 +1,5 @@
 ---
-outline: deep
+outline: [2, 4]
 ---
 
 # Working with Cells
@@ -164,6 +164,18 @@ print(unpacked)
 
 Interacting with the state of a contract is a common operation when working with the blockchain. In `nekoton-python`, the `StateInit` class provides ways to handle contract code and data, including encoding and decoding the state, computing an address for the state, and more.
 
+:::tip Importance of Code Hash in TVM
+
+The code hash plays a pivotal role:
+
+- **Identification**: The code hash is a cryptographic representation of the contract's code, providing a unique identifier. Identical code hashes across contracts signal that their underlying codebases are the same.
+
+- **Security**: Due to the cryptographic nature of the hash, knowing the hash doesn't allow one to deduce the original contract code, ensuring the confidentiality of the contract's content.
+
+- **Indexing and Search**: The code hash is utilized as a key in various indexing systems, allowing for faster retrieval of contract information and efficient searches across the blockchain. It ensures that contracts with the same code can be grouped or identified quickly.
+
+:::
+
 ### Decoding Contract State
 
 The `StateInit` class provides several methods to decode the state of a contract.
@@ -185,7 +197,13 @@ state_bytes = b'\xb5\xee\x9cr\x01\x02$\x01\x00\x05\x02\x00\x02\x014\x03\x01\x01\
 # Decode the contract's state
 state_init = StateInit.from_bytes(state_bytes)
 
->> <StateInit code_hash=''1583b2bc6a3b8acc01ac653e2255407a140df286141e8bb77dd97419e6258554'', data_hash=''55a703465a160dce20481375de2e5b830c841c2787303835eb5821d62d65ca9d''>
+print(state_init)
+```
+
+##### Result
+
+```python
+<StateInit code_hash=''1583b2bc6a3b8acc01ac653e2255407a140df286141e8bb77dd97419e6258554'', data_hash=''55a703465a160dce20481375de2e5b830c841c2787303835eb5821d62d65ca9d''>
 ```
 
 #### From a Cell
@@ -253,21 +271,73 @@ Code: <Cell repr_hash='1583b2bc6a3b8acc01ac653e2255407a140df286141e8bb77dd97419e
 Data: <Cell repr_hash='55a703465a160dce20481375de2e5b830c841c2787303835eb5821d62d65ca9d', bits=1, refs=1>
 ```
 
-You can also update the code salt:
+#### Modifying the Contract's Code
+
+Code Salt is a random data added to the code before hashing. This ensures that even if two contracts have identical code, their combined salted content results in distinct hashes, thereby generating different contract addresses.
+
+:::tip
+
+The salt holds significant value:
+
+- **Uniqueness**: A salt is random data added to the code before hashing. This ensures that even if two contracts have identical code, their combined salted content results in distinct hashes, thereby generating different contract addresses.
+
+- **Enhanced Security**: Salts deter dictionary attacks and precomputed hash (rainbow table) attacks. By ensuring every contract, even with similar code, can possess a unique hash when combined with its salt, salts render these attack methods ineffective.
+
+- **Adjustable Properties**: In specific scenarios, a salt can be employed to tweak the behavior or properties of a contract without modifying the actual code.
+
+:::
+
+You can update the code salt:
 
 ```python
-# Assume we have a new salt
-new_salt = Cell.from_bytes(b'new salt')
+# Define ABI for the code salt cell
+ABI = [
+    ("name", nt.AbiString()),
+    ("secret", nt.AbiString()),
+]
+
+# Define the data to build into a cell.
+data_to_build = {
+    "name": "Alice",
+    "secret": "9c1b512d6296870f78d145713bf",
+}
+
+# Build the cell from the data.
+new_salt = nt.Cell.build(abi=ABI, value=data_to_build)
+
+print("Old StateInit: ", state_init)
 
 # Update the code salt
 state_init.set_code_salt(new_salt)
+
+print("New StateInit: ", state_init)
 ```
 
-And extract the code salt:
+##### Result
+
+```python
+Old StateInit: <StateInit code_hash='1583b2bc6a3b8acc01ac653e2255407a140df286141e8bb77dd97419e6258554', data_hash='55a703465a160dce20481375de2e5b830c841c2787303835eb5821d62d65ca9d'>
+
+New StateInit: <StateInit code_hash='a1b1f194845bad7c5085140cdf7aac422756002d7da2bfd1dc8e2f8cb47faac8', data_hash='55a703465a160dce20481375de2e5b830c841c2787303835eb5821d62d65ca9d'>
+```
+
+Now, the code hash has changed, but the data hash remains the same.
+
+#### Reading the Code Salt
+
+When you need to read the code salt, you can use the `get_code_salt` method:
 
 ```python
 # Extract the code salt
 code_salt = state_init.get_code_salt()
+
+print(code_salt)
+```
+
+##### Result
+
+```python
+<Cell repr_hash='445f574be946d8ebaac1368365e7c499b69fce42bae51a0fd3b925b1b4785f46', bits=32, refs=2>
 ```
 
 ### Computing the Contract's Address

@@ -4,7 +4,7 @@ In the context of TVM-compatible blockchains, an account is the fundamental unit
 
 ## Account Structure
 
-An account is characterized by its address, which is a deterministic value derived from its code and initial data, specifically `hash(hash(smart_contract_code), hash(initial_data))`. There are no special types of accounts for user wallets initiating transactions in the TVM blockchain. Wallets are typical smart contracts, and there are many different kinds. Any smart contract that allows the reception of external messages can initiate a transaction.
+An account is characterized by its address, which is a deterministic value derived from its code and initial data, specifically `cell_hash(cell_repr(StateInit))`. There are no special types of accounts for user wallets initiating transactions in the TVM blockchain. Wallets are typical smart contracts, and there are many different kinds. Any smart contract that allows the reception of external messages can initiate a transaction.
 
 The comprehensive account record is represented by a series of nested data structures, including Account Storage, Account State, and Smart Contract Storage (also known as `StateInit`).
 
@@ -57,21 +57,25 @@ StateInit fields:
 - `code`: Optional contract code
 - `data`: Optional contract data
 
-The `code` and `data` fields encode the current byte-code and data of a contract, where `data` denotes the values of the contract's variables. The mechanism to encode the code libraries the contract may refer to from its code is deprecated.
+The `code` and `data` fields encode the current byte-code and data of a contract, where `data` denotes the values of the contract's variables.
+
+:::info
+The representation provided here is a simplified Python representation. In the actual implementation, there are additional fields that are omitted in this library for simplicity.
+:::
 
 ## Account Lifecycle
 
 ### Creation
 
-Initially, an account does not exist in the blockchain. To create a record of it, we first calculate the address of the future contract (i.e., `hash(hash(code) + hash(initial data))`) and send the required amount of native coins to this address with a special flag `bounce = false`. This flag indicates that if the recipient account does not exist, or if an error occurred during message processing, the coins should remain at this address rather than being sent back with a special error message.
+Initially, an account does not exist in the blockchain. To create a record of it, we first calculate the address of the future contract (i.e., `cell_hash(cell_repr(StateInit))`) and send the required amount of native coins to this address with a special flag `bounce = false`. This flag indicates that if the recipient account does not exist, or if an error occurred during message processing, the coins should remain at this address rather than being sent back with a special error message.
 
 After this process, we get an account in the blockchain with the status `Uninitialized`. This means that we have a record of the account in the blockchain, but no data and code.
 
 ### Activation
 
-To transition an account to the `Active` status, we need to send a specially formulated message containing the data and code of this contract. Anyone can send such a message. Validators will verify that the contract address equals `hash(hash(code) + hash(data))`, and if everything matches, the account will be initialized. This message can also include a function to be called immediately after account activation, along with its arguments. By default, the constructor is called.
+To transition an account to the `Active` status, we need to send a specially formulated message containing the data and code of this contract. Anyone can send such a message. Validators will verify that the contract address equals `cell_hash(cell_repr(StateInit))`, and if everything matches, the account will be initialized. This message can also include a function to be called immediately after account activation, along with its arguments. By default, the constructor is called.
 
-Once the account becomes active, it can accept incoming internal and external messages. Every time an account receives a message, a transaction begins, during which the account can create up to 255 actions such as Internal Messages, External Messages, rawReserve, setCode.
+Once the account becomes active, it can accept incoming internal and external messages. Every time an account receives a message, a transaction begins, during which the account can create up to 255 actions such as `Internal Messages`, `External Messages`, `rawReserve`, `setCode`.
 
 ### Utilization
 

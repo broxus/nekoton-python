@@ -61,7 +61,6 @@ Cells also come in different "flavors" for different purposes:
 
 - **Builder**: for partially constructed cells, allowing fast operations for appending bitstrings, integers, other cells, and references to other cells.
 - **Slice**: for 'dissected' cells representing either the remainder of a partially parsed cell or a value (subcell) residing inside such a cell.
-- **Continuation**: for cells containing op-codes (instructions) for the TVM.
 
 ## Serialization of Data to Cells
 

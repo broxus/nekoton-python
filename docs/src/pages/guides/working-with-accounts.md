@@ -1,5 +1,5 @@
 ---
-outline: deep
+outline: [2, 4]
 ---
 
 # Working with Accounts

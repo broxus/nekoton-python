@@ -14,7 +14,7 @@ The ABI is described in a JSON file and includes the following components:
 - **Header**: Additional parameters of functions within the contract.
 - **Functions**: The signatures of each interface function, including its name, input, and output parameters.
 - **Events**: The events used in the contract.
-- **Data**: The contract's global public variables.
+- **Data**: Used for state init formation.
 - **Fields**: The internal structure of the smart contract's data.
 
 :::details ABI Example
@@ -100,7 +100,7 @@ Data covers the contract's global public variables. It's typically used when dep
 
 ### Fields
 
-Fields describe the internal structure of the smart contracts data. They include contract state variables and some internal contract-specific hidden variables. They are listed in the order in which they are stored in the data field of the contract.
+Fields describe the internal structure of the smart contracts data. They include contract state variables and some internal contract-specific hidden variables. They are listed in the order in the contract persistent data.
 
 ### ABI Types
 
