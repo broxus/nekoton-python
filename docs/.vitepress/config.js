@@ -1,8 +1,26 @@
 import vue from '@vitejs/plugin-vue';
 
 const HELP_URL = 'https://t.me/everdev';
-const FEEDBACK_URL = '';
-const GITHUB_URL = '';
+const FEEDBACK_URL = 'https://github.com/broxus/nekoton-python/issues';
+const GITHUB_URL = 'https://github.com/broxus/nekoton-python';
+
+const NAV = [
+  {
+    text: 'Broxus Docs',
+    items: [
+      { text: 'Home', link: 'https://docs.broxus.com' },
+      { text: 'Everscale Inpage Provider', link: 'https://provider-docs.broxus.com/' },
+      { text: 'Locklift', link: 'https://docs.locklift.io/' },
+      { text: 'OctusBridge Integration', link: 'https://integrate.octusbridge.io/' },
+      {
+        text: 'TIP-3 Api Reference',
+        link: 'https://tip3-api-reference.netlify.app/',
+      },
+    ],
+  },
+  { text: 'Feedback', link: FEEDBACK_URL },
+  { text: 'Community', link: HELP_URL },
+];
 
 module.exports = {
   title: 'Nekoton Python Docs',
@@ -30,10 +48,7 @@ module.exports = {
     search: {
       provider: 'local',
     },
-    nav: [
-      { text: 'Feedback', link: FEEDBACK_URL },
-      { text: 'Community', link: HELP_URL },
-    ],
+    nav: NAV,
     sidebar: [
       { text: 'Overview', link: '/' },
       {
@@ -93,7 +108,7 @@ module.exports = {
       },
     ],
     editLink: {
-      pattern: 'https://github.com/cyace84/nekoton-python/edit/docs/docs/:path',
+      pattern: 'https://github.com/broxus/nekoton-python/edit/master/docs/:path',
     },
     socialLinks: [{ icon: 'github', link: GITHUB_URL }],
   },
