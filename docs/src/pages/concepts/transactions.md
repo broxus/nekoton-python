@@ -10,7 +10,7 @@ In the world of blockchain technology, the concept of transaction finalization i
 
 TVM-compatible blockchains operate based on the pure actor model, an asynchronous and concurrent computational model. Within this system, each contract functions as an independent actor, processing its individual messages. The execution of a smart contract or a transaction within a single contract is a synchronous atomic operation. However, when an operation involves multiple contracts, interactions between them can occur asynchronously.
 
-<BDKImgContainer src="./../transaction-finalization.png" padding="20px 0 20px 0"/>
+<BDKImgContainer src="./../transaction-finalization.png" padding="20px 0 20px 0" maxWidth="60%"/>
 
 For instance, let's imagine `Contract A` calling `Contract B`. In many other blockchain models, if `Contract B` runs out of gas during execution, the entire transaction would be rolled back, including the state changes in `Contract A` that occurred prior to the call. However, in the actor model of TVM blockchains, if `Contract B` encounters an error, the changes `Contract A` made before calling `Contract B` would persist. The execution failure of `Contract B` only rolls back changes related to `Contract B`'s execution. This characteristic ensures a higher degree of reliability and security in transaction processing.
 
@@ -64,7 +64,7 @@ If the smart contract did not exist before, the storage phase is absent.
 
 Following the Storage Phase is the Credit Phase. During this phase, the account balance is calculated with respect to a possible incoming message value and the collected storage fee.
 
-## Compute Phase
+### Compute Phase
 
 The Compute Phase is where the TVM executes the smart contract code invoked by a message. In this phase, all computations and state updates of the contract that do not interact with other contracts occur. The Compute Phase is deterministic, and its outcome is solely dependent on the input data and the current state of the smart contract. This phase executes in an isolated environment to ensure the integrity and security of the computations. If an exception occurs during the Compute Phase, such as an out-of-gas error, the entire transaction is aborted, and the subsequent phases do not commence. At the end of this phase, the TVM prepares a set of "output actions" for dispatch during the Action Phase.
 
@@ -74,7 +74,7 @@ The Action Phase is where the output messages created during the Compute Phase a
 
 These calls can lead to various outcomes such as token transfers and state changes of the receiving contract. The Action Phase enables the smart contract's interaction with other contracts within the blockchain network. However, the actual state changes only occur if the Action Phase is successfully completed.
 
-<BDKImgContainer src="./../compute-and-action-phases.png" padding="20px 0 20px 0"/>
+<BDKImgContainer src="./../compute-and-action-phases.png" padding="20px 0 20px 0" maxWidth="75%"/>
 
 :::warning Caution
 Please note that there's a maximum limit of 255 actions that can be dispatched during the Action Phase. This limit includes `internal outbound messages`, `event messages`, `rawReserve`, `setCode`. Exceeding this limit will cause the transaction to be aborted.
