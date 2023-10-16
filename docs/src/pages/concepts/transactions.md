@@ -50,6 +50,8 @@ There are different types of transactions allowed in the blockchain, each servin
 
 In the TVM blockchain, transactions are processed through several distinct phases. Each phase plays a critical role in executing and validating transactions. Understanding these phases can provide a more comprehensive view of how transactions function in the blockchain.
 
+<BDKImgContainer src="./../transaction-phases.png" padding="20px 0 20px 0" maxWidth="60%"/>
+
 ### Storage Phase
 
 The Storage Phase is the initial stage of every transaction. During this phase, the blockchain calculates storage fees accrued by the smart contract due to the occupation of some space in the chain state. This storage fee is calculated based on the amount of storage used by the smart contract, represented in bytes and the duration, in seconds, for which the storage has been used.
@@ -73,8 +75,6 @@ The Compute Phase is where the TVM executes the smart contract code invoked by a
 The Action Phase is where the output messages created during the Compute Phase are dispatched. Actions that may occur during this phase include calling other smart contracts and any other actions specified in the output messages.
 
 These calls can lead to various outcomes such as token transfers and state changes of the receiving contract. The Action Phase enables the smart contract's interaction with other contracts within the blockchain network. However, the actual state changes only occur if the Action Phase is successfully completed.
-
-<BDKImgContainer src="./../compute-and-action-phases.png" padding="20px 0 20px 0" maxWidth="75%"/>
 
 :::warning Caution
 Please note that there's a maximum limit of 255 actions that can be dispatched during the Action Phase. This limit includes `internal outbound messages`, `event messages`, `rawReserve`, `setCode`. Exceeding this limit will cause the transaction to be aborted.
