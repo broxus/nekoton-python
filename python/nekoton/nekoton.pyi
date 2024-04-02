@@ -477,6 +477,140 @@ class EventAbi:
     def __ne__(self, other) -> Any: ...
 
 
+class Message:
+    """
+    Blockchain message.
+    """
+
+    @staticmethod
+    def from_bytes(bytes: bytes) -> Message:
+        """
+        Decodes message from raw bytes.
+
+        :param bytes: raw bytes with BOC.
+        """
+        ...
+
+    @staticmethod
+    def from_cell(cell: Cell) -> Message:
+        """
+        Decodes message from the cell.
+
+        :param cell: root message cell.
+        """
+        ...
+
+    @staticmethod
+    def decode(value: str, encoding: Optional[str] = None) -> Message:
+        """
+        Decodes the message from the encoded BOC.
+
+        :param value: a string with encoded BOC.
+        :param encoding: encoding type. `base64` (default) or `hex`.
+        """
+        ...
+
+    @property
+    def hash(self) -> bytes:
+        """The hash of the root message cell."""
+        ...
+
+    @property
+    def is_external_in(self) -> bool:
+        """Whether this message is `ExternalIn`."""
+        ...
+
+    @property
+    def is_external_out(self) -> bool:
+        """Whether this message is `ExternalOut`."""
+        ...
+
+    @property
+    def is_internal(self) -> bool:
+        """Whether this message is `Internal`."""
+        ...
+
+    @property
+    def type(self) -> MessageType:
+        """Message type."""
+        ...
+
+    @property
+    def header(self) -> MessageHeader:
+        """Message header"""
+        ...
+
+    @property
+    def created_at(self) -> int:
+        """A unix timestamp when this message was created. (always 0 for `ExternalIn`)."""
+        ...
+
+    @property
+    def created_lt(self) -> int:
+        """A logical timestamp when this message was created. (always 0 for `ExternalIn`)."""
+        ...
+
+    @property
+    def src(self) -> Optional[Address]:
+        """Source address. (None for ExternalIn)."""
+        ...
+
+    @property
+    def dst(self) -> Optional[Address]:
+        """Destination address. (None for `ExternalOut`)."""
+        ...
+
+    @property
+    def value(self) -> Tokens:
+        """Attached amount of nano EVERs. (always 0 for non `Internal`)."""
+        ...
+
+    @property
+    def bounced(self) -> bool:
+        """Whether this message was bounced."""
+        ...
+
+    @property
+    def body(self) -> Optional[Cell]:
+        """Optional message body."""
+        ...
+
+    @property
+    def state_init(self) -> Optional[StateInit]:
+        """Optional state init."""
+        ...
+
+    def encode(self, encoding: Optional[str] = None) -> str:
+        """
+        Encodes the message into BOC.
+
+        :param encoding: encoding type. `base64` (default) or `hex`.
+        """
+        ...
+
+    def to_bytes(self) -> bytes:
+        """Encodes message into raw bytes."""
+        ...
+
+    def build_cell(self) -> Cell:
+        """Encodes message into a new cell."""
+        ...
+
+    def __eq__(self, other) -> Any: ...
+
+    def __ge__(self, other) -> Any: ...
+
+    def __gt__(self, other) -> Any: ...
+
+    def __hash__(self) -> Any: ...
+
+    def __le__(self, other) -> Any: ...
+
+    def __lt__(self, other) -> Any: ...
+
+    def __ne__(self, other) -> Any: ...
+
+
 class SignedExternalMessage(Message):
     """
     External message with an additional expiration param.
@@ -1342,140 +1476,6 @@ class AccountStatusChange:
     def __hash__(self) -> Any: ...
 
     def __int__(self) -> Any: ...
-
-    def __le__(self, other) -> Any: ...
-
-    def __lt__(self, other) -> Any: ...
-
-    def __ne__(self, other) -> Any: ...
-
-
-class Message:
-    """
-    Blockchain message.
-    """
-
-    @staticmethod
-    def from_bytes(bytes: bytes) -> Message:
-        """
-        Decodes message from raw bytes.
-
-        :param bytes: raw bytes with BOC.
-        """
-        ...
-
-    @staticmethod
-    def from_cell(cell: Cell) -> Message:
-        """
-        Decodes message from the cell.
-
-        :param cell: root message cell.
-        """
-        ...
-
-    @staticmethod
-    def decode(value: str, encoding: Optional[str] = None) -> Message:
-        """
-        Decodes the message from the encoded BOC.
-
-        :param value: a string with encoded BOC.
-        :param encoding: encoding type. `base64` (default) or `hex`.
-        """
-        ...
-
-    @property
-    def hash(self) -> bytes:
-        """The hash of the root message cell."""
-        ...
-
-    @property
-    def is_external_in(self) -> bool:
-        """Whether this message is `ExternalIn`."""
-        ...
-
-    @property
-    def is_external_out(self) -> bool:
-        """Whether this message is `ExternalOut`."""
-        ...
-
-    @property
-    def is_internal(self) -> bool:
-        """Whether this message is `Internal`."""
-        ...
-
-    @property
-    def type(self) -> MessageType:
-        """Message type."""
-        ...
-
-    @property
-    def header(self) -> MessageHeader:
-        """Message header"""
-        ...
-
-    @property
-    def created_at(self) -> int:
-        """A unix timestamp when this message was created. (always 0 for `ExternalIn`)."""
-        ...
-
-    @property
-    def created_lt(self) -> int:
-        """A logical timestamp when this message was created. (always 0 for `ExternalIn`)."""
-        ...
-
-    @property
-    def src(self) -> Optional[Address]:
-        """Source address. (None for ExternalIn)."""
-        ...
-
-    @property
-    def dst(self) -> Optional[Address]:
-        """Destination address. (None for `ExternalOut`)."""
-        ...
-
-    @property
-    def value(self) -> Tokens:
-        """Attached amount of nano EVERs. (always 0 for non `Internal`)."""
-        ...
-
-    @property
-    def bounced(self) -> bool:
-        """Whether this message was bounced."""
-        ...
-
-    @property
-    def body(self) -> Optional[Cell]:
-        """Optional message body."""
-        ...
-
-    @property
-    def state_init(self) -> Optional[StateInit]:
-        """Optional state init."""
-        ...
-
-    def encode(self, encoding: Optional[str] = None) -> str:
-        """
-        Encodes the message into BOC.
-
-        :param encoding: encoding type. `base64` (default) or `hex`.
-        """
-        ...
-
-    def to_bytes(self) -> bytes:
-        """Encodes message into raw bytes."""
-        ...
-
-    def build_cell(self) -> Cell:
-        """Encodes message into a new cell."""
-        ...
-
-    def __eq__(self, other) -> Any: ...
-
-    def __ge__(self, other) -> Any: ...
-
-    def __gt__(self, other) -> Any: ...
-
-    def __hash__(self) -> Any: ...
 
     def __le__(self, other) -> Any: ...
 
