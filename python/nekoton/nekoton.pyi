@@ -2301,7 +2301,7 @@ class KeyPair:
     def __init__(self, secret: bytes) -> None: ...
 
     @property
-    def secret_key(self) -> PublicKey:
+    def secret_key(self) -> bytes:
         """Corresponding secret key."""
         ...
 
