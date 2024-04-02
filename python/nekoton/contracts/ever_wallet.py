@@ -1,7 +1,8 @@
 from typing import Optional
 
-from ... import base as _base
+from . import IGiver
 import nekoton as _nt
+
 
 _wallet_abi = _nt.ContractAbi("""{
     "ABI version": 2,
@@ -33,7 +34,7 @@ _wallet_data_abi = [
 ]
 
 
-class EverWallet(_base.IGiver):
+class EverWallet(IGiver):
     @classmethod
     def compute_address(
         cls, public_key: _nt.PublicKey, workchain: int = 0

@@ -6,11 +6,11 @@ from typing import Optional
 from . import generator
 
 parser = argparse.ArgumentParser(
-    prog='nekoton',
-    description='Generates a wrapper using an ABI')
+    prog="nekoton", description="Generates a wrapper using an ABI"
+)
 
-parser.add_argument('filename')
-parser.add_argument('-n', '--name', required=False)
+parser.add_argument("filename")
+parser.add_argument("-n", "--name", required=False)
 
 args = parser.parse_args()
 
