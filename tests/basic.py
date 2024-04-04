@@ -19,6 +19,10 @@ my_addr = Address(
 assert (my_addr.workchain == -1 and len(my_addr.account) == 32)
 my_addr.workchain = 0
 assert (my_addr.workchain == 0)
+assert (my_addr.__hash__() == my_addr.__hash__())
+
+address_dict = {my_addr: 123}
+assert (address_dict[my_addr] == 123)
 
 # Cells
 cell1 = Cell()
@@ -68,6 +72,7 @@ cell_with_pubkey = Cell.build(
         "not_pubkey": 123123,
     }
 )
+
 decoded_cell_with_pubkey = cell_with_pubkey.unpack(cell_with_pubkey_abi)
 assert PublicKey.from_int(decoded_cell_with_pubkey['pubkey']) == some_pubkey
 assert decoded_cell_with_pubkey['not_pubkey'] == 123123

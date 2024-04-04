@@ -51,9 +51,7 @@ impl HashExt for ton_types::UInt256 {
     }
 
     fn from_opt_bytes(bytes: Option<&[u8]>, name: &str) -> PyResult<Option<Self>> {
-        let Some(bytes) = bytes else {
-            return Ok(None)
-        };
+        let Some(bytes) = bytes else { return Ok(None) };
         if bytes.len() == 32 {
             Ok(Some(ton_types::UInt256::from_le_bytes(bytes)))
         } else {
@@ -156,4 +154,8 @@ pub fn serialize_state_init_data_key(key: u64) -> ton_types::SliceData {
     key.serialize()
         .and_then(ton_types::SliceData::load_cell)
         .unwrap()
+}
+
+pub fn make_hasher() -> ahash::RandomState {
+    ahash::RandomState::with_seed(0)
 }

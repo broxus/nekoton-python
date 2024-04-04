@@ -615,7 +615,9 @@ impl FunctionAbi {
         let tx = &transaction.0.data;
 
         let Some(in_msg) = tx.read_in_msg().handle_runtime_error()? else {
-            return Err(PyRuntimeError::new_err("Transaction without incoming message"));
+            return Err(PyRuntimeError::new_err(
+                "Transaction without incoming message",
+            ));
         };
         let Some(in_msg_body) = in_msg.body() else {
             return Err(PyRuntimeError::new_err("Incoming message without body"));
@@ -789,7 +791,7 @@ impl FunctionAbiWithArgs {
 
         let args = self.args.as_ref(py);
 
-        Ok(ahash::RandomState::new().hash_one(HashHelper {
+        Ok(make_hasher().hash_one(HashHelper {
             input_id: self.abi.input_id() as u64,
             args_hash: args.hash()? as u64,
         }))

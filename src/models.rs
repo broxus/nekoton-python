@@ -7,7 +7,7 @@ use pyo3::types::*;
 use ton_block::{Deserializable, Serializable};
 
 use crate::abi::{convert_tokens, parse_tokens, AbiParam, AbiVersion};
-use crate::util::{py_none, Encoding, HandleError};
+use crate::util::{make_hasher, py_none, Encoding, HandleError};
 
 #[derive(Clone)]
 #[pyclass]
@@ -438,7 +438,9 @@ impl Transaction {
 
     pub fn get_in_msg(&self) -> PyResult<Message> {
         let Some(msg_cell) = self.0.data.in_msg_cell() else {
-            return Err(PyRuntimeError::new_err("Transaction without incoming message"));
+            return Err(PyRuntimeError::new_err(
+                "Transaction without incoming message",
+            ));
         };
         let hash = msg_cell.repr_hash();
         let data = ton_block::Message::construct_from_cell(msg_cell).handle_runtime_error()?;
@@ -719,7 +721,7 @@ impl TransactionType {
     }
 
     fn __hash__(&self) -> u64 {
-        ahash::RandomState::new().hash_one(self)
+        make_hasher().hash_one(self)
     }
 
     fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {
@@ -758,7 +760,7 @@ impl AccountStatus {
     }
 
     fn __hash__(&self) -> u64 {
-        ahash::RandomState::new().hash_one(self)
+        make_hasher().hash_one(self)
     }
 
     fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {
@@ -795,7 +797,7 @@ impl AccountStatusChange {
     }
 
     fn __hash__(&self) -> u64 {
-        ahash::RandomState::new().hash_one(self)
+        make_hasher().hash_one(self)
     }
 
     fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {
@@ -1105,7 +1107,7 @@ impl MessageType {
     }
 
     fn __hash__(&self) -> u64 {
-        ahash::RandomState::new().hash_one(self)
+        make_hasher().hash_one(self)
     }
 
     fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {
@@ -1304,7 +1306,7 @@ impl Address {
     }
 
     fn __hash__(&self) -> u64 {
-        ahash::RandomState::new().hash_one(&self.0)
+        make_hasher().hash_one(&self.0)
     }
 
     fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {
@@ -1539,7 +1541,7 @@ impl Tokens {
                 };
 
                 let Some(int) = (int as i128).checked_mul(ONE) else {
-                    return Err(PyOverflowError::new_err(OVERFLOW))
+                    return Err(PyOverflowError::new_err(OVERFLOW));
                 };
 
                 match int.checked_add(frac as i128) {
@@ -1597,7 +1599,7 @@ impl Tokens {
     }
 
     fn __hash__(&self) -> u64 {
-        ahash::RandomState::new().hash_one(self.0)
+        make_hasher().hash_one(self.0)
     }
 
     fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {

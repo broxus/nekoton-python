@@ -532,7 +532,10 @@ impl GqlTransport {
                     ));
                 }
 
-                let Some(Transactions { transactions: Some(transactions) }) = data else {
+                let Some(Transactions {
+                    transactions: Some(transactions),
+                }) = data
+                else {
                     return Err(PyRuntimeError::new_err("Invalid response"));
                 };
 
@@ -596,7 +599,10 @@ impl GqlTransport {
                     ));
                 }
 
-                let Some(Messages { messages: Some(messages) }) = data else {
+                let Some(Messages {
+                    messages: Some(messages),
+                }) = data
+                else {
                     return Err(PyRuntimeError::new_err("Invalid response"));
                 };
 
@@ -662,7 +668,10 @@ impl GqlTransport {
                     ));
                 }
 
-                let Some(Accounts { accounts: Some(accounts) }) = data else {
+                let Some(Accounts {
+                    accounts: Some(accounts),
+                }) = data
+                else {
                     return Err(PyRuntimeError::new_err("Invalid response"));
                 };
 
@@ -1055,7 +1064,11 @@ impl TraceTransactionState {
         let transport = self.transport.handle.as_ref();
 
         if let Some(root_hash) = &self.root_hash {
-            let Some(tx) = transport.get_transaction(root_hash).await.handle_runtime_error()? else {
+            let Some(tx) = transport
+                .get_transaction(root_hash)
+                .await
+                .handle_runtime_error()?
+            else {
                 return Err(PyRuntimeError::new_err("Root transaction not found"));
             };
 
