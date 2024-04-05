@@ -12,7 +12,7 @@ pub struct PublicKey(pub ed25519_dalek::PublicKey);
 #[pymethods]
 impl PublicKey {
     #[staticmethod]
-    fn from_int(int: num_bigint::BigUint) -> PyResult<Self> {
+    pub fn from_int(int: num_bigint::BigUint) -> PyResult<Self> {
         let bytes = int.to_bytes_be();
         if bytes.len() > 32 {
             return Err(PyValueError::new_err("Number is too big"));
@@ -27,19 +27,19 @@ impl PublicKey {
     }
 
     #[staticmethod]
-    fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
         ed25519_dalek::PublicKey::from_bytes(bytes)
             .handle_value_error()
             .map(Self)
     }
 
     #[new]
-    fn new(value: &str, encoding: Option<&str>) -> PyResult<Self> {
+    pub fn new(value: &str, encoding: Option<&str>) -> PyResult<Self> {
         let encoding = Encoding::from_optional_param(encoding, Encoding::Hex)?;
         encoding.decode_pubkey(value).map(Self)
     }
 
-    fn check_signature(
+    pub fn check_signature(
         &self,
         data: &[u8],
         signature: &Signature,
@@ -50,16 +50,16 @@ impl PublicKey {
         self.0.verify(&data, &signature.0).is_ok()
     }
 
-    fn encode(&self, encoding: Option<&str>) -> PyResult<String> {
+    pub fn encode(&self, encoding: Option<&str>) -> PyResult<String> {
         let encoding = Encoding::from_optional_param(encoding, Encoding::Hex)?;
         Ok(encoding.encode_pubkey(&self.0))
     }
 
-    fn to_bytes<'a>(&self, py: Python<'a>) -> &'a PyBytes {
+    pub fn to_bytes<'a>(&self, py: Python<'a>) -> &'a PyBytes {
         PyBytes::new(py, self.0.as_bytes())
     }
 
-    fn to_int(&self) -> num_bigint::BigUint {
+    pub fn to_int(&self) -> num_bigint::BigUint {
         num_bigint::BigUint::from_bytes_be(self.0.as_bytes())
     }
 
@@ -149,14 +149,14 @@ pub struct Signature(pub ed25519_dalek::Signature);
 #[pymethods]
 impl Signature {
     #[staticmethod]
-    fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
         ed25519_dalek::Signature::from_bytes(bytes)
             .handle_value_error()
             .map(Self)
     }
 
     #[new]
-    fn new(value: &str, encoding: Option<&str>) -> PyResult<Self> {
+    pub fn new(value: &str, encoding: Option<&str>) -> PyResult<Self> {
         let encoding = Encoding::from_optional_param(encoding, Encoding::Hex)?;
         let bytes = encoding.decode_bytes(value)?;
         ed25519_dalek::Signature::from_bytes(&bytes)
@@ -164,12 +164,12 @@ impl Signature {
             .map(Self)
     }
 
-    fn encode(&self, encoding: Option<&str>) -> PyResult<String> {
+    pub fn encode(&self, encoding: Option<&str>) -> PyResult<String> {
         let encoding = Encoding::from_optional_param(encoding, Encoding::Hex)?;
         Ok(encoding.encode_bytes(self.0.as_ref()))
     }
 
-    fn to_bytes<'a>(&self, py: Python<'a>) -> &'a PyBytes {
+    pub fn to_bytes<'a>(&self, py: Python<'a>) -> &'a PyBytes {
         PyBytes::new(py, self.0.as_ref())
     }
 

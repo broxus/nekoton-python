@@ -1727,6 +1727,181 @@ class Address:
     def __ne__(self, other) -> Any: ...
 
 
+class CellSlice:
+    """
+    A read-only view for a subrange of a cell.
+    """
+
+    @property
+    def cell(self) -> Cell:
+        """Returns the underlying cell."""
+        ...
+
+    @property
+    def bits(self) -> int:
+        """Data length in bits."""
+        ...
+
+    @property
+    def refs(self) -> int:
+        """Number of child references."""
+        ...
+
+    @property
+    def bits_offset(self) -> int:
+        """Returns the start of the data window."""
+        ...
+
+    @property
+    def refs_offset(self) -> int:
+        """Returns the start of the references window."""
+        ...
+
+    def is_empty(self) -> bool:
+        """Returns whether there are no bits and refs left."""
+        ...
+
+    def is_data_empty(self) -> bool:
+        """Returns whether there are no bits of data left."""
+        ...
+
+    def is_refs_empty(self) -> bool:
+        """Returns whether there are no references left."""
+        ...
+
+    def has_remaining(self, bits: int, refs: int) -> bool:
+        """Returns true if the slice contains at least bits and refs."""
+        ...
+
+    def get_bit(self, offset: int) -> bool:
+        """Tries to read the bit at the specified offset (relative to the current bits window)."""
+        ...
+
+    def get_u8(self, offset: int) -> int:
+        """Reads u8 starting from the offset."""
+        ...
+
+    def get_i8(self, offset: int) -> int:
+        """Reads i8 starting from the offset."""
+        ...
+
+    def get_u16(self, offset: int) -> int:
+        """Reads u16 starting from the offset."""
+        ...
+
+    def get_i16(self, offset: int) -> int:
+        """Reads i16 starting from the offset."""
+        ...
+
+    def get_u32(self, offset: int) -> int:
+        """Reads u32 starting from the offset."""
+        ...
+
+    def get_i32(self, offset: int) -> int:
+        """Reads i32 starting from the offset."""
+        ...
+
+    def get_u64(self, offset: int) -> int:
+        """Reads u64 starting from the offset."""
+        ...
+
+    def get_i64(self, offset: int) -> int:
+        """Reads i64 starting from the offset."""
+        ...
+
+    def get_u128(self, offset: int) -> int:
+        """Reads u128 starting from the offset."""
+        ...
+
+    def get_i128(self, offset: int) -> int:
+        """Reads i128 starting from the offset."""
+        ...
+
+    def get_u256(self, offset: int) -> int:
+        """Reads u256 starting from the offset."""
+        ...
+
+    def get_public_key(self, offset: int) -> PublicKey:
+        """Reads public key starting from the offset."""
+        ...
+
+    def get_signature(self, offset: int) -> Signature:
+        """Reads signature starting from the offset."""
+        ...
+
+    def get_bytes(self, offset: int, size: int) -> bytes:
+        """Reads bytes starting from the offset."""
+        ...
+
+    def get_reference(self, offset: int) -> Cell:
+        """Reads reference from the offset."""
+        ...
+
+    def load_bit(self) -> bool:
+        """Tries to read the next bit, incrementing the bits window start."""
+        ...
+
+    def load_u8(self) -> int:
+        """Tries to read the next u8, incrementing the bits window start."""
+        ...
+
+    def load_i8(self) -> int:
+        """Tries to read the next i8, incrementing the bits window start."""
+        ...
+
+    def load_u16(self) -> int:
+        """Tries to read the next u16, incrementing the bits window start."""
+        ...
+
+    def load_i16(self) -> int:
+        """Tries to read the next i16, incrementing the bits window start."""
+        ...
+
+    def load_u32(self) -> int:
+        """Tries to read the next u32, incrementing the bits window start."""
+        ...
+
+    def load_i32(self) -> int:
+        """Tries to read the next i32, incrementing the bits window start."""
+        ...
+
+    def load_u64(self) -> int:
+        """Tries to read the next u64, incrementing the bits window start."""
+        ...
+
+    def load_i64(self) -> int:
+        """Tries to read the next i64, incrementing the bits window start."""
+        ...
+
+    def load_u128(self) -> int:
+        """Tries to read the next u128, incrementing the bits window start."""
+        ...
+
+    def load_i128(self) -> int:
+        """Tries to read the next i128, incrementing the bits window start."""
+        ...
+
+    def load_u256(self) -> int:
+        """Tries to read the next u256, incrementing the bits window start."""
+        ...
+
+    def load_public_key(self) -> PublicKey:
+        """Tries to read the next public key, incrementing the bits window start."""
+        ...
+
+    def load_signature(self) -> Signature:
+        """Tries to read the next signature, incrementing the bits window start."""
+        ...
+
+    def load_bytes(self, size: int) -> bytes:
+        """Tries to read the next bytes, incrementing the bits window start."""
+        ...
+
+    def load_reference(self) -> bytes:
+        """Tries to read the next cell, incrementing the refs window start."""
+        ...
+
+
 class CellBuilder:
     """
     Builder for constructing cells with densely packed data.
@@ -1837,6 +2012,10 @@ class CellBuilder:
         """Tries to store a signature into the cell."""
         ...
 
+    def store_bytes(self, bytes: bytes):
+        """Tries to store bytes into the cell."""
+        ...
+
     def store_raw(self, bytes: bytes, bits: int):
         """Tries to store a raw data into the cell."""
         ...
@@ -1912,6 +2091,10 @@ class Cell:
     @property
     def refs(self) -> int:
         """Number of child references."""
+        ...
+
+    def as_slice(self) -> CellSlice:
+        """Returns a read-only view to the cell."""
         ...
 
     def encode(self, encoding: Optional[str] = None) -> str:

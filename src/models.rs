@@ -1386,6 +1386,13 @@ impl Cell {
         self.0.references_count()
     }
 
+    fn as_slice(&self) -> PyResult<CellSlice> {
+        Ok(CellSlice {
+            slice: ton_types::SliceData::load_cell(self.0.clone()).handle_value_error()?,
+            cell: self.clone(),
+        })
+    }
+
     fn encode(&self, encoding: Option<&str>) -> PyResult<String> {
         let encoding = Encoding::from_optional_param(encoding, Encoding::Base64)?;
         encoding.encode_cell(&self.0)
@@ -1464,9 +1471,282 @@ impl From<Cell> for ton_types::Cell {
 
 #[derive(Default, Clone)]
 #[pyclass]
+pub struct CellSlice {
+    pub slice: ton_types::SliceData,
+    pub cell: Cell,
+}
+
+#[pymethods]
+impl CellSlice {
+    fn advance(&mut self, bits: Option<usize>, refs: Option<usize>) -> PyResult<()> {
+        if let Some(bits) = bits {
+            self.slice.move_by(bits).handle_value_error()?;
+        }
+
+        if let Some(refs) = refs {
+            for _ in 0..refs {
+                self.slice.checked_drain_reference().handle_value_error()?;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn shrink(&mut self, bits: Option<usize>, refs: Option<usize>) -> PyResult<()> {
+        if let Some(bits) = bits {
+            if bits > self.slice.remaining_bits() {
+                return Err(ton_types::ExceptionCode::CellUnderflow).handle_value_error()?;
+            }
+
+            self.slice.shrink_data(..bits);
+        }
+
+        if let Some(refs) = refs {
+            if refs > self.slice.remaining_references() {
+                return Err(ton_types::ExceptionCode::CellUnderflow).handle_value_error()?;
+            }
+
+            self.slice.shrink_references(..refs);
+        }
+
+        Ok(())
+    }
+
+    #[getter]
+    fn cell(&self) -> Cell {
+        self.cell.clone()
+    }
+
+    #[getter]
+    fn bits(&self) -> usize {
+        self.slice.remaining_bits()
+    }
+
+    #[getter]
+    fn refs(&self) -> usize {
+        self.slice.remaining_references()
+    }
+
+    #[getter]
+    fn bits_offset(&self) -> usize {
+        self.slice.pos()
+    }
+
+    #[getter]
+    fn refs_offset(&self) -> usize {
+        let total_refs = self.slice.cell().references_count();
+        self.slice.remaining_references() - total_refs
+    }
+
+    fn is_empty(&self) -> bool {
+        self.is_data_empty() && self.is_refs_empty()
+    }
+
+    fn is_data_empty(&self) -> bool {
+        self.slice.is_empty()
+    }
+
+    fn is_refs_empty(&self) -> bool {
+        self.slice.remaining_references() == 0
+    }
+
+    fn has_remaining(&self, bits: usize, refs: usize) -> bool {
+        self.slice.remaining_bits() >= bits && self.slice.remaining_references() >= refs
+    }
+
+    fn get_bit(&self, offset: usize) -> PyResult<bool> {
+        self.slice.get_bit(offset).handle_value_error()
+    }
+
+    fn get_u8(&self, offset: usize) -> PyResult<u8> {
+        self.slice.get_byte(offset).handle_value_error()
+    }
+
+    fn get_i8(&self, offset: usize) -> PyResult<i8> {
+        self.get_u8(offset).map(|value| value as i8)
+    }
+
+    fn get_u16(&self, offset: usize) -> PyResult<u16> {
+        let mut value: u16 = 0;
+        for i in 0..2 {
+            value |=
+                (self.slice.get_byte(offset + 8 * i).handle_value_error()? as u16) << (8 * (1 - i));
+        }
+        Ok(value)
+    }
+
+    fn get_i16(&self, offset: usize) -> PyResult<i16> {
+        self.get_u16(offset).map(|value| value as i16)
+    }
+
+    fn get_u32(&self, offset: usize) -> PyResult<u32> {
+        let mut value: u32 = 0;
+        for i in 0..4 {
+            value |=
+                (self.slice.get_byte(offset + 8 * i).handle_value_error()? as u32) << (8 * (3 - i));
+        }
+        Ok(value)
+    }
+
+    fn get_i32(&self, offset: usize) -> PyResult<i32> {
+        self.get_u32(offset).map(|value| value as i32)
+    }
+
+    fn get_u64(&self, offset: usize) -> PyResult<u64> {
+        let mut value: u64 = 0;
+        for i in 0..8 {
+            value |=
+                (self.slice.get_byte(offset + 8 * i).handle_value_error()? as u64) << (8 * (7 - i));
+        }
+        Ok(value)
+    }
+
+    fn get_i64(&self, offset: usize) -> PyResult<i64> {
+        self.get_u64(offset).map(|value| value as i64)
+    }
+
+    fn get_u128(&self, offset: usize) -> PyResult<u128> {
+        let mut value: u128 = 0;
+        for i in 0..16 {
+            value |= (self.slice.get_byte(offset + 8 * i).handle_value_error()? as u128)
+                << (8 * (15 - i));
+        }
+        Ok(value)
+    }
+
+    fn get_i128(&self, offset: usize) -> PyResult<i128> {
+        self.get_u128(offset).map(|value| value as i128)
+    }
+
+    fn get_u256(&self, offset: usize) -> PyResult<num_bigint::BigUint> {
+        let mut value = num_bigint::BigUint::default();
+        for i in 0..32 {
+            value |= num_bigint::BigUint::from(
+                self.slice.get_byte(offset + 8 * i).handle_value_error()?,
+            ) << (8 * (31 - i));
+        }
+        Ok(value)
+    }
+
+    fn get_public_key(&self, offset: usize) -> PyResult<PublicKey> {
+        let mut bytes = [0; 32];
+        for (i, byte) in bytes.iter_mut().enumerate() {
+            *byte = self.slice.get_byte(offset + 8 * i).handle_value_error()?;
+        }
+        PublicKey::from_bytes(&bytes)
+    }
+
+    fn get_signature(&self, offset: usize) -> PyResult<Signature> {
+        let mut bytes = [0; 64];
+        for (i, byte) in bytes.iter_mut().enumerate() {
+            *byte = self.slice.get_byte(offset + 8 * i).handle_value_error()?;
+        }
+        Signature::from_bytes(&bytes)
+    }
+
+    fn get_bytes<'a>(&self, offset: usize, size: usize, py: Python<'a>) -> PyResult<&'a PyBytes> {
+        let mut bytes = Vec::with_capacity(size);
+        for i in 0..size {
+            bytes.push(self.slice.get_byte(offset + 8 * i).handle_value_error()?);
+        }
+        Ok(PyBytes::new(py, &bytes))
+    }
+
+    fn get_reference(&self, offset: usize) -> PyResult<Cell> {
+        self.slice
+            .reference(offset)
+            .handle_runtime_error()
+            .map(Cell)
+    }
+
+    fn load_bit(&mut self) -> PyResult<bool> {
+        self.slice.get_next_bit().handle_runtime_error()
+    }
+
+    fn load_u8(&mut self) -> PyResult<u8> {
+        self.slice.get_next_byte().handle_runtime_error()
+    }
+
+    fn load_i8(&mut self) -> PyResult<i8> {
+        self.load_u8().map(|value| value as i8)
+    }
+
+    fn load_u16(&mut self) -> PyResult<u16> {
+        self.slice.get_next_u16().handle_runtime_error()
+    }
+
+    fn load_i16(&mut self) -> PyResult<i16> {
+        self.load_u16().map(|value| value as i16)
+    }
+
+    fn load_u32(&mut self) -> PyResult<u32> {
+        self.slice.get_next_u32().handle_runtime_error()
+    }
+
+    fn load_i32(&mut self) -> PyResult<i32> {
+        self.load_u32().map(|value| value as i32)
+    }
+
+    fn load_u64(&mut self) -> PyResult<u64> {
+        self.slice.get_next_u64().handle_runtime_error()
+    }
+
+    fn load_i64(&mut self) -> PyResult<i64> {
+        self.load_u64().map(|value| value as i64)
+    }
+
+    fn load_u128(&mut self) -> PyResult<u128> {
+        self.slice.get_next_u128().handle_runtime_error()
+    }
+
+    fn load_i128(&mut self) -> PyResult<i128> {
+        self.load_u128().map(|value| value as i128)
+    }
+
+    fn load_u256(&mut self) -> PyResult<num_bigint::BigUint> {
+        let bytes = self.slice.get_next_bytes(32).handle_value_error()?;
+        Ok(num_bigint::BigUint::from_bytes_be(&bytes))
+    }
+
+    fn load_public_key(&mut self) -> PyResult<PublicKey> {
+        let bytes = self.slice.get_next_bytes(32).handle_value_error()?;
+        PublicKey::from_bytes(&bytes)
+    }
+
+    fn load_signature(&mut self) -> PyResult<Signature> {
+        let bytes = self.slice.get_next_bytes(64).handle_value_error()?;
+        Signature::from_bytes(&bytes)
+    }
+
+    fn load_bytes<'a>(&mut self, size: usize, py: Python<'a>) -> PyResult<&'a PyBytes> {
+        let bytes = self.slice.get_next_bytes(size).handle_runtime_error()?;
+        Ok(PyBytes::new(py, &bytes))
+    }
+
+    fn load_reference(&mut self) -> PyResult<Cell> {
+        self.slice
+            .checked_drain_reference()
+            .handle_runtime_error()
+            .map(Cell)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "<CellSlice cell={}, bits={}..{}, refs={}..{}>",
+            self.cell.0.repr_hash().to_hex_string(),
+            self.bits_offset(),
+            self.bits_offset() + self.bits(),
+            self.refs_offset(),
+            self.refs_offset() + self.refs()
+        )
+    }
+}
+
+#[derive(Default, Clone)]
+#[pyclass]
 pub struct CellBuilder {
-    builder: ton_types::BuilderData,
-    is_exotic: bool,
+    pub builder: ton_types::BuilderData,
+    pub is_exotic: bool,
 }
 
 #[pymethods]
@@ -1565,67 +1845,67 @@ impl CellBuilder {
     }
 
     fn store_bit_zero(&mut self) -> PyResult<()> {
-        self.builder.append_bit_zero().handle_runtime_error()?;
+        self.builder.append_bit_zero().handle_value_error()?;
         Ok(())
     }
 
     fn store_bit_one(&mut self) -> PyResult<()> {
-        self.builder.append_bit_one().handle_runtime_error()?;
+        self.builder.append_bit_one().handle_value_error()?;
         Ok(())
     }
 
     fn store_bit(&mut self, bit: bool) -> PyResult<()> {
-        self.builder.append_bit_bool(bit).handle_runtime_error()?;
+        self.builder.append_bit_bool(bit).handle_value_error()?;
         Ok(())
     }
 
     fn store_u8(&mut self, value: u8) -> PyResult<()> {
-        self.builder.append_u8(value).handle_runtime_error()?;
+        self.builder.append_u8(value).handle_value_error()?;
         Ok(())
     }
 
     fn store_i8(&mut self, value: i8) -> PyResult<()> {
-        self.builder.append_i8(value).handle_runtime_error()?;
+        self.builder.append_i8(value).handle_value_error()?;
         Ok(())
     }
 
     fn store_u16(&mut self, value: u16) -> PyResult<()> {
-        self.builder.append_u16(value).handle_runtime_error()?;
+        self.builder.append_u16(value).handle_value_error()?;
         Ok(())
     }
 
     fn store_i16(&mut self, value: i16) -> PyResult<()> {
-        self.builder.append_i16(value).handle_runtime_error()?;
+        self.builder.append_i16(value).handle_value_error()?;
         Ok(())
     }
 
     fn store_u32(&mut self, value: u32) -> PyResult<()> {
-        self.builder.append_u32(value).handle_runtime_error()?;
+        self.builder.append_u32(value).handle_value_error()?;
         Ok(())
     }
 
     fn store_i32(&mut self, value: i32) -> PyResult<()> {
-        self.builder.append_i32(value).handle_runtime_error()?;
+        self.builder.append_i32(value).handle_value_error()?;
         Ok(())
     }
 
     fn store_u64(&mut self, value: u64) -> PyResult<()> {
-        self.builder.append_u64(value).handle_runtime_error()?;
+        self.builder.append_u64(value).handle_value_error()?;
         Ok(())
     }
 
     fn store_i64(&mut self, value: i64) -> PyResult<()> {
-        self.builder.append_i64(value).handle_runtime_error()?;
+        self.builder.append_i64(value).handle_value_error()?;
         Ok(())
     }
 
     fn store_u128(&mut self, value: u128) -> PyResult<()> {
-        self.builder.append_u128(value).handle_runtime_error()?;
+        self.builder.append_u128(value).handle_value_error()?;
         Ok(())
     }
 
     fn store_i128(&mut self, value: i128) -> PyResult<()> {
-        self.builder.append_i128(value).handle_runtime_error()?;
+        self.builder.append_i128(value).handle_value_error()?;
         Ok(())
     }
 
@@ -1638,7 +1918,7 @@ impl CellBuilder {
 
     fn store_int(&mut self, value: num_bigint::BigInt, bits: usize) -> PyResult<()> {
         if bits > self.builder.bits_free() {
-            return Err(ton_types::ExceptionCode::CellOverflow).handle_runtime_error();
+            return Err(ton_types::ExceptionCode::CellOverflow).handle_value_error();
         }
 
         let vec = value.to_signed_bytes_be();
@@ -1684,34 +1964,43 @@ impl CellBuilder {
     }
 
     fn store_public_key(&mut self, key: &PublicKey) -> PyResult<()> {
-        self.store_raw(key.0.as_bytes(), 256)
+        self.store_bytes(key.0.as_bytes())
     }
 
     fn store_signature(&mut self, signature: &Signature) -> PyResult<()> {
-        self.store_raw(signature.0.as_ref(), 512)
+        self.store_bytes(signature.0.as_ref())
+    }
+
+    fn store_bytes(&mut self, bytes: &[u8]) -> PyResult<()> {
+        self.store_raw(bytes, bytes.len() * 8)
     }
 
     fn store_raw(&mut self, bytes: &[u8], bits: usize) -> PyResult<()> {
         if bits > self.builder.bits_free() {
-            return Err(ton_types::ExceptionCode::CellOverflow).handle_runtime_error();
+            return Err(ton_types::ExceptionCode::CellOverflow).handle_value_error();
         }
-        self.builder
-            .append_raw(bytes, bits)
-            .handle_runtime_error()?;
+        self.builder.append_raw(bytes, bits).handle_value_error()?;
         Ok(())
     }
 
     fn store_reference(&mut self, cell: Cell) -> PyResult<()> {
         self.builder
             .checked_append_reference(cell.0.clone())
-            .handle_runtime_error()?;
+            .handle_value_error()?;
         Ok(())
     }
 
     fn store_builder(&mut self, value: &CellBuilder) -> PyResult<()> {
         self.builder
             .append_builder(&value.builder)
-            .handle_runtime_error()?;
+            .handle_value_error()?;
+        Ok(())
+    }
+
+    fn store_slice(&mut self, value: &CellSlice) -> PyResult<()> {
+        self.builder
+            .append_builder(&ton_types::BuilderData::from_slice(&value.slice))
+            .handle_value_error()?;
         Ok(())
     }
 
