@@ -482,6 +482,13 @@ class Message:
     Blockchain message.
     """
 
+    def __init__(
+        header: MessageHeader,
+        body: Optional[Cell] = None,
+        state_init: Optional[StateInit] = None,
+    ) -> None:
+        ...
+
     @staticmethod
     def from_bytes(bytes: bytes) -> Message:
         """
@@ -615,6 +622,14 @@ class SignedExternalMessage(Message):
     """
     External message with an additional expiration param.
     """
+
+    def __init__(
+            dst: Address,
+            expire_at: int,
+            body: Optional[Cell] = None,
+            state_init: Optional[StateInit] = None
+    ) -> None:
+        ...
 
     @property
     def expire_at(self) -> int:
@@ -1495,6 +1510,20 @@ class MessageHeader:
 class InternalMessageHeader(MessageHeader):
     """Internal message header."""
 
+    def __init__(
+        value: Tokens,
+        dst: Address,
+        src: Optional[Address] = None,
+        ihr_disabled: Optional[bool] = None,
+        bounce: Optional[bool] = None,
+        bounced: Optional[bool] = None,
+        ihr_fee: Optional[Tokens] = None,
+        fwd_fee: Optional[Tokens] = None,
+        created_lt: Optional[int] = None,
+        created_at: Optional[int] = None,
+    ) -> None:
+        ...
+
     @property
     def ihr_disabled(self) -> bool: ...
 
@@ -1529,6 +1558,12 @@ class InternalMessageHeader(MessageHeader):
 class ExternalInMessageHeader(MessageHeader):
     """External incoming message header."""
 
+    def __init__(
+        dst: Address,
+        import_fee: Optional[Tokens] = None,
+    ) -> None:
+        ...
+
     @property
     def dst(self) -> Address:
         """Message destination."""
@@ -1542,6 +1577,13 @@ class ExternalInMessageHeader(MessageHeader):
 
 class ExternalOutMessageHeader(MessageHeader):
     """External outgoing message header."""
+
+    def __init__(
+        src: Optional[Address],
+        created_lt: Optional[int] = None,
+        created_at: Optional[int] = None,
+    ) -> None:
+        ...
 
     @property
     def src(self) -> Address:
@@ -1727,6 +1769,320 @@ class Address:
     def __ne__(self, other) -> Any: ...
 
 
+class CellSlice:
+    """
+    A read-only view for a subrange of a cell.
+    """
+
+    @property
+    def cell(self) -> Cell:
+        """Returns the underlying cell."""
+        ...
+
+    @property
+    def bits(self) -> int:
+        """Data length in bits."""
+        ...
+
+    @property
+    def refs(self) -> int:
+        """Number of child references."""
+        ...
+
+    @property
+    def bits_offset(self) -> int:
+        """Returns the start of the data window."""
+        ...
+
+    @property
+    def refs_offset(self) -> int:
+        """Returns the start of the references window."""
+        ...
+
+    def is_empty(self) -> bool:
+        """Returns whether there are no bits and refs left."""
+        ...
+
+    def is_data_empty(self) -> bool:
+        """Returns whether there are no bits of data left."""
+        ...
+
+    def is_refs_empty(self) -> bool:
+        """Returns whether there are no references left."""
+        ...
+
+    def has_remaining(self, bits: int, refs: int) -> bool:
+        """Returns true if the slice contains at least bits and refs."""
+        ...
+
+    def get_bit(self, offset: int) -> bool:
+        """Tries to read the bit at the specified offset (relative to the current bits window)."""
+        ...
+
+    def get_u8(self, offset: int) -> int:
+        """Reads u8 starting from the offset."""
+        ...
+
+    def get_i8(self, offset: int) -> int:
+        """Reads i8 starting from the offset."""
+        ...
+
+    def get_u16(self, offset: int) -> int:
+        """Reads u16 starting from the offset."""
+        ...
+
+    def get_i16(self, offset: int) -> int:
+        """Reads i16 starting from the offset."""
+        ...
+
+    def get_u32(self, offset: int) -> int:
+        """Reads u32 starting from the offset."""
+        ...
+
+    def get_i32(self, offset: int) -> int:
+        """Reads i32 starting from the offset."""
+        ...
+
+    def get_u64(self, offset: int) -> int:
+        """Reads u64 starting from the offset."""
+        ...
+
+    def get_i64(self, offset: int) -> int:
+        """Reads i64 starting from the offset."""
+        ...
+
+    def get_u128(self, offset: int) -> int:
+        """Reads u128 starting from the offset."""
+        ...
+
+    def get_i128(self, offset: int) -> int:
+        """Reads i128 starting from the offset."""
+        ...
+
+    def get_u256(self, offset: int) -> int:
+        """Reads u256 starting from the offset."""
+        ...
+
+    def get_public_key(self, offset: int) -> PublicKey:
+        """Reads public key starting from the offset."""
+        ...
+
+    def get_signature(self, offset: int) -> Signature:
+        """Reads signature starting from the offset."""
+        ...
+
+    def get_bytes(self, offset: int, size: int) -> bytes:
+        """Reads bytes starting from the offset."""
+        ...
+
+    def get_reference(self, offset: int) -> Cell:
+        """Reads reference from the offset."""
+        ...
+
+    def load_bit(self) -> bool:
+        """Tries to read the next bit, incrementing the bits window start."""
+        ...
+
+    def load_u8(self) -> int:
+        """Tries to read the next u8, incrementing the bits window start."""
+        ...
+
+    def load_i8(self) -> int:
+        """Tries to read the next i8, incrementing the bits window start."""
+        ...
+
+    def load_u16(self) -> int:
+        """Tries to read the next u16, incrementing the bits window start."""
+        ...
+
+    def load_i16(self) -> int:
+        """Tries to read the next i16, incrementing the bits window start."""
+        ...
+
+    def load_u32(self) -> int:
+        """Tries to read the next u32, incrementing the bits window start."""
+        ...
+
+    def load_i32(self) -> int:
+        """Tries to read the next i32, incrementing the bits window start."""
+        ...
+
+    def load_u64(self) -> int:
+        """Tries to read the next u64, incrementing the bits window start."""
+        ...
+
+    def load_i64(self) -> int:
+        """Tries to read the next i64, incrementing the bits window start."""
+        ...
+
+    def load_u128(self) -> int:
+        """Tries to read the next u128, incrementing the bits window start."""
+        ...
+
+    def load_i128(self) -> int:
+        """Tries to read the next i128, incrementing the bits window start."""
+        ...
+
+    def load_u256(self) -> int:
+        """Tries to read the next u256, incrementing the bits window start."""
+        ...
+
+    def load_public_key(self) -> PublicKey:
+        """Tries to read the next public key, incrementing the bits window start."""
+        ...
+
+    def load_signature(self) -> Signature:
+        """Tries to read the next signature, incrementing the bits window start."""
+        ...
+
+    def load_bytes(self, size: int) -> bytes:
+        """Tries to read the next bytes, incrementing the bits window start."""
+        ...
+
+    def load_reference(self) -> bytes:
+        """Tries to read the next cell, incrementing the refs window start."""
+        ...
+
+
+class CellBuilder:
+    """
+    Builder for constructing cells with densely packed data.
+    """
+
+    is_exotic: Optional[Cell]
+    """Whether this cell will be built as an exotic."""
+
+    def __init__(self) -> None: ...
+
+    @property
+    def bits(self) -> int:
+        """Data length in bits."""
+        ...
+
+    @property
+    def refs(self) -> int:
+        """Number of child references."""
+        ...
+
+    @property
+    def spare_bits(self) -> int:
+        """Returns remaining data capacity in bits."""
+        ...
+
+    @property
+    def spare_refs(self) -> int:
+        """Returns remaining references capacity."""
+        ...
+
+    def build(self) -> Cell:
+        """Tries to build a new cell from the builder."""
+        ...
+
+    def store_zeros(self, bits: int):
+        """Tries to store the specified number of zero bits into the cell."""
+        ...
+
+    def store_ones(self, bits: int):
+        """Tries to store the specified number of set bits into the cell."""
+        ...
+
+    def store_bit_zero(self):
+        """Tries to store one zero bit into the cell."""
+        ...
+
+    def store_bit_one(self):
+        """Tries to store one non-zero bit into the cell."""
+        ...
+
+    def store_bit(self, value: bool):
+        """Tries to store one bit into the cell."""
+        ...
+
+    def store_u8(self, value: int):
+        """Tries to store u8 into the cell."""
+        ...
+
+    def store_i8(self, value: int):
+        """Tries to store i8 into the cell."""
+        ...
+
+    def store_u16(self, value: int):
+        """Tries to store u16 into the cell."""
+        ...
+
+    def store_i16(self, value: int):
+        """Tries to store i16 into the cell."""
+        ...
+
+    def store_u32(self, value: int):
+        """Tries to store u32 into the cell."""
+        ...
+
+    def store_i32(self, value: int):
+        """Tries to store i32 into the cell."""
+        ...
+
+    def store_u64(self, value: int):
+        """Tries to store u64 into the cell."""
+        ...
+
+    def store_i64(self, value: int):
+        """Tries to store i64 into the cell."""
+        ...
+
+    def store_u128(self, value: int):
+        """Tries to store u128 into the cell."""
+        ...
+
+    def store_i128(self, value: int):
+        """Tries to store i128 into the cell."""
+        ...
+
+    def store_uint(self, value: int, bits: int):
+        """Tries to store an unsigned integer into the cell."""
+        ...
+
+    def store_int(self, value: int, bits: int):
+        """Tries to store a signed integer into the cell."""
+        ...
+
+    def store_public_key(self, public_key: PublicKey):
+        """Tries to store a public key into the cell."""
+        ...
+
+    def store_signature(self, signature: Signature):
+        """Tries to store a signature into the cell."""
+        ...
+
+    def store_bytes(self, bytes: bytes):
+        """Tries to store bytes into the cell."""
+        ...
+
+    def store_raw(self, bytes: bytes, bits: int):
+        """Tries to store a raw data into the cell."""
+        ...
+
+    def store_reference(self, cell: Cell):
+        """Tries to store a child into the cell."""
+        ...
+
+    def store_builder(self, builder: CellBuilder):
+        """Tries to append a builder."""
+        ...
+
+    def store_slice(self, slice: CellSlice):
+        """Tries to append a cell slice."""
+        ...
+
+    def store_abi(
+        abi: List[Tuple[str, AbiParam]],
+        value: Dict[str, Any],
+        abi_version: Optional[AbiVersion] = None,
+    ):
+        """Tries to store an abi encoded value into the cell."""
+        ...
+
+
 class Cell:
     """
     A container with up to 1023 bits of data and up to 4 children.
@@ -1781,6 +2137,10 @@ class Cell:
     @property
     def refs(self) -> int:
         """Number of child references."""
+        ...
+
+    def as_slice(self) -> CellSlice:
+        """Returns a read-only view to the cell."""
         ...
 
     def encode(self, encoding: Optional[str] = None) -> str:

@@ -24,6 +24,23 @@ assert (my_addr.__hash__() == my_addr.__hash__())
 address_dict = {my_addr: 123}
 assert (address_dict[my_addr] == 123)
 
+# CellBuilder
+builder = CellBuilder()
+builder.store_zeros(10)
+builder.store_ones(6)
+builder.store_reference(Cell())
+builder.store_u16(123)
+builder.store_bytes(bytes.fromhex("d84e969feb02481933382c4544e9ff24a2f359847f8896baa86c501c3d1b00cf"))
+print(builder.build().encode())
+
+# CellSlice
+cs = builder.build().as_slice()
+assert(cs.load_u16() == 63)
+assert(cs.load_u16() == 123)
+assert(cs.load_reference() == Cell())
+assert(cs.load_bytes(32) == bytes.fromhex("d84e969feb02481933382c4544e9ff24a2f359847f8896baa86c501c3d1b00cf"))
+assert(cs.is_empty())
+
 # Cells
 cell1 = Cell()
 assert (len(Cell().repr_hash) == 32)
