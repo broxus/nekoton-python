@@ -1727,6 +1727,137 @@ class Address:
     def __ne__(self, other) -> Any: ...
 
 
+class CellBuilder:
+    """
+    Builder for constructing cells with densely packed data.
+    """
+
+    is_exotic: Optional[Cell]
+    """Whether this cell will be built as an exotic."""
+
+    def __init__(self) -> None: ...
+
+    @property
+    def bits(self) -> int:
+        """Data length in bits."""
+        ...
+
+    @property
+    def refs(self) -> int:
+        """Number of child references."""
+        ...
+
+    @property
+    def spare_bits(self) -> int:
+        """Returns remaining data capacity in bits."""
+        ...
+
+    @property
+    def spare_refs(self) -> int:
+        """Returns remaining references capacity."""
+        ...
+
+    def build(self) -> Cell:
+        """Tries to build a new cell from the builder."""
+        ...
+
+    def store_zeros(self, bits: int):
+        """Tries to store the specified number of zero bits into the cell."""
+        ...
+
+    def store_ones(self, bits: int):
+        """Tries to store the specified number of set bits into the cell."""
+        ...
+
+    def store_bit_zero(self):
+        """Tries to store one zero bit into the cell."""
+        ...
+
+    def store_bit_one(self):
+        """Tries to store one non-zero bit into the cell."""
+        ...
+
+    def store_bit(self, value: bool):
+        """Tries to store one bit into the cell."""
+        ...
+
+    def store_u8(self, value: int):
+        """Tries to store u8 into the cell."""
+        ...
+
+    def store_i8(self, value: int):
+        """Tries to store i8 into the cell."""
+        ...
+
+    def store_u16(self, value: int):
+        """Tries to store u16 into the cell."""
+        ...
+
+    def store_i16(self, value: int):
+        """Tries to store i16 into the cell."""
+        ...
+
+    def store_u32(self, value: int):
+        """Tries to store u32 into the cell."""
+        ...
+
+    def store_i32(self, value: int):
+        """Tries to store i32 into the cell."""
+        ...
+
+    def store_u64(self, value: int):
+        """Tries to store u64 into the cell."""
+        ...
+
+    def store_i64(self, value: int):
+        """Tries to store i64 into the cell."""
+        ...
+
+    def store_u128(self, value: int):
+        """Tries to store u128 into the cell."""
+        ...
+
+    def store_i128(self, value: int):
+        """Tries to store i128 into the cell."""
+        ...
+
+    def store_uint(self, value: int, bits: int):
+        """Tries to store an unsigned integer into the cell."""
+        ...
+
+    def store_int(self, value: int, bits: int):
+        """Tries to store a signed integer into the cell."""
+        ...
+
+    def store_public_key(self, public_key: PublicKey):
+        """Tries to store a public key into the cell."""
+        ...
+
+    def store_signature(self, signature: Signature):
+        """Tries to store a signature into the cell."""
+        ...
+
+    def store_raw(self, bytes: bytes, bits: int):
+        """Tries to store a raw data into the cell."""
+        ...
+
+    def store_reference(self, cell: Cell):
+        """Tries to store a child into the cell."""
+        ...
+
+    def store_builder(self, builder: CellBuilder):
+        """Tries to append a builder."""
+        ...
+
+    def store_abi(
+        abi: List[Tuple[str, AbiParam]],
+        value: Dict[str, Any],
+        abi_version: Optional[AbiVersion] = None,
+    ):
+        """Tries to store an abi encoded value into the cell."""
+        ...
+
+
 class Cell:
     """
     A container with up to 1023 bits of data and up to 4 children.

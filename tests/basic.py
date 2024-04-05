@@ -24,6 +24,14 @@ assert (my_addr.__hash__() == my_addr.__hash__())
 address_dict = {my_addr: 123}
 assert (address_dict[my_addr] == 123)
 
+# CellBuilder
+builder = CellBuilder()
+builder.store_zeros(10)
+builder.store_ones(6)
+builder.store_reference(Cell())
+builder.store_u16(123)
+print(builder.build().encode())
+
 # Cells
 cell1 = Cell()
 assert (len(Cell().repr_hash) == 32)

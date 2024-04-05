@@ -5,8 +5,10 @@ use pyo3::exceptions::*;
 use pyo3::prelude::*;
 use pyo3::types::*;
 use ton_block::{Deserializable, Serializable};
+use ton_types::IBitstring;
 
 use crate::abi::{convert_tokens, parse_tokens, AbiParam, AbiVersion};
+use crate::crypto::{PublicKey, Signature};
 use crate::util::{make_hasher, py_none, Encoding, HandleError};
 
 #[derive(Clone)]
@@ -1457,6 +1459,299 @@ impl From<Cell> for ton_types::Cell {
     #[inline]
     fn from(value: Cell) -> Self {
         value.0
+    }
+}
+
+#[derive(Default, Clone)]
+#[pyclass]
+pub struct CellBuilder {
+    builder: ton_types::BuilderData,
+    is_exotic: bool,
+}
+
+#[pymethods]
+impl CellBuilder {
+    /// Constructs a new empty builder.
+    #[new]
+    fn new() -> Self {
+        Self {
+            builder: ton_types::BuilderData::new(),
+            is_exotic: false,
+        }
+    }
+
+    #[getter]
+    fn bits(&self) -> usize {
+        self.builder.bits_used()
+    }
+
+    #[getter]
+    fn refs(&self) -> usize {
+        self.builder.references_used()
+    }
+
+    #[getter]
+    fn spare_bits(&self) -> usize {
+        self.builder.bits_free()
+    }
+
+    #[getter]
+    fn spare_refs(&self) -> usize {
+        self.builder.references_free()
+    }
+
+    #[getter]
+    fn get_is_exotic(&self) -> bool {
+        self.is_exotic
+    }
+
+    #[setter]
+    fn set_is_exotic(&mut self, is_exotic: bool) {
+        self.is_exotic = is_exotic;
+    }
+
+    fn build(&self) -> PyResult<Cell> {
+        let mut builder = self.builder.clone();
+        if self.is_exotic {
+            if builder.length_in_bits() < 8 {
+                return Err("Not enough data for an exotic cell").handle_value_error();
+            }
+
+            let mut children_mask = ton_types::LevelMask::default();
+            for child in builder.references() {
+                children_mask |= child.level_mask();
+            }
+
+            let cell_type =
+                ton_types::CellType::try_from(builder.data()[0]).handle_value_error()?;
+
+            let level_mask = match cell_type {
+                ton_types::CellType::PrunedBranch => {
+                    if builder.length_in_bits() < 16 {
+                        return Err(ton_types::ExceptionCode::CellUnderflow).handle_value_error();
+                    }
+
+                    let raw_mask = builder.data()[1];
+                    if raw_mask > 0b111 {
+                        return Err("Invalid pruned branch mask").handle_value_error();
+                    }
+                    ton_types::LevelMask::with_mask(raw_mask)
+                }
+                ton_types::CellType::LibraryReference => ton_types::LevelMask::default(),
+                ton_types::CellType::MerkleProof | ton_types::CellType::MerkleUpdate => {
+                    children_mask.virtualize(1)
+                }
+                _ => {
+                    return Err(format!("Incorrect type of exotic cell: {cell_type}"))
+                        .handle_value_error();
+                }
+            };
+
+            builder.set_type(cell_type);
+            builder.set_level_mask(level_mask);
+        }
+
+        builder.into_cell().handle_value_error().map(Cell)
+    }
+
+    fn store_zeros(&mut self, bits: usize) -> PyResult<()> {
+        static ZEROS: &[u8; 128] = &[0; 128];
+        self.store_raw(ZEROS, bits)
+    }
+
+    fn store_ones(&mut self, bits: usize) -> PyResult<()> {
+        static ONES: &[u8; 128] = &[0xff; 128];
+        self.store_raw(ONES, bits)
+    }
+
+    fn store_bit_zero(&mut self) -> PyResult<()> {
+        self.builder.append_bit_zero().handle_runtime_error()?;
+        Ok(())
+    }
+
+    fn store_bit_one(&mut self) -> PyResult<()> {
+        self.builder.append_bit_one().handle_runtime_error()?;
+        Ok(())
+    }
+
+    fn store_bit(&mut self, bit: bool) -> PyResult<()> {
+        self.builder.append_bit_bool(bit).handle_runtime_error()?;
+        Ok(())
+    }
+
+    fn store_u8(&mut self, value: u8) -> PyResult<()> {
+        self.builder.append_u8(value).handle_runtime_error()?;
+        Ok(())
+    }
+
+    fn store_i8(&mut self, value: i8) -> PyResult<()> {
+        self.builder.append_i8(value).handle_runtime_error()?;
+        Ok(())
+    }
+
+    fn store_u16(&mut self, value: u16) -> PyResult<()> {
+        self.builder.append_u16(value).handle_runtime_error()?;
+        Ok(())
+    }
+
+    fn store_i16(&mut self, value: i16) -> PyResult<()> {
+        self.builder.append_i16(value).handle_runtime_error()?;
+        Ok(())
+    }
+
+    fn store_u32(&mut self, value: u32) -> PyResult<()> {
+        self.builder.append_u32(value).handle_runtime_error()?;
+        Ok(())
+    }
+
+    fn store_i32(&mut self, value: i32) -> PyResult<()> {
+        self.builder.append_i32(value).handle_runtime_error()?;
+        Ok(())
+    }
+
+    fn store_u64(&mut self, value: u64) -> PyResult<()> {
+        self.builder.append_u64(value).handle_runtime_error()?;
+        Ok(())
+    }
+
+    fn store_i64(&mut self, value: i64) -> PyResult<()> {
+        self.builder.append_i64(value).handle_runtime_error()?;
+        Ok(())
+    }
+
+    fn store_u128(&mut self, value: u128) -> PyResult<()> {
+        self.builder.append_u128(value).handle_runtime_error()?;
+        Ok(())
+    }
+
+    fn store_i128(&mut self, value: i128) -> PyResult<()> {
+        self.builder.append_i128(value).handle_runtime_error()?;
+        Ok(())
+    }
+
+    fn store_uint(&mut self, value: num_bigint::BigUint, bits: usize) -> PyResult<()> {
+        self.store_int(
+            num_bigint::BigInt::from_biguint(num_bigint::Sign::Plus, value),
+            bits,
+        )
+    }
+
+    fn store_int(&mut self, value: num_bigint::BigInt, bits: usize) -> PyResult<()> {
+        if bits > self.builder.bits_free() {
+            return Err(ton_types::ExceptionCode::CellOverflow).handle_runtime_error();
+        }
+
+        let vec = value.to_signed_bytes_be();
+        let vec_bits_length = vec.len() * 8;
+
+        if bits > vec_bits_length {
+            let padding = if value.sign() == num_bigint::Sign::Minus {
+                0xffu8
+            } else {
+                0u8
+            };
+
+            let diff = bits - vec_bits_length;
+
+            let mut vec_padding = Vec::new();
+            vec_padding.resize(diff / 8 + 1, padding);
+
+            self.builder
+                .append_raw(&vec_padding, diff)
+                .handle_value_error()?;
+            self.builder
+                .append_raw(&vec, bits - diff)
+                .handle_value_error()?;
+        } else {
+            let number_bits = value.bits();
+            if number_bits > bits as u64 {
+                return Err(format!("Too many bits in value to fit into: {number_bits}"))
+                    .handle_value_error();
+            }
+
+            let offset = vec_bits_length - bits;
+            let first_byte = vec[offset / 8] << (offset % 8);
+
+            self.builder
+                .append_raw(&[first_byte], 8 - offset % 8)
+                .handle_value_error()?;
+            self.builder
+                .append_raw(&vec[offset / 8 + 1..], vec[offset / 8 + 1..].len() * 8)
+                .handle_value_error()?;
+        };
+
+        Ok(())
+    }
+
+    fn store_public_key(&mut self, key: &PublicKey) -> PyResult<()> {
+        self.store_raw(key.0.as_bytes(), 256)
+    }
+
+    fn store_signature(&mut self, signature: &Signature) -> PyResult<()> {
+        self.store_raw(signature.0.as_ref(), 512)
+    }
+
+    fn store_raw(&mut self, bytes: &[u8], bits: usize) -> PyResult<()> {
+        if bits > self.builder.bits_free() {
+            return Err(ton_types::ExceptionCode::CellOverflow).handle_runtime_error();
+        }
+        self.builder
+            .append_raw(bytes, bits)
+            .handle_runtime_error()?;
+        Ok(())
+    }
+
+    fn store_reference(&mut self, cell: Cell) -> PyResult<()> {
+        self.builder
+            .checked_append_reference(cell.0.clone())
+            .handle_runtime_error()?;
+        Ok(())
+    }
+
+    fn store_builder(&mut self, value: &CellBuilder) -> PyResult<()> {
+        self.builder
+            .append_builder(&value.builder)
+            .handle_runtime_error()?;
+        Ok(())
+    }
+
+    fn store_abi(
+        &mut self,
+        abi: Vec<(String, AbiParam)>,
+        value: &PyDict,
+        abi_version: Option<AbiVersion>,
+    ) -> PyResult<()> {
+        let params = abi
+            .into_iter()
+            .map(|(name, AbiParam { param })| ton_abi::Param { name, kind: param })
+            .collect::<Vec<_>>();
+
+        let tokens = parse_tokens(&params, value)?;
+
+        let abi_version = match abi_version {
+            Some(version) => version.0,
+            None => ton_abi::contract::ABI_VERSION_2_2,
+        };
+
+        let cells = vec![ton_abi::token::SerializedValue {
+            data: self.builder.clone(),
+            max_bits: self.builder.bits_used(),
+            max_refs: self.builder.references_used(),
+        }];
+        let builder = ton_abi::TokenValue::pack_values_into_chain(&tokens, cells, &abi_version)
+            .handle_value_error()?;
+        self.builder = builder;
+
+        Ok(())
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "<CellBuilder bits={}, refs={}, is_exotic={}>",
+            self.builder.bits_used(),
+            self.builder.references_used(),
+            self.is_exotic,
+        )
     }
 }
 
