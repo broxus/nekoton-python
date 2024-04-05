@@ -863,7 +863,7 @@ impl AccountStatesAsyncIter {
 
     pub fn __anext__<'a>(&'a mut self, py: Python<'a>) -> PyResult<Option<&'a PyAny>> {
         let state = self.0.clone();
-        match pyo3_asyncio::tokio::future_into_py(py, async move {
+        pyo3_asyncio::tokio::future_into_py(py, async move {
             let mut state = state.lock().await;
             match &*state {
                 AccountStatesAsyncIterState::Closed => {
@@ -905,10 +905,8 @@ impl AccountStatesAsyncIter {
                 }
                 _ => unreachable!(),
             }
-        }) {
-            Ok(awaitable) => Ok(Some(awaitable)),
-            Err(e) => Err(e),
-        }
+        })
+        .map(Some)
     }
 }
 
@@ -981,7 +979,7 @@ impl AccountTransactionsAsyncIter {
 
     pub fn __anext__<'a>(&'a mut self, py: Python<'a>) -> PyResult<Option<&'a PyAny>> {
         let state = self.0.clone();
-        match pyo3_asyncio::tokio::future_into_py(py, async move {
+        pyo3_asyncio::tokio::future_into_py(py, async move {
             let mut state = state.lock().await;
             match &*state {
                 AccountTransactionsAsyncIterState::Closed => {
@@ -1013,10 +1011,8 @@ impl AccountTransactionsAsyncIter {
                 },
                 _ => unreachable!(),
             }
-        }) {
-            Ok(awaitable) => Ok(Some(awaitable)),
-            Err(e) => Err(e),
-        }
+        })
+        .map(Some)
     }
 }
 
@@ -1147,7 +1143,7 @@ impl TraceTransaction {
 
     pub fn __anext__<'a>(&'a mut self, py: Python<'a>) -> PyResult<Option<&'a PyAny>> {
         let state = self.0.clone();
-        match pyo3_asyncio::tokio::future_into_py(py, async move {
+        pyo3_asyncio::tokio::future_into_py(py, async move {
             let mut state = state.lock().await;
             if let Some(root) = state.root.take() {
                 state.yield_root = false;
@@ -1161,10 +1157,8 @@ impl TraceTransaction {
                 }
                 None => Err(PyStopAsyncIteration::new_err(())),
             }
-        }) {
-            Ok(awaitable) => Ok(Some(awaitable)),
-            Err(e) => Err(e),
-        }
+        })
+        .map(Some)
     }
 }
 
