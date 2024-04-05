@@ -913,6 +913,35 @@ pub struct SignedExternalMessage {
 
 #[pymethods]
 impl SignedExternalMessage {
+    #[new]
+    fn new(
+        dst: Address,
+        expire_at: u32,
+        body: Option<Cell>,
+        state_init: Option<StateInit>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        let mut message =
+            ton_block::Message::with_ext_in_header(ton_block::ExternalInboundMessageHeader {
+                dst: dst.0,
+                ..Default::default()
+            });
+
+        if let Some(body) = body {
+            message.set_body(ton_types::SliceData::load_cell(body.0).handle_value_error()?);
+        }
+        if let Some(state_init) = state_init {
+            message.set_state_init(state_init.0.clone())
+        }
+
+        let hash = message.hash().handle_runtime_error()?;
+
+        Ok(PyClassInitializer::from(Message {
+            data: message,
+            hash,
+        })
+        .add_subclass(SignedExternalMessage { expire_at }))
+    }
+
     #[getter]
     fn expire_at(&self) -> u32 {
         self.expire_at

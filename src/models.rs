@@ -4,7 +4,7 @@ use std::sync::Arc;
 use pyo3::exceptions::*;
 use pyo3::prelude::*;
 use pyo3::types::*;
-use ton_block::{Deserializable, Serializable};
+use ton_block::{Deserializable, GetRepresentationHash, Serializable};
 use ton_types::IBitstring;
 
 use crate::abi::{convert_tokens, parse_tokens, AbiParam, AbiVersion};
@@ -844,6 +844,52 @@ impl Message {
         Self::from_bytes(&bytes)
     }
 
+    #[new]
+    pub fn new(
+        header: PyRef<'_, MessageHeader>,
+        body: Option<Cell>,
+        state_init: Option<StateInit>,
+        py: Python<'_>,
+    ) -> PyResult<Self> {
+        let message_type = header.get_type();
+        let header = header.into_py(py);
+
+        let mut message = match message_type {
+            MessageType::ExternalIn => ton_block::Message::with_ext_in_header(
+                header
+                    .extract::<PyRef<ExternalInMessageHeader>>(py)?
+                    .0
+                    .clone(),
+            ),
+            MessageType::ExternalOut => ton_block::Message::with_ext_out_header(
+                header
+                    .extract::<PyRef<ExternalOutMessageHeader>>(py)?
+                    .0
+                    .clone(),
+            ),
+            MessageType::Internal => ton_block::Message::with_int_header(
+                header
+                    .extract::<PyRef<InternalMessageHeader>>(py)?
+                    .0
+                    .clone(),
+            ),
+        };
+
+        if let Some(body) = body {
+            message.set_body(ton_types::SliceData::load_cell(body.0).handle_value_error()?);
+        }
+        if let Some(state_init) = state_init {
+            message.set_state_init(state_init.0);
+        }
+
+        let hash = message.hash().handle_value_error()?;
+
+        Ok(Self {
+            data: message,
+            hash,
+        })
+    }
+
     #[getter]
     fn hash<'a>(&self, py: Python<'a>) -> &'a PyBytes {
         PyBytes::new(py, self.hash.as_slice())
@@ -992,6 +1038,40 @@ pub struct InternalMessageHeader(pub ton_block::InternalMessageHeader);
 
 #[pymethods]
 impl InternalMessageHeader {
+    #[allow(clippy::too_many_arguments)]
+    #[new]
+    pub fn new(
+        value: Tokens,
+        dst: Address,
+        src: Option<Address>,
+        ihr_disabled: Option<bool>,
+        bounce: Option<bool>,
+        bounced: Option<bool>,
+        ihr_fee: Option<Tokens>,
+        fwd_fee: Option<Tokens>,
+        created_lt: Option<u64>,
+        created_at: Option<u32>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(MessageHeader(MessageType::Internal)).add_subclass(Self(
+                ton_block::InternalMessageHeader {
+                    ihr_disabled: ihr_disabled.unwrap_or(true),
+                    bounce: bounce.unwrap_or_default(),
+                    bounced: bounced.unwrap_or_default(),
+                    src: src
+                        .map(|Address(addr)| ton_block::MsgAddressIntOrNone::Some(addr))
+                        .unwrap_or_default(),
+                    dst: dst.0,
+                    value: value.try_into()?,
+                    ihr_fee: ihr_fee.unwrap_or_default().try_into()?,
+                    fwd_fee: fwd_fee.unwrap_or_default().try_into()?,
+                    created_lt: created_lt.unwrap_or_default(),
+                    created_at: created_at.unwrap_or_default().into(),
+                },
+            )),
+        )
+    }
+
     #[getter]
     pub fn ihr_disabled(&self) -> bool {
         self.0.ihr_disabled
@@ -1053,6 +1133,19 @@ pub struct ExternalInMessageHeader(ton_block::ExternalInboundMessageHeader);
 
 #[pymethods]
 impl ExternalInMessageHeader {
+    #[new]
+    pub fn new(dst: Address, import_fee: Option<Tokens>) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(MessageHeader(MessageType::ExternalIn)).add_subclass(Self(
+                ton_block::ExternalInboundMessageHeader {
+                    dst: dst.0,
+                    import_fee: import_fee.unwrap_or_default().try_into()?,
+                    ..Default::default()
+                },
+            )),
+        )
+    }
+
     #[getter]
     pub fn dst(&self) -> Address {
         Address(self.0.dst.clone())
@@ -1069,6 +1162,26 @@ pub struct ExternalOutMessageHeader(ton_block::ExtOutMessageHeader);
 
 #[pymethods]
 impl ExternalOutMessageHeader {
+    #[new]
+    pub fn new(
+        src: Option<Address>,
+        created_lt: Option<u64>,
+        created_at: Option<u32>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(MessageHeader(MessageType::ExternalOut)).add_subclass(Self(
+                ton_block::ExtOutMessageHeader {
+                    src: src
+                        .map(|Address(addr)| ton_block::MsgAddressIntOrNone::Some(addr))
+                        .unwrap_or_default(),
+                    dst: Default::default(),
+                    created_lt: created_lt.unwrap_or_default(),
+                    created_at: created_at.unwrap_or_default().into(),
+                },
+            )),
+        )
+    }
+
     #[getter]
     pub fn src(&self) -> PyResult<Address> {
         match &self.0.src {
@@ -2060,6 +2173,23 @@ impl TryFrom<Tokens> for u128 {
 
     fn try_from(value: Tokens) -> Result<Self, Self::Error> {
         value.0.try_into().handle_value_error()
+    }
+}
+
+impl TryFrom<Tokens> for ton_block::Grams {
+    type Error = PyErr;
+
+    fn try_from(value: Tokens) -> Result<Self, Self::Error> {
+        let value = value.0.try_into().handle_value_error()?;
+        ton_block::Grams::new(value).handle_value_error()
+    }
+}
+
+impl TryFrom<Tokens> for ton_block::CurrencyCollection {
+    type Error = PyErr;
+
+    fn try_from(value: Tokens) -> Result<Self, Self::Error> {
+        Ok(ton_block::CurrencyCollection::from_grams(value.try_into()?))
     }
 }
 

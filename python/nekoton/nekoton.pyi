@@ -482,6 +482,13 @@ class Message:
     Blockchain message.
     """
 
+    def __init__(
+        header: MessageHeader,
+        body: Optional[Cell] = None,
+        state_init: Optional[StateInit] = None,
+    ) -> None:
+        ...
+
     @staticmethod
     def from_bytes(bytes: bytes) -> Message:
         """
@@ -615,6 +622,14 @@ class SignedExternalMessage(Message):
     """
     External message with an additional expiration param.
     """
+
+    def __init__(
+            dst: Address,
+            expire_at: int,
+            body: Optional[Cell] = None,
+            state_init: Optional[StateInit] = None
+    ) -> None:
+        ...
 
     @property
     def expire_at(self) -> int:
@@ -1495,6 +1510,20 @@ class MessageHeader:
 class InternalMessageHeader(MessageHeader):
     """Internal message header."""
 
+    def __init__(
+        value: Tokens,
+        dst: Address,
+        src: Optional[Address] = None,
+        ihr_disabled: Optional[bool] = None,
+        bounce: Optional[bool] = None,
+        bounced: Optional[bool] = None,
+        ihr_fee: Optional[Tokens] = None,
+        fwd_fee: Optional[Tokens] = None,
+        created_lt: Optional[int] = None,
+        created_at: Optional[int] = None,
+    ) -> None:
+        ...
+
     @property
     def ihr_disabled(self) -> bool: ...
 
@@ -1529,6 +1558,12 @@ class InternalMessageHeader(MessageHeader):
 class ExternalInMessageHeader(MessageHeader):
     """External incoming message header."""
 
+    def __init__(
+        dst: Address,
+        import_fee: Optional[Tokens] = None,
+    ) -> None:
+        ...
+
     @property
     def dst(self) -> Address:
         """Message destination."""
@@ -1542,6 +1577,13 @@ class ExternalInMessageHeader(MessageHeader):
 
 class ExternalOutMessageHeader(MessageHeader):
     """External outgoing message header."""
+
+    def __init__(
+        src: Optional[Address],
+        created_lt: Optional[int] = None,
+        created_at: Optional[int] = None,
+    ) -> None:
+        ...
 
     @property
     def src(self) -> Address:
@@ -2026,6 +2068,10 @@ class CellBuilder:
 
     def store_builder(self, builder: CellBuilder):
         """Tries to append a builder."""
+        ...
+
+    def store_slice(self, slice: CellSlice):
+        """Tries to append a cell slice."""
         ...
 
     def store_abi(

@@ -25,10 +25,6 @@ assert send_transaction is not None
 
 wallet_code = nt.Cell.decode(
     'te6cckEBBgEA/AABFP8A9KQT9LzyyAsBAgEgAgMABNIwAubycdcBAcAA8nqDCNcY7UTQgwfXAdcLP8j4KM8WI88WyfkAA3HXAQHDAJqDB9cBURO68uBk3oBA1wGAINcBgCDXAVQWdfkQ8qj4I7vyeWa++COBBwiggQPoqFIgvLHydAIgghBM7mRsuuMPAcjL/8s/ye1UBAUAmDAC10zQ+kCDBtcBcdcBeNcB10z4AHCAEASqAhSxyMsFUAXPFlAD+gLLaSLQIc8xIddJoIQJuZgzcAHLAFjPFpcwcQHLABLM4skB+wAAPoIQFp4+EbqOEfgAApMg10qXeNcB1AL7AOjRkzLyPOI+zYS/')
-wallet_data_abi = [
-    ('publicKey', nt.AbiUint(256)),
-    ('timestamp', nt.AbiUint(64)),
-]
 
 
 class EverWallet:
@@ -38,11 +34,10 @@ class EverWallet:
 
     @staticmethod
     def compute_state_init(public_key: nt.PublicKey) -> nt.StateInit:
-        data = nt.Cell.build(abi=wallet_data_abi, value={
-            "publicKey": public_key,
-            "timestamp": 0,
-        })
-        return nt.StateInit(wallet_code, data)
+        data_builder = nt.CellBuilder()
+        data_builder.store_public_key(public_key)
+        data_builder.store_u64(0)
+        return nt.StateInit(wallet_code, data_builder.build())
 
     def __init__(self, transport: nt.Transport, keypair: nt.KeyPair, workchain: int = 0):
         state_init = self.compute_state_init(keypair.public_key)
