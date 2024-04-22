@@ -21,6 +21,7 @@ fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<GqlTransport>()?;
     m.add_class::<GqlExprPart>()?;
     m.add_class::<JrpcTransport>()?;
+    m.add_class::<ProtoTransport>()?;
     m.add_class::<AccountStatesAsyncIter>()?;
     m.add_class::<AccountTransactionsAsyncIter>()?;
     m.add_class::<TransactionsBatchInfo>()?;

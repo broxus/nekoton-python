@@ -2464,6 +2464,18 @@ class JrpcTransport(Transport):
                  clock: Optional[Clock] = None) -> None: ...
 
 
+class ProtoTransport(Transport):
+    """
+    Protobuf transport.
+
+    :param endpoint: Protobuf endpoint.
+    :param clock: optional clock to modify timestamp.
+    """
+
+    def __init__(self, endpoint: str,
+                 clock: Optional[Clock] = None) -> None: ...
+
+
 class AccountStatesAsyncIter:
     """
     Async account states iterator.

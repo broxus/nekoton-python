@@ -184,7 +184,7 @@ impl Transport {
                 .handle_runtime_error()?;
 
             Ok(match state {
-                nt::transport::models::RawContractState::NotExists => None,
+                nt::transport::models::RawContractState::NotExists { .. } => None,
                 nt::transport::models::RawContractState::Exists(state) => {
                     Some(AccountState(state.account))
                 }
@@ -789,6 +789,29 @@ impl JrpcTransport {
     }
 }
 
+#[derive(Copy, Clone)]
+#[pyclass(subclass, extends = Transport)]
+pub struct ProtoTransport;
+
+#[pymethods]
+impl ProtoTransport {
+    #[new]
+    fn new(endpoint: &str, clock: Option<Clock>) -> PyResult<PyClassInitializer<Self>> {
+        use nekoton_transport::proto::ProtoClient;
+
+        let client = ProtoClient::new(endpoint).handle_value_error()?;
+
+        let transport = Arc::new(nt::transport::proto::ProtoTransport::new(client));
+        let handle = TransportHandle::Proto(transport);
+        let clock = clock.unwrap_or_default();
+
+        Ok(
+            PyClassInitializer::from(Transport(TransportState::new(clock, handle)))
+                .add_subclass(Self),
+        )
+    }
+}
+
 #[pyclass]
 pub struct AccountStatesAsyncIter(Arc<tokio::sync::Mutex<AccountStatesAsyncIterState>>);
 
@@ -1227,6 +1250,7 @@ impl<'a> AsRef<dyn nt::utils::Clock + 'a> for Clock {
 pub enum TransportHandle {
     GraphQl(Arc<nt::transport::gql::GqlTransport>),
     Jrpc(Arc<nt::transport::jrpc::JrpcTransport>),
+    Proto(Arc<nt::transport::proto::ProtoTransport>),
 }
 
 impl<'a> AsRef<dyn nt::transport::Transport + 'a> for TransportHandle {
@@ -1234,6 +1258,7 @@ impl<'a> AsRef<dyn nt::transport::Transport + 'a> for TransportHandle {
         match self {
             Self::GraphQl(transport) => transport.as_ref(),
             Self::Jrpc(transport) => transport.as_ref(),
+            Self::Proto(transport) => transport.as_ref(),
         }
     }
 }
@@ -1243,6 +1268,7 @@ impl From<TransportHandle> for Arc<dyn nt::transport::Transport> {
         match handle {
             TransportHandle::GraphQl(transport) => transport,
             TransportHandle::Jrpc(transport) => transport,
+            TransportHandle::Proto(transport) => transport,
         }
     }
 }

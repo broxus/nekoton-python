@@ -37,6 +37,7 @@ tiny-hderive = { git = "https://github.com/broxus/tiny-hderive.git" }
 nekoton-transport = { git = "https://github.com/broxus/nekoton.git", features = [
     "gql_transport",
     "jrpc_transport",
+    "proto_transport",
 ] }
 
 ton_abi = { git = "https://github.com/broxus/ton-labs-abi.git" }
@@ -47,7 +48,7 @@ ton_executor = { git = "https://github.com/broxus/ton-labs-executor.git" }
 [dependencies.nt]
 package = "nekoton"
 git = "https://github.com/broxus/nekoton.git"
-features = ["gql_transport", "jrpc_transport"]
+features = ["gql_transport", "jrpc_transport", "proto_transport"]
 
 [patch.crates-io]
 hmac-drbg = { git = "https://github.com/Rexagon/rust-hmac-drbg" }
