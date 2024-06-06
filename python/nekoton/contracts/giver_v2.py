@@ -106,7 +106,11 @@ class GiverV2(IGiver):
     ):
         self._transport = transport
         self._keypair = keypair
-        self._address = GiverV2.compute_address(workchain)
+        self._address = GiverV2.compute_address(keypair.public_key, workchain)
+
+    @property
+    def address(self) -> _nt.Address:
+        return self._address
 
     async def give(self, target: _nt.Address, amount: _nt.Tokens):
         signature_id = await self._transport.get_signature_id()

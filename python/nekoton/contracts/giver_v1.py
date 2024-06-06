@@ -91,6 +91,10 @@ class GiverV1(IGiver):
         self._transport = transport
         self._address = GiverV1.compute_address(workchain)
 
+    @property
+    def address(self) -> _nt.Address:
+        return self._address
+
     async def give(self, target: _nt.Address, amount: _nt.Tokens):
         # Prepare external message
         message = _giver_v1_send_grams.encode_external_message(
