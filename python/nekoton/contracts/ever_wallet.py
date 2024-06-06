@@ -44,6 +44,15 @@ class EverWallet(IGiver):
         builder.store_u64(0)
         return _nt.StateInit(_wallet_code, builder.build())
 
+    @staticmethod
+    def from_address(
+        transport: _nt.Transport, keypair: _nt.KeyPair, address: _nt.Address
+    ) -> "EverWallet":
+        wallet = EverWallet(transport, keypair)
+        wallet._initialized = True
+        wallet._address = address
+        return wallet
+
     def __init__(
         self, transport: _nt.Transport, keypair: _nt.KeyPair, workchain: int = 0
     ):

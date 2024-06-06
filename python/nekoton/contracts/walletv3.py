@@ -30,6 +30,14 @@ class WalletV3(IGiver):
         builder.store_public_key(public_key)
         return _nt.StateInit(_wallet_code, builder.build())
 
+    @staticmethod
+    def from_address(
+        transport: _nt.Transport, keypair: _nt.KeyPair, address: _nt.Address
+    ) -> "WalletV3":
+        wallet = WalletV3(transport, keypair)
+        wallet._address = address
+        return wallet
+
     def __init__(
         self,
         transport: _nt.Transport,
@@ -150,11 +158,16 @@ class WalletV3(IGiver):
             account_state is not None
             and account_state.status == _nt.AccountStatus.Active
         ):
-            self._initialized = True
             if account_state.state_init.data is None:
                 raise RuntimeError("Account state does not contain data")
 
-            seqno = account_state.state_init.data.as_slice().load_u32()
+            data = account_state.state_init.data.as_slice()
+            seqno = data.load_u32()
+
+            # NOTE: Update wallet_id just in case
+            self._wallet_id = data.load_u32()
+
+            self._initialized = True
             return seqno, None
         else:
             return 0, self._state_init
