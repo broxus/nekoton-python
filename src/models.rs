@@ -107,6 +107,15 @@ impl BlockchainConfig {
         Ok(value.and_then(|slice| slice.reference_opt(0)).map(Cell))
     }
 
+    fn build_params_dict_cell(&self) -> PyResult<Cell> {
+        let config = self.0.raw_config();
+        config
+            .config_params
+            .serialize()
+            .handle_runtime_error()
+            .map(Cell)
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "<BlockchainConfig global_id={} capabilities=0x{:016x}, global_version=0x{}>",
@@ -1540,6 +1549,20 @@ impl Cell {
             .handle_runtime_error()?;
 
         convert_tokens(py, tokens)
+    }
+
+    /// Tries to interpret this cell as an unsalted code and
+    /// returns a new cell with the salt added to it.
+    fn with_code_salt(&self, salt: &Cell) -> PyResult<Cell> {
+        nt::abi::set_code_salt(self.0.clone(), salt.0.clone())
+            .handle_runtime_error()
+            .map(Cell)
+    }
+
+    /// Tries to interpret this cell as a salted code and tries to extract the salt from it.
+    fn get_code_salt(&self) -> PyResult<Option<Cell>> {
+        let salt = nt::abi::get_code_salt(self.0.clone()).handle_runtime_error()?;
+        Ok(salt.map(Cell))
     }
 
     fn __repr__(&self) -> String {

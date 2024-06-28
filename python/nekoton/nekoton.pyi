@@ -978,6 +978,14 @@ class BlockchainConfig:
         """
         ...
 
+    def build_params_dict_cell(self) -> Cell:
+        """
+        Encodes config params dictionary into a new cell.
+
+        TLB: `HashmapE 32 ^Cell`
+        """
+        ...
+
 
 class AccountState:
     """
@@ -2167,6 +2175,19 @@ class Cell:
         :param abi: ABI structure.
         :param abi_version: optional ABI version.
         :param allow_partial: whether to unpack only the prefix of the cell. (`False` by default).
+        """
+        ...
+
+    def with_code_salt(self, salt: Cell) -> Cell:
+        """
+        Tries to interpret this cell as an unsalted code and
+        returns a new cell with the salt added to it.
+        """
+        ...
+
+    def get_code_salt(self) -> Optional[Cell]:
+        """
+        Tries to interpret this cell as a salted code and tries to extract the salt from it.
         """
         ...
 
