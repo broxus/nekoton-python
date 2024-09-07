@@ -6,9 +6,9 @@ import nekoton as _nt
 _giver_v1_abi = _nt.ContractAbi("""{
     "ABI version": 1,
     "functions": [{
-            "name": "constructor",
-            "inputs": [],
-            "outputs": []
+        "name": "constructor",
+        "inputs": [],
+        "outputs": []
     }, {
         "name": "sendGrams",
         "inputs": [
@@ -81,9 +81,19 @@ class GiverV1(IGiver):
 
         return GiverV1(transport, workchain)
 
+    @staticmethod
+    def from_address(transport: _nt.Transport, address: _nt.Address) -> "GiverV1":
+        giver = GiverV1(transport)
+        giver._address = address
+        return giver
+
     def __init__(self, transport: _nt.Transport, workchain: int = 0):
         self._transport = transport
         self._address = GiverV1.compute_address(workchain)
+
+    @property
+    def address(self) -> _nt.Address:
+        return self._address
 
     async def give(self, target: _nt.Address, amount: _nt.Tokens):
         # Prepare external message

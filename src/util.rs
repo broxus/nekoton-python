@@ -38,22 +38,12 @@ pub trait HandleError {
 
 pub trait HashExt: Sized {
     fn from_bytes(bytes: &[u8], name: &str) -> PyResult<Self>;
-    fn from_opt_bytes(bytes: Option<&[u8]>, name: &str) -> PyResult<Option<Self>>;
 }
 
 impl HashExt for ton_types::UInt256 {
     fn from_bytes(bytes: &[u8], name: &str) -> PyResult<Self> {
         if bytes.len() == 32 {
             Ok(ton_types::UInt256::from_le_bytes(bytes))
-        } else {
-            Err(PyValueError::new_err(format!("Invalid {name}")))
-        }
-    }
-
-    fn from_opt_bytes(bytes: Option<&[u8]>, name: &str) -> PyResult<Option<Self>> {
-        let Some(bytes) = bytes else { return Ok(None) };
-        if bytes.len() == 32 {
-            Ok(Some(ton_types::UInt256::from_le_bytes(bytes)))
         } else {
             Err(PyValueError::new_err(format!("Invalid {name}")))
         }

@@ -43,6 +43,14 @@ class HighloadWalletV2(IGiver):
         builder.store_bit_zero()
         return _nt.StateInit(_wallet_code, builder.build())
 
+    @staticmethod
+    def from_address(
+        transport: _nt.Transport, keypair: _nt.KeyPair, address: _nt.Address
+    ) -> "HighloadWalletV2":
+        wallet = HighloadWalletV2(transport, keypair)
+        wallet._address = address
+        return wallet
+
     def __init__(
         self,
         transport: _nt.Transport,
@@ -168,10 +176,13 @@ class HighloadWalletV2(IGiver):
             account_state is not None
             and account_state.status == _nt.AccountStatus.Active
         ):
-            self._initialized = True
             if account_state.state_init.data is None:
                 raise RuntimeError("Account state does not contain data")
 
+            # NOTE: Update wallet_id just in case
+            self._wallet_id = account_state.state_init.data.as_slice().load_u32()
+
+            self._initialized = True
             return None
         else:
             return self._state_init
