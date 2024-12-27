@@ -1762,6 +1762,18 @@ class Address:
         """Hash of the initial state."""
         ...
 
+    def to_base64(self, url_safe: bool = True, bounce: bool = False):
+        """
+        Encodes address to a base64 format.
+        """
+        ...
+
+    def __str__(self):
+        """
+        Encodes address to a raw format.
+        """
+        ...
+
     def __eq__(self, other) -> Any: ...
 
     def __ge__(self, other) -> Any: ...

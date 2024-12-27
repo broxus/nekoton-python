@@ -17,6 +17,9 @@ assert (Address.validate(
 my_addr = Address(
     '-1:d84e969feb02481933382c4544e9ff24a2f359847f8896baa86c501c3d1b00cf')
 assert (my_addr.workchain == -1 and len(my_addr.account) == 32)
+
+assert (my_addr.to_base64() == "Uf_YTpaf6wJIGTM4LEVE6f8kovNZhH-IlrqobFAcPRsAzwXV")
+
 my_addr.workchain = 0
 assert (my_addr.workchain == 0)
 assert (my_addr.__hash__() == my_addr.__hash__())

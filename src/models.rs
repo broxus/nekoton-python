@@ -1421,6 +1421,11 @@ impl Address {
         PyBytes::new(py, &bytes)
     }
 
+    #[pyo3(signature = (url_safe = true, bounce = false))]
+    fn to_base64(&self, url_safe: bool, bounce: bool) -> PyResult<String> {
+        nt::utils::pack_std_smc_addr(url_safe, &self.0, bounce).handle_value_error()
+    }
+
     fn __str__(&self) -> String {
         self.0.to_string()
     }
