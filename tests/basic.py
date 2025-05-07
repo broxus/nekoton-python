@@ -188,6 +188,23 @@ assert tree.root.out_msgs_len == len(tree.children)
 for tx in tree:
     assert tx is not None
 
+# Asm
+code = Asm.compile("""
+SETCP 0
+DICTPUSHCONST 19, [
+    0 => {
+        DUP
+        CALLDICT 22
+        INC
+    }
+    22 => {
+        MUL
+    }
+]
+DICTIGETJMPZ
+THROWARG 11
+""")
+assert code == Cell.decode("te6ccgEBBAEAHgABFP8A9KQT9LzyyAsBAgLOAwIABaNUQAAJ0IPAWpI=")
 
 # Subscriptions
 async def main():

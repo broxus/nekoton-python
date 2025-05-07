@@ -1959,7 +1959,7 @@ class CellSlice:
         """Tries to read the next bytes, incrementing the bits window start."""
         ...
 
-    def load_reference(self) -> bytes:
+    def load_reference(self) -> Cell:
         """Tries to read the next cell, incrementing the refs window start."""
         ...
 
@@ -2860,6 +2860,28 @@ class Bip39Seed(Seed):
         Derives a key pair using some derivation path.
 
         :param path: custom derivation path.
+        """
+        ...
+
+# </editor-fold>
+
+
+#########
+## ASM ##
+#########
+# <editor-fold desc="ABI">
+
+class Asm:
+    """
+    Simple TVM assembler.
+    """
+
+    @staticmethod
+    def compile(asm: str) -> Cell:
+        """
+        Compiles a TVM assembly into a code cell.
+
+        :param asm: source code.
         """
         ...
 

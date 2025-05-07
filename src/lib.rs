@@ -1,11 +1,13 @@
 use pyo3::prelude::*;
 
 use self::abi::*;
+use self::asm::*;
 use self::crypto::*;
 use self::models::*;
 use self::transport::*;
 
 mod abi;
+mod asm;
 mod crypto;
 mod models;
 mod transport;
@@ -95,6 +97,9 @@ fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<Seed>()?;
     m.add_class::<LegacySeed>()?;
     m.add_class::<Bip39Seed>()?;
+
+    // Asm
+    m.add_class::<Asm>()?;
 
     Ok(())
 }

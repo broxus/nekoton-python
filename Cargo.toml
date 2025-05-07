@@ -1,6 +1,6 @@
 [package]
 name = "nekoton-python"
-version = "0.1.21"
+version = "0.1.22"
 edition = "2021"
 
 [lib]
@@ -39,6 +39,9 @@ ton_block = { git = "https://github.com/broxus/ton-labs-block.git", features = [
 ton_types = { git = "https://github.com/broxus/ton-labs-types.git" }
 ton_executor = { git = "https://github.com/broxus/ton-labs-executor.git" }
 
+everscale-asm = { git = "https://github.com/broxus/everscale-asm.git", rev = "bbd284a72676300c89ab074bd39cd91fde21d597" }
+everscale-types = { version = "0.1.2", default-features = false }
+
 [dependencies.nt]
 package = "nekoton"
 git = "https://github.com/broxus/nekoton.git"
@@ -50,3 +53,4 @@ features = ["gql_transport", "jrpc_transport", "proto_transport"]
 
 [patch.crates-io]
 hmac-drbg = { git = "https://github.com/Rexagon/rust-hmac-drbg" }
+everscale-types = { git = "https://github.com/broxus/everscale-types.git", rev = "b55da379aba126d4496c88bc7b8cc7af553ab37a" }
