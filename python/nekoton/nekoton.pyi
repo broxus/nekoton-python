@@ -483,6 +483,7 @@ class Message:
     """
 
     def __init__(
+        self,
         header: MessageHeader,
         body: Optional[Cell] = None,
         state_init: Optional[StateInit] = None,
@@ -624,6 +625,7 @@ class SignedExternalMessage(Message):
     """
 
     def __init__(
+            self,
             dst: Address,
             expire_at: int,
             body: Optional[Cell] = None,
@@ -1519,6 +1521,7 @@ class InternalMessageHeader(MessageHeader):
     """Internal message header."""
 
     def __init__(
+        self,
         value: Tokens,
         dst: Address,
         src: Optional[Address] = None,
@@ -1567,6 +1570,7 @@ class ExternalInMessageHeader(MessageHeader):
     """External incoming message header."""
 
     def __init__(
+        self,
         dst: Address,
         import_fee: Optional[Tokens] = None,
     ) -> None:
@@ -1587,6 +1591,7 @@ class ExternalOutMessageHeader(MessageHeader):
     """External outgoing message header."""
 
     def __init__(
+        self,
         src: Optional[Address],
         created_lt: Optional[int] = None,
         created_at: Optional[int] = None,
