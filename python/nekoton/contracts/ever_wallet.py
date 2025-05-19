@@ -1,29 +1,92 @@
-from typing import Optional
+from typing import Optional, List
 
 from . import IGiver
 import nekoton as _nt
 
 
 _wallet_abi = _nt.ContractAbi("""{
-    "ABI version": 2,
-    "version": "2.3",
-    "header": ["pubkey", "time", "expire"],
-    "functions": [{
-        "name": "sendTransaction",
-        "inputs": [
-            {"name": "dest", "type": "address"},
-            {"name": "value", "type": "uint128"},
-            {"name": "bounce", "type": "bool"},
-            {"name": "flags", "type": "uint8"},
-            {"name": "payload", "type": "cell"}
-        ],
-        "outputs": []
-    }],
-    "events": []
-}""")
+  "ABI version": 2,
+  "version": "2.3",
+  "header": ["pubkey", "time", "expire"],
+  "functions": [
+    {
+      "name": "sendTransaction",
+      "inputs": [
+        { "name": "dest", "type": "address" },
+        { "name": "value", "type": "uint128" },
+        { "name": "bounce", "type": "bool" },
+        { "name": "flags", "type": "uint8" },
+        { "name": "payload", "type": "cell" }
+      ],
+      "outputs": []
+    },
+    {
+      "name": "sendTransactionRaw0",
+      "inputs": [],
+      "outputs": [],
+      "id": "0x169e3e11"
+    },
+    {
+      "name": "sendTransactionRaw1",
+      "inputs": [
+        { "name": "flags0", "type": "uint8" },
+        { "name": "message0", "type": "cell" }
+      ],
+      "outputs": [],
+      "id": "0x169e3e11"
+    },
+    {
+      "name": "sendTransactionRaw2",
+      "inputs": [
+        { "name": "flags0", "type": "uint8" },
+        { "name": "message0", "type": "cell" },
+        { "name": "flags1", "type": "uint8" },
+        { "name": "message1", "type": "cell" }
+      ],
+      "outputs": [],
+      "id": "0x169e3e11"
+    },
+    {
+      "name": "sendTransactionRaw3",
+      "inputs": [
+        { "name": "flags0", "type": "uint8" },
+        { "name": "message0", "type": "cell" },
+        { "name": "flags1", "type": "uint8" },
+        { "name": "message1", "type": "cell" },
+        { "name": "flags2", "type": "uint8" },
+        { "name": "message2", "type": "cell" }
+      ],
+      "outputs": [],
+      "id": "0x169e3e11"
+    },
+    {
+      "name": "sendTransactionRaw4",
+      "inputs": [
+        { "name": "flags0", "type": "uint8" },
+        { "name": "message0", "type": "cell" },
+        { "name": "flags1", "type": "uint8" },
+        { "name": "message1", "type": "cell" },
+        { "name": "flags2", "type": "uint8" },
+        { "name": "message2", "type": "cell" },
+        { "name": "flags3", "type": "uint8" },
+        { "name": "message3", "type": "cell" }
+      ],
+      "outputs": [],
+      "id": "0x169e3e11"
+    }
+  ],
+  "events": []
+}
+""")
 
 _send_transaction = _wallet_abi.get_function("sendTransaction")
 assert _send_transaction is not None
+
+_send_transaction_raw = list()
+for i in range(4):
+    abi = _wallet_abi.get_function(f"sendTransactionRaw{i}")
+    assert abi is not None
+    _send_transaction_raw.append(abi)
 
 _wallet_code = _nt.Cell.decode(
     "te6cckEBBgEA/AABFP8A9KQT9LzyyAsBAgEgAgMABNIwAubycdcBAcAA8nqDCNcY7UTQgwfXAdcLP8j4KM8WI88WyfkAA3HXAQHDAJqDB9cBURO68uBk3oBA1wGAINcBgCDXAVQWdfkQ8qj4I7vyeWa++COBBwiggQPoqFIgvLHydAIgghBM7mRsuuMPAcjL/8s/ye1UBAUAmDAC10zQ+kCDBtcBcdcBeNcB10z4AHCAEASqAhSxyMsFUAXPFlAD+gLLaSLQIc8xIddJoIQJuZgzcAHLAFjPFpcwcQHLABLM4skB+wAAPoIQFp4+EbqOEfgAApMg10qXeNcB1AL7AOjRkzLyPOI+zYS/"
@@ -95,6 +158,34 @@ class EverWallet(IGiver):
                 "flags": 3,
                 "payload": payload,
             },
+            public_key=self._keypair.public_key,
+            state_init=state_init,
+        ).sign(self._keypair, signature_id)
+
+        tx = await self._transport.send_external_message(external_message)
+        if tx is None:
+            raise RuntimeError("Message expired")
+        return tx
+
+    async def send_raw(
+        self,
+        messages: List[tuple[_nt.Message, int]],
+    ) -> _nt.Transaction:
+        if len(messages) > 4:
+            raise RuntimeError("Too many messages at once")
+
+        state_init = await self.__get_state_init()
+        signature_id = await self._transport.get_signature_id()
+
+        abi = _send_transaction_raw[len(messages)]
+        input = dict()
+        for i, (message, flags) in enumerate(messages):
+            input[f"flags{i}"] = flags
+            input[f"message{i}"] = message.build_cell()
+
+        external_message = abi.encode_external_message(
+            self._address,
+            input,
             public_key=self._keypair.public_key,
             state_init=state_init,
         ).sign(self._keypair, signature_id)
