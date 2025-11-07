@@ -419,6 +419,7 @@ checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer 0.10.4",
  "crypto-common",
+ "subtle",
 ]
 
 [[package]]
@@ -735,14 +736,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "hmac"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
+dependencies = [
+ "digest 0.10.7",
+]
+
+[[package]]
 name = "hmac-drbg"
 version = "0.3.0"
 source = "git+https://github.com/Rexagon/rust-hmac-drbg#c8634165e88fafdda5f0702fcad878516a1d1e76"
 dependencies = [
  "digest 0.9.0",
  "generic-array",
- "hmac",
+ "hmac 0.11.0",
 ]
+
+[[package]]
+name = "hmac-sha512"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77e806677ce663d0a199541030c816847b36e8dc095f70dae4a4f4ad63da5383"
 
 [[package]]
 name = "http"
@@ -1013,7 +1029,7 @@ dependencies = [
 [[package]]
 name = "nekoton"
 version = "0.13.1"
-source = "git+https://github.com/broxus/nekoton.git#c933b4632756de787eda244a31ca020ffe4c644a"
+source = "git+https://github.com/broxus/nekoton.git#1950da02bc3df69fa66a85c7070baa9369ef212a"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1027,7 +1043,7 @@ dependencies = [
  "futures-util",
  "getrandom",
  "hex",
- "hmac",
+ "hmac 0.11.0",
  "log",
  "nekoton-abi",
  "nekoton-contracts",
@@ -1036,13 +1052,14 @@ dependencies = [
  "num-bigint",
  "once_cell",
  "parking_lot",
- "pbkdf2",
+ "pbkdf2 0.12.2",
  "quick_cache",
  "rand",
  "secstr",
  "serde",
  "serde_json",
- "sha2 0.9.9",
+ "sha2 0.10.9",
+ "slip10_ed25519",
  "thiserror 1.0.63",
  "tiny-bip39",
  "tiny-hderive",
@@ -1058,7 +1075,7 @@ dependencies = [
 [[package]]
 name = "nekoton-abi"
 version = "0.13.0"
-source = "git+https://github.com/broxus/nekoton.git#c933b4632756de787eda244a31ca020ffe4c644a"
+source = "git+https://github.com/broxus/nekoton.git#1950da02bc3df69fa66a85c7070baa9369ef212a"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
@@ -1085,10 +1102,11 @@ dependencies = [
 [[package]]
 name = "nekoton-contracts"
 version = "0.13.0"
-source = "git+https://github.com/broxus/nekoton.git#c933b4632756de787eda244a31ca020ffe4c644a"
+source = "git+https://github.com/broxus/nekoton.git#1950da02bc3df69fa66a85c7070baa9369ef212a"
 dependencies = [
  "anyhow",
  "nekoton-abi",
+ "nekoton-jetton",
  "nekoton-utils",
  "once_cell",
  "serde",
@@ -1101,7 +1119,7 @@ dependencies = [
 [[package]]
 name = "nekoton-derive"
 version = "0.13.0"
-source = "git+https://github.com/broxus/nekoton.git#c933b4632756de787eda244a31ca020ffe4c644a"
+source = "git+https://github.com/broxus/nekoton.git#1950da02bc3df69fa66a85c7070baa9369ef212a"
 dependencies = [
  "either",
  "proc-macro2",
@@ -1110,9 +1128,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "nekoton-jetton"
+version = "0.13.0"
+source = "git+https://github.com/broxus/nekoton.git#1950da02bc3df69fa66a85c7070baa9369ef212a"
+dependencies = [
+ "anyhow",
+ "lazy_static",
+ "nekoton-utils",
+ "num-bigint",
+ "num-traits",
+ "serde",
+ "sha2 0.10.9",
+ "ton_abi",
+ "ton_block",
+ "ton_types",
+]
+
+[[package]]
 name = "nekoton-proto"
 version = "0.1.0"
-source = "git+https://github.com/broxus/nekoton.git#c933b4632756de787eda244a31ca020ffe4c644a"
+source = "git+https://github.com/broxus/nekoton.git#1950da02bc3df69fa66a85c7070baa9369ef212a"
 dependencies = [
  "anyhow",
  "nekoton-abi",
@@ -1134,14 +1169,14 @@ dependencies = [
  "everscale-asm",
  "everscale-types",
  "hex",
- "hmac",
+ "hmac 0.11.0",
  "log",
  "nekoton",
  "nekoton-transport",
  "num-bigint",
  "once_cell",
  "parking_lot",
- "pbkdf2",
+ "pbkdf2 0.9.0",
  "pyo3",
  "pyo3-asyncio",
  "pyo3-log",
@@ -1162,7 +1197,7 @@ dependencies = [
 [[package]]
 name = "nekoton-transport"
 version = "0.13.0"
-source = "git+https://github.com/broxus/nekoton.git#c933b4632756de787eda244a31ca020ffe4c644a"
+source = "git+https://github.com/broxus/nekoton.git#1950da02bc3df69fa66a85c7070baa9369ef212a"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1173,6 +1208,7 @@ dependencies = [
  "nekoton-utils",
  "reqwest",
  "serde",
+ "serde_json",
  "thiserror 1.0.63",
  "tokio",
 ]
@@ -1180,18 +1216,18 @@ dependencies = [
 [[package]]
 name = "nekoton-utils"
 version = "0.13.0"
-source = "git+https://github.com/broxus/nekoton.git#c933b4632756de787eda244a31ca020ffe4c644a"
+source = "git+https://github.com/broxus/nekoton.git#1950da02bc3df69fa66a85c7070baa9369ef212a"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
  "chacha20poly1305",
  "ed25519-dalek",
  "hex",
- "hmac",
- "pbkdf2",
+ "hmac 0.11.0",
+ "pbkdf2 0.12.2",
  "secstr",
  "serde",
- "sha2 0.9.9",
+ "sha2 0.10.9",
  "thiserror 1.0.63",
  "ton_block",
  "ton_types",
@@ -1347,9 +1383,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f05894bce6a1ba4be299d0c5f29563e08af2bc18bb7d48313113bed71e904739"
 dependencies = [
  "crypto-mac",
- "hmac",
+ "hmac 0.11.0",
  "password-hash",
  "sha2 0.9.9",
+]
+
+[[package]]
+name = "pbkdf2"
+version = "0.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8ed6a7761f76e3b9f92dfb0a60a6a6477c61024b775147ff0973a02653abaf2"
+dependencies = [
+ "digest 0.10.7",
+ "hmac 0.12.1",
 ]
 
 [[package]]
@@ -1843,6 +1889,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "slip10_ed25519"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4be0ff28bf14f9610a342169084e87a4f435ad798ec528dc7579a3678fa9dc9a"
+dependencies = [
+ "hmac-sha512",
+]
+
+[[package]]
 name = "smallvec"
 version = "1.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1990,9 +2045,9 @@ version = "0.8.0"
 source = "git+https://github.com/broxus/tiny-bip39.git#d2a73124c2fbead4f969f8a5e075ee22040f63cc"
 dependencies = [
  "anyhow",
- "hmac",
+ "hmac 0.11.0",
  "once_cell",
- "pbkdf2",
+ "pbkdf2 0.9.0",
  "rand",
  "rustc-hash",
  "sha2 0.9.9",
@@ -2007,7 +2062,7 @@ version = "0.3.0"
 source = "git+https://github.com/broxus/tiny-hderive.git#050986d85711497076ba552ce53806885274a4d2"
 dependencies = [
  "base58",
- "hmac",
+ "hmac 0.11.0",
  "libsecp256k1",
  "memzero",
  "sha2 0.9.9",
@@ -2094,7 +2149,7 @@ dependencies = [
 [[package]]
 name = "ton_abi"
 version = "2.1.0"
-source = "git+https://github.com/broxus/ton-labs-abi.git#b8834529ef8fa121d534fca6554c0e95d4019998"
+source = "git+https://github.com/broxus/ton-labs-abi.git#9386e9f5d6021f9ef072b2bb99bc10b70adb98ab"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
@@ -2116,7 +2171,7 @@ dependencies = [
 [[package]]
 name = "ton_block"
 version = "1.9.73"
-source = "git+https://github.com/broxus/ton-labs-block.git#5c4e4f84cebaf34254fd97523d1fc83d7fbe2d91"
+source = "git+https://github.com/broxus/ton-labs-block.git#f1c3e222ee6a2b2ccf663f4f2df5e1335b95961a"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
@@ -2138,7 +2193,7 @@ dependencies = [
 [[package]]
 name = "ton_executor"
 version = "1.15.54"
-source = "git+https://github.com/broxus/ton-labs-executor.git#2a38890d53f9c3dad84b3fb9a58e3bb62ba20f44"
+source = "git+https://github.com/broxus/ton-labs-executor.git#b299a0fc8f3c3ecc28e8e38a9c014be56d4ce52d"
 dependencies = [
  "anyhow",
  "log",
@@ -2151,7 +2206,7 @@ dependencies = [
 [[package]]
 name = "ton_types"
 version = "1.10.2"
-source = "git+https://github.com/broxus/ton-labs-types.git#3324562d7ff1ebec66d996128573966c1b53862b"
+source = "git+https://github.com/broxus/ton-labs-types.git#8556b60547a20f16d50abcab084479d0c9db3756"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
@@ -2173,7 +2228,7 @@ dependencies = [
 [[package]]
 name = "ton_vm"
 version = "1.8.29"
-source = "git+https://github.com/broxus/ton-labs-vm.git#41a85bcde18bc524c18448ffc6aea35aa383c54a"
+source = "git+https://github.com/broxus/ton-labs-vm.git#211bd88f46fa257ac4b939447f209465d3e201e1"
 dependencies = [
  "anyhow",
  "ed25519",

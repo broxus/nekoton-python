@@ -222,17 +222,11 @@ impl StorageUsed {
         self.0.bits.as_u64()
     }
 
-    #[getter]
-    fn public_cells(&self) -> u64 {
-        self.0.public_cells.as_u64()
-    }
-
     fn __repr__(&self) -> String {
         format!(
-            "<StorageUsed cells={}, bits={}, public_cells={}>",
+            "<StorageUsed cells={}, bits={}>",
             self.cells(),
             self.bits(),
-            self.public_cells()
         )
     }
 }

@@ -58,6 +58,16 @@ class ContractAbi:
 
     def get_function(self, name: str) -> Optional[FunctionAbi]:
         """
+        DEPRECATED: use `function` method instead.
+
+        Searches for the function ABI with the specified name.
+
+        :param name: function name.
+        """
+        ...
+
+    def function(self, name: str) -> Optional[FunctionAbi]:
+         """
         Searches for the function ABI with the specified name.
 
         :param name: function name.
@@ -66,9 +76,27 @@ class ContractAbi:
 
     def get_event(self, name: str) -> Optional[EventAbi]:
         """
+        DEPRECATED: use `event` method instead.
+
         Searches for the event ABI with the specified name.
 
         :param name: event name.
+        """
+        ...
+
+    def event(self, name: str) -> Optional[EventAbi]:
+        """
+        Searches for the event ABI with the specified name.
+
+        :param name: event name.
+        """
+        ...
+
+    def getter(self, name: str) -> Optional[GetterAbi]:
+        """
+        Searches for the getter ABI with the specified name.
+
+        :param name: getter name.
         """
         ...
 
@@ -477,6 +505,39 @@ class EventAbi:
     def __ne__(self, other) -> Any: ...
 
 
+class GetterAbi:
+    """Parsed getter ABI."""
+
+    @property
+    def abi_version(self) -> AbiVersion:
+        """TVM ABI version."""
+        ...
+
+    @property
+    def name(self) -> str:
+        """Event name."""
+        ...
+
+    @property
+    def method_id(self) -> int:
+        """Method id."""
+        ...
+
+    def __eq__(self, other) -> Any: ...
+
+    def __ge__(self, other) -> Any: ...
+
+    def __gt__(self, other) -> Any: ...
+
+    def __hash__(self) -> Any: ...
+
+    def __le__(self, other) -> Any: ...
+
+    def __lt__(self, other) -> Any: ...
+
+    def __ne__(self, other) -> Any: ...
+
+
 class Message:
     """
     Blockchain message.
@@ -836,6 +897,14 @@ class AbiAddress(AbiParam):
     def __init__(self) -> None: ...
 
 
+class AbiAddressStd(AbiParam):
+    """
+    A class for a `address_std` ABI type.
+    """
+
+    def __init__(self) -> None: ...
+
+
 class AbiBytes(AbiParam):
     """
     A class for a `bytes` ABI type.
@@ -1048,11 +1117,6 @@ class StorageUsed:
     @property
     def bits(self) -> int:
         """Number of bits occupied by this account."""
-        ...
-
-    @property
-    def public_cells(self) -> int:
-        """Number of public cells (libraries) provided by this account."""
         ...
 
 

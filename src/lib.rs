@@ -83,6 +83,7 @@ fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<AbiCell>()?;
     m.add_class::<AbiMap>()?;
     m.add_class::<AbiAddress>()?;
+    m.add_class::<AbiAddressStd>()?;
     m.add_class::<AbiBytes>()?;
     m.add_class::<AbiFixedBytes>()?;
     m.add_class::<AbiString>()?;

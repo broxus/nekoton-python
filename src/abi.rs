@@ -130,7 +130,8 @@ impl ContractAbi {
 
     #[new]
     fn new(abi: &str) -> PyResult<Self> {
-        let contract = ton_abi::Contract::load(abi.trim()).handle_value_error()?;
+        let contract =
+            ton_abi::Contract::load(std::io::Cursor::new(abi.trim())).handle_value_error()?;
 
         let functions = contract
             .functions
@@ -144,10 +145,17 @@ impl ContractAbi {
             .map(|(name, abi)| (name.clone(), EventAbi(Arc::new(abi.clone()))))
             .collect();
 
+        let getters = contract
+            .getters
+            .iter()
+            .map(|(name, abi)| (name.clone(), GetterAbi(Arc::new(abi.clone()))))
+            .collect();
+
         let shared = Arc::new(SharedContractAbi {
             contract,
             functions,
             events,
+            getters,
         });
 
         Ok(Self(shared))
@@ -158,12 +166,36 @@ impl ContractAbi {
         AbiVersion(self.0.contract.abi_version)
     }
 
-    fn get_function(&self, name: &str) -> Option<FunctionAbi> {
+    fn get_function<'py>(&self, py: Python<'py>, name: &str) -> PyResult<Option<FunctionAbi>> {
+        PyErr::warn(
+            py,
+            py.get_type::<pyo3::exceptions::PyDeprecationWarning>(),
+            "`get_function` method is deprecated, use `function` method instead",
+            0,
+        )?;
+        Ok(self.function(name))
+    }
+
+    fn function(&self, name: &str) -> Option<FunctionAbi> {
         self.0.functions.get(name).cloned()
     }
 
-    fn get_event(&self, name: &str) -> Option<EventAbi> {
+    fn get_event<'py>(&self, py: Python<'py>, name: &str) -> PyResult<Option<EventAbi>> {
+        PyErr::warn(
+            py,
+            py.get_type::<pyo3::exceptions::PyDeprecationWarning>(),
+            "`get_event` method is deprecated, use `event` method instead",
+            0,
+        )?;
+        Ok(self.event(name))
+    }
+
+    fn event(&self, name: &str) -> Option<EventAbi> {
         self.0.events.get(name).cloned()
+    }
+
+    fn getter(&self, name: &str) -> Option<GetterAbi> {
+        self.0.getters.get(name).cloned()
     }
 
     fn encode_init_data(
@@ -314,7 +346,7 @@ impl ContractAbi {
 
         let input = function
             .0
-            .decode_input(in_msg_body, in_msg.is_internal())
+            .decode_input(in_msg_body, in_msg.is_internal(), false)
             .handle_runtime_error()?;
 
         let mut output = None;
@@ -418,6 +450,7 @@ struct SharedContractAbi {
     contract: ton_abi::Contract,
     functions: FastHashMap<String, FunctionAbi>,
     events: FastHashMap<String, EventAbi>,
+    getters: FastHashMap<String, GetterAbi>,
 }
 
 #[derive(FromPyObject)]
@@ -486,7 +519,14 @@ impl FunctionAbi {
         let responsible = matches!(responsible, Some(true));
         let execution_output = self
             .0
-            .run_local_ext(clock, account_state.0.clone(), &input, responsible, &config)
+            .run_local_ext(
+                clock,
+                account_state.0.clone(),
+                &input,
+                responsible,
+                &config,
+                &[],
+            )
             .handle_runtime_error()?;
 
         Ok(ExecutionOutput {
@@ -625,7 +665,7 @@ impl FunctionAbi {
 
         let input = self
             .0
-            .decode_input(in_msg_body, in_msg.is_internal())
+            .decode_input(in_msg_body, in_msg.is_internal(), false)
             .handle_runtime_error()?;
         let output = self.0.parse(tx).handle_runtime_error()?;
 
@@ -644,12 +684,9 @@ impl FunctionAbi {
     ) -> PyResult<&'a PyDict> {
         let abi = self.0.as_ref();
         let body = ton_types::SliceData::load_cell_ref(&message_body.0).handle_value_error()?;
-        let values = if matches!(allow_partial, Some(true)) {
-            abi.decode_input_partial(body, internal)
-        } else {
-            abi.decode_input(body, internal)
-        }
-        .handle_runtime_error()?;
+        let values = abi
+            .decode_input(body, internal, matches!(allow_partial, Some(true)))
+            .handle_runtime_error()?;
 
         convert_tokens(py, values)
     }
@@ -902,6 +939,40 @@ impl EventAbi {
             pyo3::basic::CompareOp::Le => self.0.id <= other.0.id,
             pyo3::basic::CompareOp::Gt => self.0.id > other.0.id,
             pyo3::basic::CompareOp::Ge => self.0.id >= other.0.id,
+        }
+    }
+}
+
+#[derive(Clone)]
+#[pyclass(subclass)]
+pub struct GetterAbi(Arc<ton_abi::Function>);
+
+#[pymethods]
+impl GetterAbi {
+    #[getter]
+    fn name(&self) -> String {
+        self.0.name.clone()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "<GetterAbi name='{}', method_id=0x{:08x}>",
+            self.0.name, self.0.input_id
+        )
+    }
+
+    fn __hash__(&self) -> u64 {
+        self.0.input_id as u64
+    }
+
+    fn __richcmp__(&self, other: &Self, op: pyo3::basic::CompareOp) -> bool {
+        match op {
+            pyo3::basic::CompareOp::Eq => self.0.eq(&other.0),
+            pyo3::basic::CompareOp::Ne => !self.0.eq(&other.0),
+            pyo3::basic::CompareOp::Lt => self.0.input_id < other.0.input_id,
+            pyo3::basic::CompareOp::Le => self.0.input_id <= other.0.input_id,
+            pyo3::basic::CompareOp::Gt => self.0.input_id > other.0.input_id,
+            pyo3::basic::CompareOp::Ge => self.0.input_id >= other.0.input_id,
         }
     }
 }
@@ -1163,6 +1234,7 @@ define_abi_types! {
         ton_abi::ParamType::Map(key_type, value_type)
     },
     AbiAddress = | | ton_abi::ParamType::Address,
+    AbiAddressStd = | | ton_abi::ParamType::AddressStd,
     AbiBytes = | | ton_abi::ParamType::Bytes,
     AbiFixedBytes = |len: usize| ton_abi::ParamType::FixedBytes(len),
     AbiString = | | ton_abi::ParamType::String,
@@ -1346,6 +1418,17 @@ fn parse_token(param: &ton_abi::ParamType, value: &PyAny) -> PyResult<ton_abi::T
                 ton_block::MsgAddressInt::AddrVar(addr) => ton_block::MsgAddress::AddrVar(addr),
             })
         }
+        ton_abi::ParamType::AddressStd => {
+            let Address(addr) = value.extract::<Address>()?;
+            ton_abi::TokenValue::Address(match addr {
+                ton_block::MsgAddressInt::AddrStd(addr) => ton_block::MsgAddress::AddrStd(addr),
+                ton_block::MsgAddressInt::AddrVar(_) => {
+                    return Err(PyValueError::new_err(
+                        "Expected `addr_std` instead of `addr_var`",
+                    ))
+                }
+            })
+        }
         ton_abi::ParamType::Bytes => {
             let bytes = value.extract::<&[u8]>()?;
             ton_abi::TokenValue::Bytes(bytes.to_vec())
@@ -1482,6 +1565,7 @@ fn convert_token(py: Python, value: ton_abi::TokenValue) -> PyResult<PyObject> {
             PyList::new(py, items).to_object(py)
         }
         ton_abi::TokenValue::Address(addr) => convert_addr_token(py, addr)?,
+        ton_abi::TokenValue::AddressStd(addr) => convert_addr_token(py, addr)?,
         ton_abi::TokenValue::Bytes(bytes) | ton_abi::TokenValue::FixedBytes(bytes) => {
             PyBytes::new(py, &bytes).to_object(py)
         }
