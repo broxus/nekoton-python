@@ -38,6 +38,7 @@ ton_abi = { git = "https://github.com/broxus/ton-labs-abi.git" }
 ton_block = { git = "https://github.com/broxus/ton-labs-block.git", features = ["venom"] }
 ton_types = { git = "https://github.com/broxus/ton-labs-types.git" }
 ton_executor = { git = "https://github.com/broxus/ton-labs-executor.git" }
+ton_vm = { git = "https://github.com/broxus/ton-labs-vm.git" }
 
 everscale-asm = { git = "https://github.com/broxus/everscale-asm.git", rev = "bbd284a72676300c89ab074bd39cd91fde21d597" }
 everscale-types = { version = "0.1.2", default-features = false }

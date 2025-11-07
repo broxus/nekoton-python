@@ -1192,6 +1192,7 @@ dependencies = [
  "ton_block",
  "ton_executor",
  "ton_types",
+ "ton_vm",
 ]
 
 [[package]]

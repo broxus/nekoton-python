@@ -1633,3 +1633,94 @@ pub fn default_headers(
 
     (expire_at, header)
 }
+
+pub fn parse_stack_items(value: &PySequence) -> PyResult<Vec<ton_vm::stack::StackItem>> {
+    let mut result = Vec::with_capacity(value.len()?);
+    for item in value.iter()? {
+        result.push(parse_stack_item(item?)?);
+    }
+    Ok(result)
+}
+
+// TODO: The must be a better way of doing this.
+pub fn parse_stack_item(value: &PyAny) -> PyResult<ton_vm::stack::StackItem> {
+    use pyo3::types::*;
+    use pyo3::PyTypeInfo;
+    use ton_vm::stack::integer::IntegerData;
+    use ton_vm::stack::StackItem;
+
+    Ok(if value.is_none() {
+        StackItem::None
+    } else if PyBool::is_type_of(value) {
+        StackItem::Integer(Arc::new(if value.is_true()? {
+            IntegerData::minus_one()
+        } else {
+            IntegerData::zero()
+        }))
+    } else if PyInt::is_type_of(value) {
+        StackItem::Integer(Arc::new(
+            IntegerData::from(value.extract::<num_bigint::BigInt>()?).handle_value_error()?,
+        ))
+    } else if let Ok(tokens) = value.extract::<PyRef<Tokens>>() {
+        StackItem::Integer(Arc::new(IntegerData::from_i128(tokens.0)))
+    } else if let Ok(pubkey) = value.extract::<PyRef<PublicKey>>() {
+        StackItem::Integer(Arc::new(IntegerData::from_unsigned_bytes_be(
+            pubkey.0.as_bytes(),
+        )))
+    } else if let Ok(builder) = value.extract::<PyRef<CellBuilder>>() {
+        StackItem::Builder(Arc::new(builder.builder.clone()))
+    } else if let Ok(cell) = value.extract::<PyRef<Cell>>() {
+        StackItem::Cell(cell.0.clone())
+    } else if let Ok(slice) = value.extract::<PyRef<CellSlice>>() {
+        StackItem::Slice(slice.slice.clone())
+    } else if let Ok(items) = <PySequence as pyo3::PyTryFrom>::try_from(value) {
+        StackItem::Tuple(Arc::new(parse_stack_items(items)?))
+    } else {
+        return Err(PyValueError::new_err(
+            "Provided value cannot be used as a stack item",
+        ));
+    })
+}
+
+pub fn convert_stack_items<'py>(
+    py: Python<'py>,
+    items: &[ton_vm::stack::StackItem],
+) -> PyResult<PyObject> {
+    let mut result = Vec::with_capacity(items.len());
+    for item in items {
+        result.push(convert_stack_item(py, item)?);
+    }
+    Ok(PyList::new(py, result).to_object(py))
+}
+
+pub fn convert_stack_item<'py>(
+    py: Python<'py>,
+    item: &ton_vm::stack::StackItem,
+) -> PyResult<PyObject> {
+    Ok(match item {
+        ton_vm::stack::StackItem::None => py_none(),
+        ton_vm::stack::StackItem::Builder(builder) => CellBuilder {
+            builder: builder.as_ref().clone(),
+            is_exotic: false,
+        }
+        .into_py(py),
+        ton_vm::stack::StackItem::Cell(cell) => Cell(cell.clone()).into_py(py),
+        ton_vm::stack::StackItem::Continuation(_cell) => {
+            todo!()
+        }
+        // TODO: Decide what to do with NaN.
+        ton_vm::stack::StackItem::Integer(int) => int
+            .take_value_of(move |int| Some(int.clone().into_py(py)))
+            .unwrap_or_else(move |_| NaN.into_py(py)),
+        ton_vm::stack::StackItem::Slice(slice) => CellSlice {
+            cell: Cell(slice.cell().clone()),
+            slice: slice.clone(),
+        }
+        .into_py(py),
+        ton_vm::stack::StackItem::Tuple(items) => convert_stack_items(py, items.as_ref())?,
+    })
+}
+
+#[derive(Clone, Copy)]
+#[pyclass]
+pub struct NaN;
