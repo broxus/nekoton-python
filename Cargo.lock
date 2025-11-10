@@ -2150,7 +2150,7 @@ dependencies = [
 [[package]]
 name = "ton_abi"
 version = "2.1.0"
-source = "git+https://github.com/broxus/ton-labs-abi.git#9386e9f5d6021f9ef072b2bb99bc10b70adb98ab"
+source = "git+https://github.com/broxus/ton-labs-abi.git#7d84f87a1799b727e33f9b09c8e38c764fbd5c68"
 dependencies = [
  "anyhow",
  "base64 0.13.1",

@@ -204,45 +204,13 @@ impl ContractAbi {
         public_key: Option<&PublicKey>,
         existing_data: Option<Cell>,
     ) -> PyResult<Cell> {
-        let mut map = ton_types::HashmapE::with_hashmap(
-            ton_abi::Contract::DATA_MAP_KEYLEN,
-            existing_data.and_then(|Cell(cell)| cell.reference(0).ok()),
-        );
-
-        if let Some(public_key) = public_key {
-            map.set_builder(
-                serialize_state_init_data_key(0),
-                ton_types::BuilderData::new()
-                    .append_raw(public_key.0.as_bytes(), 256)
-                    .unwrap(),
-            )
-            .handle_runtime_error()?;
+        if self.0.contract.abi_version < ton_abi::contract::ABI_VERSION_2_4 {
+            encode_init_data_dict(&self.0.contract, data, public_key, existing_data)
+        } else if let Some(existing_data) = existing_data {
+            update_init_data_plain(&self.0.contract, data, public_key, existing_data)
+        } else {
+            encode_init_data_plain(&self.0.contract, data, public_key)
         }
-
-        if !self.0.contract.data.is_empty() {
-            for (param_name, param) in &self.0.contract.data {
-                let value = match data.get_item(param_name) {
-                    Some(value) => parse_token(&param.value.kind, value)?,
-                    None => {
-                        return Err(PyValueError::new_err(format!(
-                            "Param '{param_name}' not found"
-                        )))
-                    }
-                };
-
-                let builder = value
-                    .pack_into_chain(&self.0.contract.abi_version)
-                    .handle_runtime_error()?;
-
-                map.set_builder(serialize_state_init_data_key(param.key), &builder)
-                    .handle_runtime_error()?;
-            }
-        }
-
-        map.write_to_new_cell()
-            .and_then(ton_types::BuilderData::into_cell)
-            .handle_runtime_error()
-            .map(Cell)
     }
 
     fn decode_init_data<'a>(
@@ -250,35 +218,11 @@ impl ContractAbi {
         py: Python<'a>,
         data: &Cell,
     ) -> PyResult<(Option<PublicKey>, &'a PyDict)> {
-        let pubkey = {
-            let map = ton_types::HashmapE::with_hashmap(
-                ton_abi::Contract::DATA_MAP_KEYLEN,
-                data.0.reference(0).ok(),
-            );
-
-            let value = map
-                .get(serialize_state_init_data_key(0))
-                .handle_value_error()?;
-            match value {
-                Some(mut value) => {
-                    let pubkey = value.get_next_hash().handle_value_error()?;
-                    if pubkey.is_zero() {
-                        None
-                    } else {
-                        Some(PublicKey(
-                            ed25519_dalek::PublicKey::from_bytes(pubkey.as_slice())
-                                .handle_value_error()?,
-                        ))
-                    }
-                }
-                None => None,
-            }
-        };
-
-        let data = ton_types::SliceData::load_cell_ref(&data.0).handle_value_error()?;
-
-        let tokens = self.0.contract.decode_data(data).handle_value_error()?;
-        Ok((pubkey, convert_tokens(py, tokens)?))
+        if self.0.contract.abi_version < ton_abi::contract::ABI_VERSION_2_4 {
+            decode_init_data_dict(py, &self.0.contract, data)
+        } else {
+            decode_init_data_plain(py, &self.0.contract, data)
+        }
     }
 
     fn decode_fields<'a>(
@@ -445,6 +389,217 @@ impl ContractAbi {
             .collect::<PyResult<Vec<_>>>()
     }
 }
+
+fn encode_init_data_dict(
+    contract: &ton_abi::Contract,
+    data: &PyDict,
+    public_key: Option<&PublicKey>,
+    existing_data: Option<Cell>,
+) -> PyResult<Cell> {
+    let mut map = ton_types::HashmapE::with_hashmap(
+        ton_abi::Contract::DATA_MAP_KEYLEN,
+        existing_data.and_then(|Cell(cell)| cell.reference(0).ok()),
+    );
+
+    if let Some(public_key) = public_key {
+        map.set_builder(
+            serialize_state_init_data_key(0),
+            ton_types::BuilderData::new()
+                .append_raw(public_key.0.as_bytes(), 256)
+                .unwrap(),
+        )
+        .handle_runtime_error()?;
+    }
+
+    if !contract.data.is_empty() {
+        for (param_name, param) in &contract.data {
+            let value = match data.get_item(param_name) {
+                Some(value) => parse_token(&param.value.kind, value)?,
+                None => {
+                    return Err(PyValueError::new_err(format!(
+                        "Param '{param_name}' not found"
+                    )))
+                }
+            };
+
+            let builder = value
+                .pack_into_chain(&contract.abi_version)
+                .handle_runtime_error()?;
+
+            map.set_builder(serialize_state_init_data_key(param.key), &builder)
+                .handle_runtime_error()?;
+        }
+    }
+
+    map.write_to_new_cell()
+        .and_then(ton_types::BuilderData::into_cell)
+        .handle_runtime_error()
+        .map(Cell)
+}
+
+fn decode_init_data_dict<'a>(
+    py: Python<'a>,
+    contract: &ton_abi::Contract,
+    data: &Cell,
+) -> PyResult<(Option<PublicKey>, &'a PyDict)> {
+    let pubkey = {
+        let map = ton_types::HashmapE::with_hashmap(
+            ton_abi::Contract::DATA_MAP_KEYLEN,
+            data.0.reference(0).ok(),
+        );
+
+        let value = map
+            .get(serialize_state_init_data_key(0))
+            .handle_value_error()?;
+        match value {
+            Some(mut value) => {
+                let pubkey = value.get_next_hash().handle_value_error()?;
+                if pubkey.is_zero() {
+                    None
+                } else {
+                    Some(PublicKey(
+                        ed25519_dalek::PublicKey::from_bytes(pubkey.as_slice())
+                            .handle_value_error()?,
+                    ))
+                }
+            }
+            None => None,
+        }
+    };
+
+    let data = ton_types::SliceData::load_cell_ref(&data.0).handle_value_error()?;
+
+    let tokens = contract.decode_init_data(data).handle_value_error()?;
+    Ok((pubkey, convert_tokens(py, tokens)?))
+}
+
+fn update_init_data_plain(
+    contract: &ton_abi::Contract,
+    data: &PyDict,
+    mut public_key: Option<&PublicKey>,
+    existing_data: Cell,
+) -> PyResult<Cell> {
+    let data_slice = ton_types::SliceData::load_cell(existing_data.0).handle_value_error()?;
+    let old_values = ton_abi::TokenValue::decode_params(
+        &contract.fields,
+        data_slice,
+        &contract.abi_version,
+        false,
+    )
+    .handle_value_error()?;
+
+    let mut result = Vec::with_capacity(old_values.len());
+    for (field, old_value) in std::iter::zip(&contract.fields, old_values) {
+        let mut token = match data.get_item(&field.name) {
+            Some(value) => Some(parse_token(&field.kind, value)?),
+            None => None,
+        };
+
+        if field.name == PUBKEY_FIELD {
+            if let Some(pubkey) = public_key.take() {
+                // Overwrite pubkey if specified.
+                token = Some(ton_abi::TokenValue::Uint(ton_abi::Uint {
+                    size: 256,
+                    number: num_bigint::BigUint::from_bytes_be(pubkey.0.as_bytes()),
+                }));
+            }
+        }
+
+        result.push(if let Some(token) = token {
+            if !contract.init_fields.contains(&field.name) {
+                return Err(PyValueError::new_err(format!(
+                    "Unexpected '{}' init data param",
+                    field.name
+                )));
+            }
+
+            ton_abi::Token::new(&field.name, token)
+        } else {
+            old_value
+        });
+    }
+
+    if public_key.is_some() {
+        return Err(PyValueError::new_err("Explicit pubkey was not used"));
+    }
+
+    ton_abi::TokenValue::pack_values_into_chain(&result, Vec::new(), &contract.abi_version)
+        .and_then(ton_types::BuilderData::into_cell)
+        .map(Cell)
+        .handle_runtime_error()
+}
+
+fn encode_init_data_plain(
+    contract: &ton_abi::Contract,
+    data: &PyDict,
+    mut public_key: Option<&PublicKey>,
+) -> PyResult<Cell> {
+    let mut init_fields = HashMap::default();
+    for field in &contract.fields {
+        if let Some(value) = data.get_item(&field.name) {
+            init_fields.insert(field.name.clone(), parse_token(&field.kind, value)?);
+        }
+    }
+
+    if contract.init_fields.contains(PUBKEY_FIELD) {
+        if let Some(pubkey) = public_key.take() {
+            // Overwrite pubkey if specified.
+            init_fields.insert(
+                PUBKEY_FIELD.to_owned(),
+                ton_abi::TokenValue::Uint(ton_abi::Uint {
+                    size: 256,
+                    number: num_bigint::BigUint::from_bytes_be(pubkey.0.as_bytes()),
+                }),
+            );
+        }
+    }
+
+    if public_key.is_some() {
+        return Err(PyValueError::new_err("Explicit pubkey was not used"));
+    }
+
+    contract
+        .encode_storage_fields(init_fields)
+        .and_then(ton_types::BuilderData::into_cell)
+        .map(Cell)
+        .handle_runtime_error()
+}
+
+fn decode_init_data_plain<'a>(
+    py: Python<'a>,
+    contract: &ton_abi::Contract,
+    data: &Cell,
+) -> PyResult<(Option<PublicKey>, &'a PyDict)> {
+    use nt::abi::UnpackAbi;
+
+    let data_slice = ton_types::SliceData::load_cell(data.0.clone()).handle_value_error()?;
+    let mut values = ton_abi::TokenValue::decode_params(
+        &contract.fields,
+        data_slice,
+        &contract.abi_version,
+        false,
+    )
+    .handle_value_error()?;
+
+    values.retain(|item| contract.init_fields.contains(&item.name));
+
+    let pubkey = 'pubkey: {
+        if let Some(pubkey) = values.iter().find(|item| item.name == PUBKEY_FIELD) {
+            let value: ton_types::UInt256 = pubkey.clone().unpack().handle_value_error()?;
+            if !value.is_zero() {
+                break 'pubkey Some(PublicKey(
+                    ed25519_dalek::PublicKey::from_bytes(value.as_slice()).handle_value_error()?,
+                ));
+            }
+        }
+
+        None
+    };
+
+    Ok((pubkey, convert_tokens(py, values)?))
+}
+
+const PUBKEY_FIELD: &str = "_pubkey";
 
 struct SharedContractAbi {
     contract: ton_abi::Contract,
@@ -1531,7 +1686,7 @@ fn parse_map_entry_token(
     Ok((key, value))
 }
 
-pub fn convert_tokens(py: Python, tokens: Vec<ton_abi::Token>) -> PyResult<&PyDict> {
+pub fn convert_tokens(py: Python<'_>, tokens: Vec<ton_abi::Token>) -> PyResult<&PyDict> {
     let result = PyDict::new(py);
     for token in tokens {
         result.set_item(&token.name, convert_token(py, token.value)?)?;
