@@ -90,6 +90,7 @@ fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<AbiToken>()?;
     m.add_class::<AbiOptional>()?;
     m.add_class::<AbiRef>()?;
+    m.add_class::<TupleReader>()?;
 
     // Crypto
     m.add_class::<PublicKey>()?;

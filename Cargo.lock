@@ -1174,6 +1174,7 @@ dependencies = [
  "nekoton",
  "nekoton-transport",
  "num-bigint",
+ "num-traits",
  "once_cell",
  "parking_lot",
  "pbkdf2 0.9.0",

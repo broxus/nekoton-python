@@ -3,11 +3,12 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
+use num_traits::Zero;
 use pyo3::exceptions::*;
 use pyo3::prelude::*;
 use pyo3::types::*;
 use rand::Rng;
-use ton_block::{GetRepresentationHash, Serializable};
+use ton_block::{Deserializable, GetRepresentationHash, Serializable};
 
 use crate::crypto::{KeyPair, PublicKey, Signature};
 use crate::models::*;
@@ -1109,6 +1110,47 @@ impl GetterAbi {
         self.0.name.clone()
     }
 
+    fn call(
+        &self,
+        account_state: &AccountState,
+        input: &PyDict,
+        clock: Option<&Clock>,
+        config: Option<BlockchainConfig>,
+    ) -> PyResult<ExecutionOutput> {
+        let input = parse_tokens(&self.0.inputs, input)?;
+        let clock = match clock {
+            Some(clock) => clock.as_ref(),
+            None => &nt::utils::SimpleClock,
+        };
+
+        let input = input
+            .into_iter()
+            .map(|item| token_to_stack_item(item.value))
+            .collect::<PyResult<Vec<_>>>()?;
+
+        let config = match &config {
+            Some(config) => nt::abi::BriefBlockchainConfig::from(config.as_ref()),
+            None => nt::abi::BriefBlockchainConfig::default(),
+        };
+
+        let ctx = nt::abi::ExecutionContext {
+            clock,
+            account_stuff: &account_state.0,
+            // TODO: Add support for libraries
+            libraries: &[],
+        }
+        .run_getter_ext(self.0.name.as_str(), &input, &config, &Default::default())
+        .handle_runtime_error()?;
+
+        drop(input);
+
+        Ok(ExecutionOutput {
+            exit_code: ctx.exit_code,
+            // TODO
+            output: None,
+        })
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "<GetterAbi name='{}', method_id=0x{:08x}>",
@@ -1789,6 +1831,490 @@ pub fn default_headers(
     (expire_at, header)
 }
 
+#[pyclass]
+pub struct TupleReader {
+    items: Vec<ton_vm::stack::StackItem>,
+}
+
+impl TupleReader {
+    fn from_items(mut items: Vec<ton_vm::stack::StackItem>) -> Self {
+        items.reverse();
+        Self { items }
+    }
+
+    fn pop_impl(&mut self) -> PyResult<ton_vm::stack::StackItem> {
+        match self.items.pop() {
+            Some(item) => Ok(item),
+            None => Err(PyEOFError::new_err("Tuple is empty")),
+        }
+    }
+
+    fn read_as_lisp_list<'a>(
+        py: Python<'a>,
+        mut tail: Option<&[ton_vm::stack::StackItem]>,
+    ) -> PyResult<Vec<PyObject>> {
+        let mut result = Vec::new();
+        while let Some(t) = tail {
+            let [next, value] = t else {
+                return Err(PyValueError::new_err(format!(
+                    "Expected tuple of two items, got {}",
+                    t.len()
+                )));
+            };
+
+            result.push(convert_stack_item(py, value)?);
+            tail = match next {
+                ton_vm::stack::StackItem::None => None,
+                ton_vm::stack::StackItem::Tuple(items) => Some(items.as_slice()),
+                _ => return Err(PyTypeError::new_err("Expected tail to be null or tuple")),
+            }
+        }
+
+        Ok(result)
+    }
+}
+
+#[pymethods]
+impl TupleReader {
+    #[new]
+    pub fn new(items: &PySequence) -> PyResult<Self> {
+        parse_stack_items(items).map(Self::from_items)
+    }
+
+    #[getter]
+    pub fn remaining(&self) -> usize {
+        self.items.len()
+    }
+
+    pub fn into_inner<'a>(&self, py: Python<'a>) -> PyResult<&'a PyTuple> {
+        let mut items = self.items.clone();
+        items.reverse();
+        convert_stack_items(py, &items)
+    }
+
+    pub fn peek<'a>(&self, py: Python<'a>) -> PyResult<PyObject> {
+        match self.items.last() {
+            Some(item) => convert_stack_item(py, item),
+            None => Err(PyEOFError::new_err("Tuple is empty")),
+        }
+    }
+
+    pub fn pop<'a>(&mut self, py: Python<'a>) -> PyResult<PyObject> {
+        match self.items.pop() {
+            Some(item) => convert_stack_item(py, &item),
+            None => Err(PyEOFError::new_err("Tuple is empty")),
+        }
+    }
+
+    pub fn skip(&mut self, n: usize) -> PyResult<()> {
+        if let Some(remaining) = self.items.len().checked_sub(n) {
+            self.items.truncate(remaining);
+            Ok(())
+        } else {
+            self.items.clear();
+            Err(PyEOFError::new_err(
+                "Tuple does not contain enough items to skip",
+            ))
+        }
+    }
+
+    pub fn read_int(&mut self) -> PyResult<num_bigint::BigInt> {
+        if let ton_vm::stack::StackItem::Integer(ref int) = self.pop_impl()? {
+            if let Ok(int) = int.take_value_of(move |int| Some(int.clone())) {
+                return Ok(int);
+            }
+        }
+        Err(PyTypeError::new_err("Not a number"))
+    }
+
+    pub fn read_int_opt(&mut self) -> PyResult<Option<num_bigint::BigInt>> {
+        match self.pop_impl()? {
+            ton_vm::stack::StackItem::None => return Ok(None),
+            ton_vm::stack::StackItem::Integer(ref int) => {
+                if let Ok(int) = int.take_value_of(move |int| Some(int.clone())) {
+                    return Ok(Some(int));
+                }
+            }
+            _ => {}
+        }
+        Err(PyTypeError::new_err("Not a number"))
+    }
+
+    pub fn read_bool(&mut self) -> PyResult<bool> {
+        Ok(self.read_int()?.is_zero())
+    }
+
+    pub fn read_bool_opt(&mut self) -> PyResult<Option<bool>> {
+        self.read_int_opt()
+            .map(|item| item.as_ref().map(Zero::is_zero))
+    }
+
+    pub fn read_cell(&mut self) -> PyResult<Cell> {
+        if let ton_vm::stack::StackItem::Cell(ref cell) = self.pop_impl()? {
+            return Ok(Cell(cell.clone()));
+        }
+        Err(PyTypeError::new_err("Not a cell"))
+    }
+
+    pub fn read_cell_opt(&mut self) -> PyResult<Option<Cell>> {
+        match self.pop_impl()? {
+            ton_vm::stack::StackItem::None => Ok(None),
+            ton_vm::stack::StackItem::Cell(ref cell) => Ok(Some(Cell(cell.clone()))),
+            _ => Err(PyTypeError::new_err("Not a cell")),
+        }
+    }
+
+    pub fn read_address(&mut self) -> PyResult<Address> {
+        let mut cs = ton_types::SliceData::load_cell(self.read_cell()?.0).handle_value_error()?;
+        let mut addr = ton_block::MsgAddressInt::default();
+        addr.read_from(&mut cs).handle_value_error()?;
+        Ok(Address(addr))
+    }
+
+    pub fn read_address_opt(&mut self) -> PyResult<Option<Address>> {
+        let Some(cell) = self.read_cell_opt()? else {
+            return Ok(None);
+        };
+        let mut cs = ton_types::SliceData::load_cell(cell.0).handle_value_error()?;
+        let mut addr = ton_block::MsgAddressIntOrNone::default();
+        addr.read_from(&mut cs).handle_value_error()?;
+        Ok(match addr {
+            ton_block::MsgAddressIntOrNone::None => None,
+            ton_block::MsgAddressIntOrNone::Some(addr) => Some(Address(addr)),
+        })
+    }
+
+    pub fn read_tuple(&mut self) -> PyResult<Self> {
+        if let ton_vm::stack::StackItem::Tuple(ref items) = self.pop_impl()? {
+            return Ok(Self::from_items(items.as_slice().to_vec()));
+        }
+        Err(PyTypeError::new_err("Not a tuple"))
+    }
+
+    pub fn read_tuple_opt(&mut self) -> PyResult<Option<Self>> {
+        match self.pop_impl()? {
+            ton_vm::stack::StackItem::None => Ok(None),
+            ton_vm::stack::StackItem::Tuple(ref items) => {
+                Ok(Some(Self::from_items(items.as_slice().to_vec())))
+            }
+            _ => Err(PyTypeError::new_err("Not a tuple")),
+        }
+    }
+
+    pub fn read_lisp_list_direct<'a>(&mut self, py: Python<'a>) -> PyResult<Vec<PyObject>> {
+        let items = std::mem::take(&mut self.items);
+        if let [ton_vm::stack::StackItem::None] = items.as_slice() {
+            return Ok(Vec::new());
+        }
+        Self::read_as_lisp_list(py, Some(&items))
+    }
+
+    pub fn read_lisp_list<'a>(&mut self, py: Python<'a>) -> PyResult<Vec<PyObject>> {
+        let items = self.read_tuple_opt()?;
+        Self::read_as_lisp_list(py, items.as_ref().map(|reader| reader.items.as_slice()))
+    }
+
+    pub fn read_buffer<'a>(&mut self, py: Python<'a>) -> PyResult<&'a PyBytes> {
+        let cell = self.read_cell()?;
+        match parse_bytes_from_cell(py, cell.0) {
+            Some(bytes) => Ok(bytes),
+            None => Err(PyTypeError::new_err("Not a buffer")),
+        }
+    }
+
+    pub fn read_buffer_opt<'a>(&mut self, py: Python<'a>) -> PyResult<Option<&'a PyBytes>> {
+        let Some(cell) = self.read_cell_opt()? else {
+            return Ok(None);
+        };
+        match parse_bytes_from_cell(py, cell.0) {
+            Some(bytes) => Ok(Some(bytes)),
+            None => Err(PyTypeError::new_err("Not a buffer")),
+        }
+    }
+
+    pub fn read_str(&mut self) -> PyResult<String> {
+        let cell = self.read_cell()?;
+        parse_string_from_cell(cell.0)
+    }
+
+    pub fn read_str_opt(&mut self) -> PyResult<Option<String>> {
+        let Some(cell) = self.read_cell_opt()? else {
+            return Ok(None);
+        };
+        parse_string_from_cell(cell.0).map(Some)
+    }
+}
+
+fn parse_bytes_from_cell<'a>(py: Python<'a>, cell: ton_types::Cell) -> Option<&'a PyBytes> {
+    if cell.bit_length().is_multiple_of(8) && cell.references_count() == 0 {
+        let mut cs = ton_types::SliceData::load_cell(cell).ok()?;
+        let bytes = cs.get_next_bytes(cs.remaining_bits() / 8).ok()?;
+        Some(PyBytes::new(py, &bytes))
+    } else {
+        None
+    }
+}
+
+fn parse_string_from_cell(mut cell: ton_types::Cell) -> PyResult<String> {
+    let mut buffer = Vec::new();
+
+    let mut cs = ton_types::SliceData::load_cell(cell).handle_value_error()?;
+    loop {
+        let bit_len = cs.remaining_bits();
+        if !bit_len.is_multiple_of(8) {
+            return Err(PyValueError::new_err("Invalid string length"));
+        }
+        let refs = cs.remaining_references();
+        if !(0..=1).contains(&refs) {
+            return Err(PyValueError::new_err("Invalid number of refs"));
+        }
+
+        let byte_count = bit_len / 8;
+        buffer.reserve(byte_count);
+        for _ in 0..byte_count {
+            buffer.push(cs.get_next_byte().unwrap());
+        }
+
+        if refs > 0 {
+            cell = cs.checked_drain_reference().handle_value_error()?;
+            cs = ton_types::SliceData::load_cell(cell).handle_value_error()?;
+        } else {
+            break;
+        }
+    }
+
+    Ok(String::from_utf8_lossy(&buffer).into_owned())
+}
+
+fn bytes_to_cell(bytes: &[u8]) -> PyResult<ton_types::Cell> {
+    let bit_len = bytes.len() * 8;
+    ton_types::BuilderData::with_raw(bytes.into(), bit_len)
+        .handle_value_error()?
+        .into_cell()
+        .handle_value_error()
+}
+
+fn bytes_to_cell_chain(bytes: &[u8]) -> PyResult<ton_types::Cell> {
+    const CHUNK_LEN: usize = 127;
+
+    let (chunks, rem) = bytes.as_chunks::<CHUNK_LEN>();
+
+    let mut child = None;
+    if !rem.is_empty() {
+        child = Some(bytes_to_cell(rem)?);
+    }
+
+    for chunk in chunks.iter().rev() {
+        let mut builder =
+            ton_types::BuilderData::with_raw(chunk.as_slice().into(), chunks.len() * 8)
+                .handle_value_error()?;
+        if let Some(child) = child.take() {
+            builder
+                .checked_append_reference(child)
+                .handle_value_error()?;
+        }
+        child = Some(builder.into_cell().handle_value_error()?);
+    }
+
+    Ok(child.unwrap_or_default())
+}
+
+fn token_to_stack_item(value: ton_abi::TokenValue) -> PyResult<ton_vm::stack::StackItem> {
+    use ton_vm::stack::integer::IntegerData;
+    use ton_vm::stack::StackItem;
+
+    Ok(match value {
+        ton_abi::TokenValue::Uint(value) => {
+            StackItem::integer(IntegerData::from(value.number).handle_value_error()?)
+        }
+        ton_abi::TokenValue::Int(value) => {
+            StackItem::integer(IntegerData::from(value.number).handle_value_error()?)
+        }
+        ton_abi::TokenValue::VarInt(_, value) => {
+            StackItem::integer(IntegerData::from(value).handle_value_error()?)
+        }
+        ton_abi::TokenValue::VarUint(_, value) => {
+            StackItem::integer(IntegerData::from(value).handle_value_error()?)
+        }
+        ton_abi::TokenValue::Bool(value) => StackItem::boolean(value),
+        ton_abi::TokenValue::Tuple(tokens) => StackItem::tuple(
+            tokens
+                .into_iter()
+                .map(|token| token_to_stack_item(token.value))
+                .collect::<Result<_, _>>()?,
+        ),
+        ton_abi::TokenValue::Array(_, values) | ton_abi::TokenValue::FixedArray(_, values) => {
+            StackItem::tuple(
+                values
+                    .into_iter()
+                    .map(|value| token_to_stack_item(value))
+                    .collect::<Result<_, _>>()?,
+            )
+        }
+        ton_abi::TokenValue::Cell(value) => StackItem::cell(value),
+        ton_abi::TokenValue::Address(value) | ton_abi::TokenValue::AddressStd(value) => {
+            StackItem::Slice(
+                ton_types::SliceData::load_cell(value.serialize().handle_value_error()?)
+                    .handle_value_error()?,
+            )
+        }
+        ton_abi::TokenValue::Bytes(value) | ton_abi::TokenValue::FixedBytes(value) => {
+            StackItem::Cell(bytes_to_cell(&value)?)
+        }
+        ton_abi::TokenValue::String(value) => {
+            StackItem::Cell(bytes_to_cell_chain(value.as_bytes())?)
+        }
+        ton_abi::TokenValue::Token(value) => StackItem::integer(value.as_u128().into()),
+        ton_abi::TokenValue::Time(value) => StackItem::integer(value.into()),
+        ton_abi::TokenValue::Expire(value) => StackItem::integer(value.into()),
+        ton_abi::TokenValue::PublicKey(value) => {
+            if let Some(public_key) = value {
+                StackItem::integer(
+                    IntegerData::from(num_bigint::BigUint::from_bytes_be(public_key.as_bytes()))
+                        .handle_value_error()?,
+                )
+            } else {
+                StackItem::None
+            }
+        }
+        ton_abi::TokenValue::Optional(_, value) => match value {
+            Some(value) => token_to_stack_item(*value)?,
+            None => StackItem::None,
+        },
+        ton_abi::TokenValue::Ref(value) => token_to_stack_item(*value)?,
+        ton_abi::TokenValue::Map { .. } => {
+            return Err(PyValueError::new_err(
+                "HashmapE is not supported by getters",
+            ))
+        }
+    })
+}
+
+fn stack_item_to_token(
+    param: &ton_abi::ParamType,
+    value: &ton_vm::stack::StackItem,
+) -> PyResult<ton_abi::TokenValue> {
+    use ton_abi::{Int, ParamType, TokenValue, Uint};
+    use ton_vm::stack::StackItem;
+
+    if let ton_abi::ParamType::Optional(param) = param {
+        let value = if let StackItem::None = value {
+            None
+        } else {
+            Some(Box::new(stack_item_to_token(param, value)?))
+        };
+        return Ok(ton_abi::TokenValue::Optional(*param.clone(), value));
+    } else if let ton_abi::ParamType::Ref(param) = param {
+        let value = Box::new(stack_item_to_token(param, value)?);
+        return Ok(ton_abi::TokenValue::Ref(value));
+    }
+
+    Ok(match value {
+        StackItem::None => match param {
+            ParamType::Map(key, value) => {
+                TokenValue::Map(*key.clone(), *value.clone(), Default::default())
+            }
+            _ => return Err(PyValueError::new_err("Unexpected null in getter output")),
+        },
+        StackItem::Integer(value) => {
+            let value =
+                ton_vm::stack::integer::utils::process_value(&value, |bigint| Ok(bigint.clone()))
+                    .handle_value_error()?;
+
+            match param {
+                ParamType::Uint(s) => TokenValue::Uint(Uint {
+                    number: value.try_into().handle_value_error()?,
+                    size: *s,
+                }),
+                ParamType::Int(s) => TokenValue::Int(Int {
+                    number: value,
+                    size: *s,
+                }),
+                ParamType::VarUint(s) => {
+                    TokenValue::VarUint(*s, value.try_into().handle_value_error()?)
+                }
+                ParamType::VarInt(s) => TokenValue::VarInt(*s, value),
+                ParamType::Bool => TokenValue::Bool(!value.is_zero()),
+                ParamType::Time => TokenValue::Time(value.try_into().handle_value_error()?),
+                ParamType::Expire => TokenValue::Expire(value.try_into().handle_value_error()?),
+                _ => return Err(PyValueError::new_err("Unexpected integer in getter output")),
+            }
+        }
+        StackItem::Tuple(values) => match param {
+            ParamType::Tuple(params) => {
+                if params.len() != values.len() {
+                    return Err(PyValueError::new_err(
+                        "Tuple items mismatch in getter output",
+                    ));
+                }
+
+                let tokens = params
+                    .iter()
+                    .zip(values.iter())
+                    .map(|(param, value)| {
+                        let value = stack_item_to_token(&param.kind, value)?;
+                        Ok(ton_abi::Token::new(&param.name, value))
+                    })
+                    .collect::<PyResult<Vec<_>>>()?;
+
+                TokenValue::Tuple(tokens)
+            }
+            ParamType::Array(param) => {
+                let tokens = values
+                    .iter()
+                    .map(|value| stack_item_to_token(param, value))
+                    .collect::<PyResult<Vec<_>>>()?;
+
+                TokenValue::Array(*param.clone(), tokens)
+            }
+            ParamType::FixedArray(param, size) => {
+                if values.len() != *size {
+                    return Err(PyValueError::new_err("Fixed array size mismatch"));
+                }
+
+                let tokens = values
+                    .iter()
+                    .map(|value| stack_item_to_token(param, value))
+                    .collect::<PyResult<Vec<_>>>()?;
+
+                TokenValue::FixedArray(*param.clone(), tokens)
+            }
+            _ => return Err(PyValueError::new_err("Unexpected tuple in getter output")),
+        },
+        // FIXME: Properly hande all possible type combinations.
+        StackItem::Cell(value) => {
+            let slice = ton_types::SliceData::load_cell(value.clone()).handle_value_error()?;
+            read_token_value(&param, slice).handle_value_error()?
+        }
+        StackItem::Slice(value) => read_token_value(param, value.clone()).handle_value_error()?,
+        StackItem::Builder(arc) => {
+            let cell = arc.as_ref().clone().into_cell().handle_value_error()?;
+            let slice = ton_types::SliceData::load_cell(cell).handle_value_error()?;
+
+            read_token_value(param, slice).handle_value_error()?
+        }
+        StackItem::Continuation(_) => {
+            return Err(PyValueError::new_err(
+                "Unexpected continuation in getter output",
+            ))
+        }
+    })
+}
+
+fn read_token_value(
+    param: &ton_abi::ParamType,
+    slice: ton_types::SliceData,
+) -> Result<ton_abi::TokenValue, anyhow::Error> {
+    ton_abi::TokenValue::read_from(
+        &param,
+        slice.into(),
+        true,
+        &ton_abi::contract::ABI_VERSION_2_7,
+        true,
+    )
+    .map(|(value, _)| value)
+}
+
 pub fn parse_stack_items(value: &PySequence) -> PyResult<Vec<ton_vm::stack::StackItem>> {
     let mut result = Vec::with_capacity(value.len()?);
     for item in value.iter()? {
@@ -1797,7 +2323,7 @@ pub fn parse_stack_items(value: &PySequence) -> PyResult<Vec<ton_vm::stack::Stac
     Ok(result)
 }
 
-// TODO: The must be a better way of doing this.
+// TODO: There must be a better way of doing this.
 pub fn parse_stack_item(value: &PyAny) -> PyResult<ton_vm::stack::StackItem> {
     use pyo3::types::*;
     use pyo3::PyTypeInfo;
@@ -1840,12 +2366,12 @@ pub fn parse_stack_item(value: &PyAny) -> PyResult<ton_vm::stack::StackItem> {
 pub fn convert_stack_items<'py>(
     py: Python<'py>,
     items: &[ton_vm::stack::StackItem],
-) -> PyResult<PyObject> {
+) -> PyResult<&'py PyTuple> {
     let mut result = Vec::with_capacity(items.len());
     for item in items {
         result.push(convert_stack_item(py, item)?);
     }
-    Ok(PyList::new(py, result).to_object(py))
+    Ok(PyTuple::new(py, result))
 }
 
 pub fn convert_stack_item<'py>(
@@ -1872,7 +2398,9 @@ pub fn convert_stack_item<'py>(
             slice: slice.clone(),
         }
         .into_py(py),
-        ton_vm::stack::StackItem::Tuple(items) => convert_stack_items(py, items.as_ref())?,
+        ton_vm::stack::StackItem::Tuple(items) => {
+            convert_stack_items(py, items.as_ref())?.to_object(py)
+        }
     })
 }
 

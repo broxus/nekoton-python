@@ -223,11 +223,7 @@ impl StorageUsed {
     }
 
     fn __repr__(&self) -> String {
-        format!(
-            "<StorageUsed cells={}, bits={}>",
-            self.cells(),
-            self.bits(),
-        )
+        format!("<StorageUsed cells={}, bits={}>", self.cells(), self.bits(),)
     }
 }
 
@@ -1418,6 +1414,22 @@ impl Address {
     #[pyo3(signature = (url_safe = true, bounce = false))]
     fn to_base64(&self, url_safe: bool, bounce: bool) -> PyResult<String> {
         nt::utils::pack_std_smc_addr(url_safe, &self.0, bounce).handle_value_error()
+    }
+
+    fn as_cell(&self) -> PyResult<Cell> {
+        self.0.serialize().handle_value_error().map(Cell)
+    }
+
+    fn as_slice(&self) -> PyResult<CellSlice> {
+        self.as_cell()?.as_slice()
+    }
+
+    fn as_builder(&self) -> PyResult<CellBuilder> {
+        let cell = self.as_cell()?;
+        Ok(CellBuilder {
+            builder: ton_types::BuilderData::from_cell(&cell.0),
+            is_exotic: false,
+        })
     }
 
     fn __str__(&self) -> String {
