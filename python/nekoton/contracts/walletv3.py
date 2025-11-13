@@ -1,7 +1,8 @@
-from typing import Optional, List
+from typing import List, Optional
 
-from . import IGiver
-import nekoton as _nt
+import nekoton.nekoton as _nt
+
+from .base import IGiver
 
 _wallet_code = _nt.Cell.decode(
     "te6ccgEBAQEAcQAA3v8AIN0gggFMl7ohggEznLqxn3Gw7UTQ0x/THzHXC//jBOCk8mCDCNcYINMf0x/TH/gjE7vyY+1E0NMf0x/T/9FRMrryoVFEuvKiBPkBVBBV+RDyo/gAkyDXSpbTB9QC+wDo0QGkyMsfyx/L/8ntVA=="
@@ -47,7 +48,6 @@ class WalletV3(IGiver):
     ):
         state_init = self.compute_state_init(keypair.public_key, wallet_id)
 
-        self._initialized = False
         self._wallet_id = wallet_id
         self._transport = transport
         self._keypair = keypair
@@ -150,14 +150,8 @@ class WalletV3(IGiver):
             return state.balance
 
     async def __get_seqno_and_state_init(self) -> tuple[int, Optional[_nt.StateInit]]:
-        if self._initialized:
-            return None
-
         account_state = await self.get_account_state()
-        if (
-            account_state is not None
-            and account_state.status == _nt.AccountStatus.Active
-        ):
+        if account_state is not None and account_state.state_init is not None:
             if account_state.state_init.data is None:
                 raise RuntimeError("Account state does not contain data")
 
@@ -167,7 +161,6 @@ class WalletV3(IGiver):
             # NOTE: Update wallet_id just in case
             self._wallet_id = data.load_u32()
 
-            self._initialized = True
             return seqno, None
         else:
             return 0, self._state_init

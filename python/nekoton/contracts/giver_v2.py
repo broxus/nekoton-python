@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from . import IGiver
-import nekoton as _nt
+import nekoton.nekoton as _nt
+
+from .base import IGiver
 
 _giver_v2_abi = _nt.ContractAbi("""{
     "ABI version": 2,
@@ -22,8 +23,8 @@ _giver_v2_abi = _nt.ContractAbi("""{
     "events": []
 }""")
 
-_giver_v2_constructor = _giver_v2_abi.get_function("constructor")
-_giver_v2_send_grams = _giver_v2_abi.get_function("sendTransaction")
+_giver_v2_constructor = _giver_v2_abi.function("constructor")
+_giver_v2_send_grams = _giver_v2_abi.function("sendTransaction")
 _giver_v2_tvc = "te6ccgECIAEAA6YAAgE0BgEBAcACAgPPIAUDAQHeBAAD0CAAQdgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAIm/wD0pCAiwAGS9KDhiu1TWDD0oQkHAQr0pCD0oQgAAAIBIA0KAQL/CwH+fyHtRNAg10nCAZ/T/9MA9AX4an/4Yfhm+GKOG/QFbfhqcAGAQPQO8r3XC//4YnD4Y3D4Zn/4YeLTAAGOEoECANcYIPkBWPhCIPhl+RDyqN4j+EUgbpIwcN74Qrry4GUh0z/THzQg+CO88rki+QAg+EqBAQD0DiCRMd7y0Gb4AAwANiD4SiPIyz9ZgQEA9EP4al8E0x8B8AH4R27yfAIBIBQOAgFYEg8BCbjomPxQEAHW+EFujhLtRNDT/9MA9AX4an/4Yfhm+GLe0XBtbwL4SoEBAPSGlQHXCz9/k3BwcOKRII4yXzPIIs8L/yHPCz8xMQFvIiGkA1mAIPRDbwI0IvhKgQEA9HyVAdcLP3+TcHBw4gI1MzHoXwMhwP8RAJiOLiPQ0wH6QDAxyM+HIM6NBAAAAAAAAAAAAAAAAA90TH4ozxYhbyICyx/0AMlx+wDeMMD/jhL4QsjL//hGzwsA+EoB9ADJ7VTef/hnAQm5Fqvn8BMAtvhBbo427UTQINdJwgGf0//TAPQF+Gp/+GH4Zvhijhv0BW34anABgED0DvK91wv/+GJw+GNw+GZ/+GHi3vhG8nNx+GbR+AD4QsjL//hGzwsA+EoB9ADJ7VR/+GcCASAYFQEJuxXvk1gWAbb4QW6OEu1E0NP/0wD0Bfhqf/hh+Gb4Yt76QNcNf5XU0dDTf9/XDACV1NHQ0gDf0VRxIMjPhYDKAHPPQM4B+gKAa89AyXP7APhKgQEA9IaVAdcLP3+TcHBw4pEgFwCEjigh+CO7myL4SoEBAPRbMPhq3iL4SoEBAPR8lQHXCz9/k3BwcOICNTMx6F8G+ELIy//4Rs8LAPhKAfQAye1Uf/hnAgEgGxkBCbjkYYdQGgC++EFujhLtRNDT/9MA9AX4an/4Yfhm+GLe1NH4RSBukjBw3vhCuvLgZfgA+ELIy//4Rs8LAPhKAfQAye1U+A8g+wQg0O0e7VPwAjD4QsjL//hGzwsA+EoB9ADJ7VR/+GcCAtoeHAEBSB0ALPhCyMv/+EbPCwD4SgH0AMntVPgP8gABAUgfAFhwItDWAjHSADDcIccA3CHXDR/yvFMR3cEEIoIQ/////byx8nwB8AH4R27yfA=="
 
 
@@ -74,14 +75,21 @@ class GiverV2(IGiver):
                 raise RuntimeError("Message expired")
             await transport.trace_transaction(tx).wait()
 
+            state = await transport.get_account_state(address)
+            if state is None:
+                raise RuntimeError("Account didn't receive funds")
+
         # Deploy account
         if state.status == _nt.AccountStatus.Active:
-            return GiverV2(transport, workchain)
+            return GiverV2(transport, keypair, workchain)
         elif state.status == _nt.AccountStatus.Frozen:
             raise RuntimeError("Giver account is frozen")
         elif (
             state.status == _nt.AccountStatus.Uninit and state.balance < initial_balance
         ):
+            if other_giver is None:
+                raise RuntimeError("Account does not have enough balance")
+
             tx = await other_giver.give(address, initial_balance)
             if tx is None:
                 raise RuntimeError("Message expired")
@@ -99,7 +107,7 @@ class GiverV2(IGiver):
             raise RuntimeError("Message expired")
         await transport.trace_transaction(tx).wait()
 
-        return GiverV2(transport, workchain)
+        return GiverV2(transport, keypair, workchain)
 
     def __init__(
         self, transport: _nt.Transport, keypair: _nt.KeyPair, workchain: int = 0

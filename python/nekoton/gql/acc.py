@@ -1,6 +1,10 @@
-from .filters import IntFilter as _IntFilter, OrderBy as _OrderBy, AddressFilter as _AddressFilter, \
-    AccountStatusFilter as _AccountStatusFilter, TokensFilter as _TokensFilter, HashFilter as _HashFilter, \
-    IntAsStringFilter as _IntAsStringFilter
+from .filters import AccountStatusFilter as _AccountStatusFilter
+from .filters import AddressFilter as _AddressFilter
+from .filters import HashFilter as _HashFilter
+from .filters import IntAsStringFilter as _IntAsStringFilter
+from .filters import IntFilter as _IntFilter
+from .filters import OrderBy as _OrderBy
+from .filters import TokensFilter as _TokensFilter
 
 
 class WorkchainId(_IntFilter, _OrderBy):

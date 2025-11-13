@@ -1,10 +1,8 @@
 from typing import List as _List
-from nekoton import GqlExprPart
 
-from . import filters
-from . import msg
-from . import tx
-from . import acc
+from nekoton.nekoton import GqlExprPart
+
+from . import acc, filters, msg, tx
 
 
 def and_(expressions: str | GqlExprPart | _List[GqlExprPart]) -> GqlExprPart:
@@ -13,7 +11,7 @@ def and_(expressions: str | GqlExprPart | _List[GqlExprPart]) -> GqlExprPart:
     if isinstance(expressions, str):
         return GqlExprPart(expressions)
     else:
-        return GqlExprPart(','.join(map(str, expressions)))
+        return GqlExprPart(",".join(map(str, expressions)))
 
 
 def or_(expressions: _List[str | GqlExprPart | _List[GqlExprPart]]) -> GqlExprPart:
@@ -21,7 +19,7 @@ def or_(expressions: _List[str | GqlExprPart | _List[GqlExprPart]]) -> GqlExprPa
     for expr in reversed(expressions):
         element = and_(expr)
         if last_part is not None:
-            last_part = '{},OR:{{{}}}'.format(element, last_part)
+            last_part = GqlExprPart("{},OR:{{{}}}".format(element, last_part))
         else:
             last_part = element
 

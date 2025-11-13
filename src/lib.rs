@@ -64,6 +64,7 @@ fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<FunctionAbi>()?;
     m.add_class::<FunctionAbiWithArgs>()?;
     m.add_class::<EventAbi>()?;
+    m.add_class::<GetterAbi>()?;
     m.add_class::<ExecutionOutput>()?;
     m.add_class::<FunctionCallFull>()?;
     m.add_class::<FunctionCall>()?;
@@ -91,8 +92,10 @@ fn nekoton(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<AbiOptional>()?;
     m.add_class::<AbiRef>()?;
     m.add_class::<TupleReader>()?;
+    m.add_class::<NaN>()?;
 
     // Crypto
+    m.add_class::<SignatureContext>()?;
     m.add_class::<PublicKey>()?;
     m.add_class::<KeyPair>()?;
     m.add_class::<Signature>()?;

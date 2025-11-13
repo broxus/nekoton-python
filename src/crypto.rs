@@ -1,10 +1,91 @@
+use std::borrow::Cow;
+
 use pyo3::exceptions::*;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use rand::Rng;
-use sha2::Digest;
+use sha2::{Digest, Sha256};
 
 use crate::util::{Encoding, HandleError};
+
+const CAP_SIGNATURE_WITH_ID: u64 = 0x4000000;
+const CAP_SIGNATURE_DOMAIN: u64 = 0x800000000;
+
+#[derive(Debug, Clone, Copy)]
+#[pyclass]
+pub struct SignatureContext {
+    pub global_id: i32,
+    pub capabilities: u64,
+}
+
+impl SignatureContext {
+    pub fn apply_from_arg<'a, 'py>(data: &'a [u8], context: &'py PyAny) -> PyResult<Cow<'a, [u8]>> {
+        Ok(if context.is_none() {
+            Cow::Borrowed(data)
+        } else if let Ok(global_id) = context.extract::<i32>() {
+            ton_abi::extend_signature_with_id(data, Some(global_id))
+        } else {
+            let context = context.extract::<SignatureContext>()?;
+            context.apply_impl(data)
+        })
+    }
+
+    pub fn apply_impl<'a>(&self, data: &'a [u8]) -> Cow<'a, [u8]> {
+        if self.capabilities & CAP_SIGNATURE_WITH_ID == 0 {
+            return Cow::Borrowed(data);
+        }
+
+        if self.capabilities & CAP_SIGNATURE_DOMAIN != 0 {
+            let mut result = Vec::with_capacity(32 + data.len());
+            result.extend_from_slice(&0x71b34ee1u32.to_le_bytes()); // L2 variant tl tag
+            result.extend_from_slice(&self.global_id.to_le_bytes());
+            let hash: [u8; 32] = Sha256::digest(&result).into();
+
+            result.clear();
+            result.extend_from_slice(&hash);
+            result.extend_from_slice(data);
+            Cow::Owned(result)
+        } else {
+            let mut result = Vec::with_capacity(4 + data.len());
+            result.extend_from_slice(&self.global_id.to_be_bytes());
+            result.extend_from_slice(data);
+            Cow::Owned(result)
+        }
+    }
+}
+
+#[pymethods]
+impl SignatureContext {
+    #[new]
+    pub fn new(global_id: i32, capabilities: u64) -> Self {
+        Self {
+            global_id,
+            capabilities,
+        }
+    }
+
+    #[getter]
+    fn global_id(&self) -> i32 {
+        self.global_id
+    }
+
+    #[getter]
+    fn capabilities(&self) -> u64 {
+        self.capabilities
+    }
+
+    pub fn apply<'a>(&self, py: Python<'a>, data: &[u8]) -> &'a PyBytes {
+        let res = self.apply_impl(data);
+        PyBytes::new(py, &res)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "SignatureContext(global_id={}, capabilities={})",
+            self.global_id, self.capabilities
+        )
+    }
+}
 
 #[pyclass]
 pub struct PublicKey(pub ed25519_dalek::PublicKey);
@@ -39,15 +120,16 @@ impl PublicKey {
         encoding.decode_pubkey(value).map(Self)
     }
 
-    pub fn check_signature(
+    pub fn check_signature<'a>(
         &self,
         data: &[u8],
         signature: &Signature,
-        signature_id: Option<i32>,
-    ) -> bool {
+        context: &'a PyAny,
+    ) -> PyResult<bool> {
         use ed25519_dalek::Verifier;
-        let data = ton_abi::extend_signature_with_id(data, signature_id);
-        self.0.verify(&data, &signature.0).is_ok()
+
+        let data = SignatureContext::apply_from_arg(data, context)?;
+        Ok(self.0.verify(&data, &signature.0).is_ok())
     }
 
     pub fn encode(&self, encoding: Option<&str>) -> PyResult<String> {
@@ -107,31 +189,31 @@ impl KeyPair {
         PublicKey(self.0.public)
     }
 
-    pub fn sign(&self, data: &[u8], signature_id: Option<i32>) -> Signature {
+    pub fn sign(&self, data: &[u8], context: &PyAny) -> PyResult<Signature> {
         use ed25519_dalek::Signer;
         use sha2::Digest;
 
         let data = sha2::Sha256::digest(data);
-        let data = ton_abi::extend_signature_with_id(&data, signature_id);
-        Signature(self.0.sign(&data))
+        let data = SignatureContext::apply_from_arg(&data, context)?;
+        Ok(Signature(self.0.sign(&data)))
     }
 
-    pub fn sign_raw(&self, data: &[u8], signature_id: Option<i32>) -> Signature {
+    pub fn sign_raw(&self, data: &[u8], context: &PyAny) -> PyResult<Signature> {
         use ed25519_dalek::Signer;
 
-        let data = ton_abi::extend_signature_with_id(data, signature_id);
-        Signature(self.0.sign(&data))
+        let data = SignatureContext::apply_from_arg(&data, context)?;
+        Ok(Signature(self.0.sign(&data)))
     }
 
     pub fn check_signature(
         &self,
         data: &[u8],
         signature: &Signature,
-        signature_id: Option<i32>,
-    ) -> bool {
+        context: &PyAny,
+    ) -> PyResult<bool> {
         use ed25519_dalek::Verifier;
-        let data = ton_abi::extend_signature_with_id(data, signature_id);
-        self.0.public.verify(&data, &signature.0).is_ok()
+        let data = SignatureContext::apply_from_arg(&data, context)?;
+        Ok(self.0.public.verify(&data, &signature.0).is_ok())
     }
 
     fn __hash__(&self) -> u64 {

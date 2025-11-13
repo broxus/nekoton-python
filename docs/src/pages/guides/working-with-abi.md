@@ -143,10 +143,10 @@ public_key, data = abi.decode_init_data(cell)
 
 ### Searching for Function ABI
 
-The `get_function` method of the `ContractAbi` class searches for a function ABI by its name. It returns `FunctionAbi` objects, or `None` if no function with the specified name exists.
+The `function` method of the `ContractAbi` class searches for a function ABI by its name. It returns `FunctionAbi` objects, or `None` if no function with the specified name exists.
 
 ```python
-function_abi = abi.get_function("computeSmth")
+function_abi = abi.function("computeSmth")
 ```
 
 ### Encoding Initial Contract Data
@@ -174,7 +174,7 @@ They do not require user interaction and can be called without any parameters or
 
 ```python
 # Initialize the ABI and get the function
-function_abi = abi.get_function("getComplexState")
+function_abi = abi.function("getComplexState")
 
 # Call the function
 result = function_abi.call(account_state, input={})
@@ -194,7 +194,7 @@ If the getter requires parameters, they can be provided in the `input` dictionar
 
 ```python
 # Initialize the ABI and get the function
-function_abi = abi.get_function("getSecondElementWithPrefix")
+function_abi = abi.function("getSecondElementWithPrefix")
 
 # Call the function with parameters
 result = function_abi.call(account_state, input={"prefix": "foo"})
@@ -220,7 +220,7 @@ When a responsible method is called on-chain, it returns the result in an outgoi
 
 ```python
 # Initialize the ABI and get the function
-function_abi = abi.get_function("computeSmth")
+function_abi = abi.function("computeSmth")
 
 # Call the function with parameters
 result = function_abi.call(account_state, input={"offset": 999, "answerId": 42})
@@ -243,7 +243,7 @@ The `encode_external_message` method is utilized to prepare an external message 
 
 ```python
 # Initialize the ABI and get the function
-function_abi = abi.get_function("setVariableExternal")
+function_abi = abi.function("setVariableExternal")
 
 # Define the input parameters
 input_params = {"someParam": 66}
@@ -279,7 +279,7 @@ The `encode_internal_message` method is employed to prepare an internal message 
 
 ```python
 # Initialize the ABI and get the function
-function_abi = abi.get_function("setVariable")
+function_abi = abi.function("setVariable")
 
 # Define the input parameters
 input_params = {"someParam": 1337}
@@ -386,7 +386,7 @@ They take a `Cell` object and an optional boolean value as arguments, and return
 ```python
 
 # Setting up the ABI for a specific function.
-function_abi = abi.get_function("setVariable")
+function_abi = abi.function("setVariable")
 
 # Decoding a message body as an input using `decode_input` method from `function_abi` object.
 message_body_cell = nt.Cell.decode("te6ccgEBAQEAFgAAKDja0OwAAAAAAAAAAAAAAAAAAAU5")
@@ -404,7 +404,7 @@ print(input_data)
 
 ```python
 # Setting up the ABI for a specific function.
-function_abi = abi.get_function("setVariable")
+function_abi = abi.function("setVariable")
 
 # Decoding a message body as an output using `decode_output` method from `function_abi` object.
 message_body_cell = nt.Cell.decode("te6ccgEBAQEAFgAAKDja0OwAAAAAAAAAAAAAAAAAAAU5")
@@ -437,12 +437,12 @@ The `EventAbi` class is used to interact with the events defined in the smart co
 
 ### Searching for Event ABI
 
-The `get_event` method of the `ContractAbi` class searches for an event ABI by its name.
+The `event` method of the `ContractAbi` class searches for an event ABI by its name.
 It returns `EventAbi` objects, or `None` if no event with the specified name exists.
 
 ```python
-# Searching for an event ABI by its name using `get_event` method of `abi` object.
-event_abi = abi.get_event("StateChanged")
+# Searching for an event ABI by its name using `event` method of `abi` object.
+event_abi = abi.event("StateChanged")
 
 print(event_abi)
 ```
@@ -458,8 +458,8 @@ print(event_abi)
 The `decode_message` and `decode_message_body` methods decode event data from a message or a message body. They take a `Message` or `Cell` object as an argument respectively, and return a dictionary with the decoded data.
 
 ```python
-# Firstly, we retrieve the ABI for a specific event by calling the `get_event` method.
-event_abi = abi.get_event("StateChanged")
+# Firstly, we retrieve the ABI for a specific event by calling the `event` method.
+event_abi = abi.event("StateChanged")
 
 # Here, we decode two different message bodies (as 'Cell' objects) to extract the data they contain.
 message_body = nt.Cell.decode("te6ccgEBAgEAEQABEFM5yKUAAAFRAQAIdGVzdA==")

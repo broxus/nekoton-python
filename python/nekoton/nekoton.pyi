@@ -1,12 +1,10 @@
 from os import PathLike
-from typing import Any, ClassVar, Optional, List, Tuple, Dict
-
+from typing import Any, ClassVar, Dict, List, Optional, Tuple
 
 #########
 ## ABI ##
 #########
 # <editor-fold desc="ABI">
-
 
 class TransactionExecutor:
     """
@@ -20,13 +18,14 @@ class TransactionExecutor:
     check_signature: bool
     """Whether to require valid signatures."""
 
-    def __init__(self, config: BlockchainConfig, clock: Optional[Clock] = None,
-                 check_signature: Optional[bool] = None) -> None: ...
-
+    def __init__(
+        self,
+        config: BlockchainConfig,
+        clock: Optional[Clock] = None,
+        check_signature: Optional[bool] = None,
+    ) -> None: ...
     def execute(
-            self,
-            message: Message,
-            account: Optional[AccountState] = None
+        self, message: Message, account: Optional[AccountState] = None
     ) -> Tuple[Transaction, Optional[AccountState]]:
         """
         Executes the specified message on account state.
@@ -36,7 +35,6 @@ class TransactionExecutor:
         """
         ...
 
-
 class ContractAbi:
     """
     Parsed contract ABI.
@@ -45,12 +43,11 @@ class ContractAbi:
     """
 
     @staticmethod
-    def from_file(file: str | bytes | PathLike[str] | PathLike[bytes]) -> ContractAbi:
+    def from_file(path: str | bytes | PathLike[str] | PathLike[bytes]) -> ContractAbi:
         """Reads ABI from file."""
         ...
 
     def __init__(self, abi: str) -> None: ...
-
     @property
     def abi_version(self) -> AbiVersion:
         """TVM ABI version."""
@@ -58,16 +55,14 @@ class ContractAbi:
 
     def get_function(self, name: str) -> Optional[FunctionAbi]:
         """
-        DEPRECATED: use `function` method instead.
-
         Searches for the function ABI with the specified name.
 
         :param name: function name.
         """
         ...
 
-    def function(self, name: str) -> Optional[FunctionAbi]:
-         """
+    def function(self, name: str) -> FunctionAbi:
+        """
         Searches for the function ABI with the specified name.
 
         :param name: function name.
@@ -76,15 +71,13 @@ class ContractAbi:
 
     def get_event(self, name: str) -> Optional[EventAbi]:
         """
-        DEPRECATED: use `event` method instead.
-
         Searches for the event ABI with the specified name.
 
         :param name: event name.
         """
         ...
 
-    def event(self, name: str) -> Optional[EventAbi]:
+    def event(self, name: str) -> EventAbi:
         """
         Searches for the event ABI with the specified name.
 
@@ -92,7 +85,15 @@ class ContractAbi:
         """
         ...
 
-    def getter(self, name: str) -> Optional[GetterAbi]:
+    def get_getter(self, name: str) -> Optional[GetterAbi]:
+        """
+        Searches for the getter ABI with the specified name.
+
+        :param name: getter name.
+        """
+        ...
+
+    def getter(self, name: str) -> GetterAbi:
         """
         Searches for the getter ABI with the specified name.
 
@@ -101,10 +102,10 @@ class ContractAbi:
         ...
 
     def encode_init_data(
-            self,
-            data: Dict[str, Any],
-            public_key: Optional[PublicKey] = None,
-            existing_data: Optional[Cell] = None
+        self,
+        data: Dict[str, Any],
+        public_key: Optional[PublicKey] = None,
+        existing_data: Optional[Cell] = None,
     ) -> Cell:
         """
         Encodes initial contract data using the specified values and public key.
@@ -115,7 +116,9 @@ class ContractAbi:
         """
         ...
 
-    def decode_init_data(self, data: Cell) -> Tuple[Optional[PublicKey], Dict[str, Any]]:
+    def decode_init_data(
+        self, data: Cell
+    ) -> Tuple[Optional[PublicKey], Dict[str, Any]]:
         """
         Decodes initial contract data using the contract ABI.
 
@@ -123,7 +126,9 @@ class ContractAbi:
         """
         ...
 
-    def decode_fields(self, data: Cell | AccountState) -> Dict[str, Any]:
+    def decode_fields(
+        self, data: Cell | AccountState, allow_partial: Optional[bool] = None
+    ) -> Dict[str, Any]:
         """
         Decodes fields from the contract data.
 
@@ -131,7 +136,9 @@ class ContractAbi:
         """
         ...
 
-    def decode_transaction(self, transaction: Transaction) -> Optional[FunctionCallFull]:
+    def decode_transaction(
+        self, transaction: Transaction
+    ) -> Optional[FunctionCallFull]:
         """
         Decodes function call and events from the specified transaction.
 
@@ -139,14 +146,15 @@ class ContractAbi:
         """
         ...
 
-    def decode_transaction_events(self, transaction: Transaction) -> List[Tuple[EventAbi, Dict[str, Any]]]:
+    def decode_transaction_events(
+        self, transaction: Transaction
+    ) -> List[Tuple[EventAbi, Dict[str, Any]]]:
         """
         Decodes only events from the specified transaction.
 
         :param transaction: transaction to decode.
         """
         ...
-
 
 class FunctionAbi:
     """Parsed function ABI."""
@@ -180,11 +188,12 @@ class FunctionAbi:
         ...
 
     def call(
-            self,
-            account_state: AccountState,
-            input: Dict,
-            responsible: Optional[bool] = None,
-            clock: Optional[Clock] = None,
+        self,
+        account_state: AccountState,
+        input: Dict,
+        responsible: Optional[bool] = None,
+        clock: Optional[Clock] = None,
+        config: Optional[BlockchainConfig] = None,
     ) -> ExecutionOutput:
         """
         Runs this function as a getter.
@@ -197,13 +206,13 @@ class FunctionAbi:
         ...
 
     def encode_external_message(
-            self,
-            dst: Address,
-            input: Dict[str, Any],
-            public_key: Optional[PublicKey],
-            state_init: Optional[StateInit] = None,
-            timeout: Optional[int] = None,
-            clock: Optional[Clock] = None
+        self,
+        dst: Address,
+        input: Dict[str, Any],
+        public_key: Optional[PublicKey] = None,
+        state_init: Optional[StateInit] = None,
+        timeout: Optional[int] = None,
+        clock: Optional[Clock] = None,
     ) -> UnsignedExternalMessage:
         """
         Encodes external message using the function ABI.
@@ -218,12 +227,12 @@ class FunctionAbi:
         ...
 
     def encode_external_input(
-            self,
-            input: Dict[str, Any],
-            public_key: Optional[PublicKey],
-            timeout: Optional[int] = None,
-            address: Optional[Address] = None,
-            clock: Optional[Clock] = None
+        self,
+        input: Dict[str, Any],
+        public_key: Optional[PublicKey] = None,
+        timeout: Optional[int] = None,
+        address: Optional[Address] = None,
+        clock: Optional[Clock] = None,
     ) -> UnsignedBody:
         """
         Encodes external function input using the function ABI.
@@ -237,13 +246,13 @@ class FunctionAbi:
         ...
 
     def encode_internal_message(
-            self,
-            input: Dict[str, Any],
-            value: Tokens,
-            bounce: bool,
-            dst: Address,
-            src: Optional[Address] = None,
-            state_init: Optional[StateInit] = None,
+        self,
+        input: Dict[str, Any],
+        value: Tokens,
+        bounce: bool,
+        dst: Address,
+        src: Optional[Address] = None,
+        state_init: Optional[StateInit] = None,
     ) -> Message:
         """
         Encodes internal message using the function ABI.
@@ -274,10 +283,7 @@ class FunctionAbi:
         ...
 
     def decode_input(
-            self,
-            message_body: Cell,
-            internal: bool,
-            allow_partial: Optional[bool] = None
+        self, message_body: Cell, internal: bool, allow_partial: Optional[bool] = None
     ) -> Dict[str, Any]:
         """
         Decodes message body as input using the function ABI.
@@ -288,7 +294,9 @@ class FunctionAbi:
         """
         ...
 
-    def decode_output(self, message_body: Cell, allow_partial: Optional[bool] = None) -> Dict[str, Any]:
+    def decode_output(
+        self, message_body: Cell, allow_partial: Optional[bool] = None
+    ) -> Dict[str, Any]:
         """
         Decodes message body as output using the function ABI.
 
@@ -298,38 +306,32 @@ class FunctionAbi:
         ...
 
     def __eq__(self, other) -> Any: ...
-
     def __ge__(self, other) -> Any: ...
-
     def __gt__(self, other) -> Any: ...
-
     def __hash__(self) -> Any: ...
-
     def __le__(self, other) -> Any: ...
-
     def __lt__(self, other) -> Any: ...
-
     def __ne__(self, other) -> Any: ...
-
 
 class FunctionAbiWithArgs:
     """Parsed function ABI."""
 
     @property
-    def abi(self) -> AbiVersion:
+    def abi(self) -> FunctionAbi:
         """Returns an underlying function ABI."""
         ...
 
     @property
-    def args(self) -> str:
+    def args(self) -> Dict[str, Any]:
         """Returns function input args."""
         ...
 
     def call(
-            self,
-            account_state: AccountState,
-            responsible: Optional[bool] = None,
-            clock: Optional[Clock] = None,
+        self,
+        account_state: AccountState,
+        responsible: Optional[bool] = None,
+        clock: Optional[Clock] = None,
+        config: Optional[BlockchainConfig] = None,
     ) -> ExecutionOutput:
         """
         Runs this function as a getter.
@@ -341,12 +343,12 @@ class FunctionAbiWithArgs:
         ...
 
     def encode_external_message(
-            self,
-            dst: Address,
-            public_key: Optional[PublicKey],
-            state_init: Optional[StateInit] = None,
-            timeout: Optional[int] = None,
-            clock: Optional[Clock] = None
+        self,
+        dst: Address,
+        public_key: Optional[PublicKey] = None,
+        state_init: Optional[StateInit] = None,
+        timeout: Optional[int] = None,
+        clock: Optional[Clock] = None,
     ) -> UnsignedExternalMessage:
         """
         Encodes external message using the function ABI.
@@ -360,11 +362,11 @@ class FunctionAbiWithArgs:
         ...
 
     def encode_external_input(
-            self,
-            public_key: Optional[PublicKey],
-            timeout: Optional[int] = None,
-            address: Optional[Address] = None,
-            clock: Optional[Clock] = None
+        self,
+        public_key: Optional[PublicKey] = None,
+        timeout: Optional[int] = None,
+        address: Optional[Address] = None,
+        clock: Optional[Clock] = None,
     ) -> UnsignedBody:
         """
         Encodes external function input using the function ABI.
@@ -377,12 +379,12 @@ class FunctionAbiWithArgs:
         ...
 
     def encode_internal_message(
-            self,
-            value: Tokens,
-            bounce: bool,
-            dst: Address,
-            src: Optional[Address] = None,
-            state_init: Optional[StateInit] = None,
+        self,
+        value: Tokens,
+        bounce: bool,
+        dst: Address,
+        src: Optional[Address] = None,
+        state_init: Optional[StateInit] = None,
     ) -> Message:
         """
         Encodes internal message using the function ABI.
@@ -402,19 +404,12 @@ class FunctionAbiWithArgs:
         ...
 
     def __eq__(self, other) -> Any: ...
-
     def __ge__(self, other) -> Any: ...
-
     def __gt__(self, other) -> Any: ...
-
     def __hash__(self) -> Any: ...
-
     def __le__(self, other) -> Any: ...
-
     def __lt__(self, other) -> Any: ...
-
     def __ne__(self, other) -> Any: ...
-
 
 class ExecutionOutput:
     @property
@@ -426,7 +421,6 @@ class ExecutionOutput:
     def output(self) -> Optional[Dict[str, Any]]:
         """Parsed output in case of successful execution."""
         ...
-
 
 class FunctionCall:
     """Parsed function call."""
@@ -441,7 +435,6 @@ class FunctionCall:
         """Parsed function output."""
         ...
 
-
 class FunctionCallFull(FunctionCall):
     """Extended parsed function cell."""
 
@@ -454,7 +447,6 @@ class FunctionCallFull(FunctionCall):
     def function(self) -> FunctionAbi:
         """ABI object of the parsed function"""
         ...
-
 
 class EventAbi:
     """Parsed event ABI."""
@@ -491,27 +483,15 @@ class EventAbi:
         ...
 
     def __eq__(self, other) -> Any: ...
-
     def __ge__(self, other) -> Any: ...
-
     def __gt__(self, other) -> Any: ...
-
     def __hash__(self) -> Any: ...
-
     def __le__(self, other) -> Any: ...
-
     def __lt__(self, other) -> Any: ...
-
     def __ne__(self, other) -> Any: ...
-
 
 class GetterAbi:
     """Parsed getter ABI."""
-
-    @property
-    def abi_version(self) -> AbiVersion:
-        """TVM ABI version."""
-        ...
 
     @property
     def name(self) -> str:
@@ -523,20 +503,29 @@ class GetterAbi:
         """Method id."""
         ...
 
+    def call(
+        self,
+        account_state: AccountState,
+        input: Dict,
+        clock: Optional[Clock] = None,
+        config: Optional[BlockchainConfig] = None,
+    ) -> ExecutionOutput:
+        """
+        Runs this function as a getter.
+
+        :param account_state: a state of existing account which will be used for execution.
+        :param input: function intput.
+        :param clock: optional clock to modify execution timestamp.
+        """
+        ...
+
     def __eq__(self, other) -> Any: ...
-
     def __ge__(self, other) -> Any: ...
-
     def __gt__(self, other) -> Any: ...
-
     def __hash__(self) -> Any: ...
-
     def __le__(self, other) -> Any: ...
-
     def __lt__(self, other) -> Any: ...
-
     def __ne__(self, other) -> Any: ...
-
 
 class Message:
     """
@@ -548,9 +537,7 @@ class Message:
         header: MessageHeader,
         body: Optional[Cell] = None,
         state_init: Optional[StateInit] = None,
-    ) -> None:
-        ...
-
+    ) -> None: ...
     @staticmethod
     def from_bytes(bytes: bytes) -> Message:
         """
@@ -666,19 +653,12 @@ class Message:
         ...
 
     def __eq__(self, other) -> Any: ...
-
     def __ge__(self, other) -> Any: ...
-
     def __gt__(self, other) -> Any: ...
-
     def __hash__(self) -> Any: ...
-
     def __le__(self, other) -> Any: ...
-
     def __lt__(self, other) -> Any: ...
-
     def __ne__(self, other) -> Any: ...
-
 
 class SignedExternalMessage(Message):
     """
@@ -686,14 +666,12 @@ class SignedExternalMessage(Message):
     """
 
     def __init__(
-            self,
-            dst: Address,
-            expire_at: int,
-            body: Optional[Cell] = None,
-            state_init: Optional[StateInit] = None
-    ) -> None:
-        ...
-
+        self,
+        dst: Address,
+        expire_at: int,
+        body: Optional[Cell] = None,
+        state_init: Optional[StateInit] = None,
+    ) -> None: ...
     @property
     def expire_at(self) -> int:
         """Expiration unix timestamp."""
@@ -702,7 +680,6 @@ class SignedExternalMessage(Message):
     def split(self) -> Tuple[Message, int]:
         """Splits into inner message and expiration timestamp."""
         ...
-
 
 class UnsignedExternalMessage:
     """Unsigned external message with function intput."""
@@ -720,12 +697,14 @@ class UnsignedExternalMessage:
         """Expiration unix timestamp."""
         ...
 
-    def sign(self, keypair: KeyPair, signature_id: Optional[int]) -> SignedExternalMessage:
+    def sign(
+        self, keypair: KeyPair, context: Optional[int] | SignatureContext
+    ) -> SignedExternalMessage:
         """
         Signs function input with the specified keypair and signature id.
 
         :param keypair: signer keypair.
-        :param signature_id: optional signature id.
+        :param context: optional signature id or signature context.
         """
         ...
 
@@ -745,7 +724,6 @@ class UnsignedExternalMessage:
         """Creates an input without a signature."""
         ...
 
-
 class UnsignedBody:
     """Unsigned function input."""
 
@@ -759,12 +737,12 @@ class UnsignedBody:
         """Expiration unix timestamp."""
         ...
 
-    def sign(self, keypair: KeyPair, signature_id: Optional[int]) -> Cell:
+    def sign(self, keypair: KeyPair, context: Optional[int] | SignatureContext) -> Cell:
         """
         Signs function input with the specified keypair and signature id.
 
         :param keypair: signer keypair.
-        :param signature_id: optional signature id.
+        :param context: optional signature id or signature context.
         """
         ...
 
@@ -784,12 +762,10 @@ class UnsignedBody:
         """Creates an input without a signature."""
         ...
 
-
 class AbiParam:
     """
     Base ABI type.
     """
-
 
 class AbiUint(AbiParam):
     """
@@ -800,7 +776,6 @@ class AbiUint(AbiParam):
 
     def __init__(self, size: int) -> None: ...
 
-
 class AbiInt(AbiParam):
     """
     A class for an `intN` ABI type.
@@ -809,7 +784,6 @@ class AbiInt(AbiParam):
     """
 
     def __init__(self, size: int) -> None: ...
-
 
 class AbiVarUint(AbiParam):
     """
@@ -820,7 +794,6 @@ class AbiVarUint(AbiParam):
 
     def __init__(self, size: int) -> None: ...
 
-
 class AbiVarInt(AbiParam):
     """
     A class for `varintN` ABI type.
@@ -830,14 +803,12 @@ class AbiVarInt(AbiParam):
 
     def __init__(self, size: int) -> None: ...
 
-
 class AbiBool(AbiParam):
     """
     A class for a `bool` ABI type.
     """
 
     def __init__(self) -> None: ...
-
 
 class AbiTuple(AbiParam):
     """
@@ -848,7 +819,6 @@ class AbiTuple(AbiParam):
 
     def __init__(self, items: List[Tuple[str, AbiParam]]) -> None: ...
 
-
 class AbiArray(AbiParam):
     """
     A class for an `T[]` ABI type.
@@ -857,7 +827,6 @@ class AbiArray(AbiParam):
     """
 
     def __init__(self, value_type: AbiParam) -> None: ...
-
 
 class AbiFixedArray(AbiParam):
     """
@@ -869,14 +838,12 @@ class AbiFixedArray(AbiParam):
 
     def __init__(self, value_type: AbiParam, len: int) -> None: ...
 
-
 class AbiCell(AbiParam):
     """
     A class for a `cell` ABI type.
     """
 
     def __init__(self) -> None: ...
-
 
 class AbiMap(AbiParam):
     """
@@ -888,14 +855,12 @@ class AbiMap(AbiParam):
 
     def __init__(self, key_type: AbiParam, value_type: AbiParam) -> None: ...
 
-
 class AbiAddress(AbiParam):
     """
     A class for a `address` ABI type.
     """
 
     def __init__(self) -> None: ...
-
 
 class AbiAddressStd(AbiParam):
     """
@@ -904,14 +869,12 @@ class AbiAddressStd(AbiParam):
 
     def __init__(self) -> None: ...
 
-
 class AbiBytes(AbiParam):
     """
     A class for a `bytes` ABI type.
     """
 
     def __init__(self) -> None: ...
-
 
 class AbiFixedBytes(AbiParam):
     """
@@ -922,7 +885,6 @@ class AbiFixedBytes(AbiParam):
 
     def __init__(self, len: int) -> None: ...
 
-
 class AbiString(AbiParam):
     """
     A class for `string` ABI type.
@@ -930,14 +892,12 @@ class AbiString(AbiParam):
 
     def __init__(self) -> None: ...
 
-
 class AbiToken(AbiParam):
     """
     A class for `token` ABI type.
     """
 
     def __init__(self) -> None: ...
-
 
 class AbiOptional(AbiParam):
     """
@@ -948,7 +908,6 @@ class AbiOptional(AbiParam):
 
     def __init__(self, value_type: AbiParam) -> None: ...
 
-
 class AbiRef(AbiParam):
     """
     A class for a `ref(T)` ABI type.
@@ -957,7 +916,6 @@ class AbiRef(AbiParam):
     """
 
     def __init__(self, value_type: AbiParam) -> None: ...
-
 
 class AbiVersion:
     """
@@ -974,21 +932,14 @@ class AbiVersion:
     """Minor TVM ABI version component."""
 
     def __init__(self, major: int, minor: int) -> None: ...
-
+    def __str__(self) -> str: ...
     def __eq__(self, other) -> Any: ...
-
     def __ge__(self, other) -> Any: ...
-
     def __gt__(self, other) -> Any: ...
-
     def __hash__(self) -> Any: ...
-
     def __le__(self, other) -> Any: ...
-
     def __lt__(self, other) -> Any: ...
-
     def __ne__(self, other) -> Any: ...
-
 
 # </editor-fold>
 
@@ -997,15 +948,29 @@ class AbiVersion:
 ############
 # <editor-fold desc="MODELS">
 
-
 class BlockchainConfig:
     """
     Partially parsed blockchain config.
     """
 
     @property
+    def global_id(self) -> int:
+        """Network ID."""
+        ...
+
+    @property
     def capabilities(self) -> int:
         """Required software capabilities as integer mask."""
+        ...
+
+    @property
+    def signature_id(self) -> Optional[int]:
+        """Optional signature id when capability is enabled."""
+        ...
+
+    @property
+    def signature_context(self) -> SignatureContext:
+        """Network ID and capabilities that are used for signing."""
         ...
 
     @property
@@ -1057,7 +1022,6 @@ class BlockchainConfig:
         """
         ...
 
-
 class AccountState:
     """
     A state of an existing account.
@@ -1103,7 +1067,6 @@ class AccountState:
         """A hash of the last known state for the frozen account."""
         ...
 
-
 class StorageUsed:
     """
     Account storage stats.
@@ -1118,7 +1081,6 @@ class StorageUsed:
     def bits(self) -> int:
         """Number of bits occupied by this account."""
         ...
-
 
 class Transaction:
     """Blockchain transaction."""
@@ -1286,19 +1248,12 @@ class Transaction:
         ...
 
     def __eq__(self, other) -> Any: ...
-
     def __ge__(self, other) -> Any: ...
-
     def __gt__(self, other) -> Any: ...
-
     def __hash__(self) -> Any: ...
-
     def __le__(self, other) -> Any: ...
-
     def __lt__(self, other) -> Any: ...
-
     def __ne__(self, other) -> Any: ...
-
 
 class TransactionStoragePhase:
     """Transaction storage phase."""
@@ -1318,7 +1273,6 @@ class TransactionStoragePhase:
         """Account status change during this phase."""
         ...
 
-
 class TransactionCreditPhase:
     """Transaction credit phase."""
 
@@ -1332,100 +1286,71 @@ class TransactionCreditPhase:
         """Increased balance in nano EVERs."""
         ...
 
-
 class TransactionComputePhase:
     """Transaction compute phase."""
 
     @property
     def success(self) -> bool: ...
-
     @property
     def msg_state_used(self) -> bool: ...
-
     @property
     def account_activated(self) -> bool: ...
-
     @property
     def gas_fees(self) -> Tokens: ...
-
     @property
     def gas_used(self) -> int: ...
-
     @property
     def gas_limit(self) -> int: ...
-
     @property
     def gas_credit(self) -> Optional[int]: ...
-
     @property
     def mode(self) -> int: ...
-
     @property
     def exit_code(self) -> int: ...
-
     @property
     def exit_arg(self) -> Optional[int]: ...
-
     @property
     def vm_steps(self) -> int: ...
-
     @property
     def vm_init_state_hash(self) -> bytes: ...
-
     @property
     def vm_final_state_hash(self) -> bytes: ...
-
 
 class TransactionActionPhase:
     """Transaction action phase."""
 
     @property
     def success(self) -> bool: ...
-
     @property
     def valid(self) -> bool: ...
-
     @property
     def no_funds(self) -> bool: ...
-
     @property
     def status_change(self) -> AccountStatusChange: ...
-
     @property
     def total_fwd_fees(self) -> Optional[Tokens]: ...
-
     @property
     def total_action_fees(self) -> Optional[Tokens]: ...
-
     @property
     def result_code(self) -> int: ...
-
     @property
     def result_arg(self) -> Optional[int]: ...
-
     @property
     def total_actions(self) -> int: ...
-
     @property
     def special_actions(self) -> int: ...
-
     @property
     def skipped_actions(self) -> int: ...
-
     @property
     def messages_created(self) -> int: ...
-
     @property
     def action_list_hash(self) -> bytes: ...
-
 
 class TransactionBouncePhase:
     @property
     def msg_fees(self) -> Tokens: ...
-
     @property
     def fwd_fees(self) -> Tokens: ...
-
 
 class TransactionType:
     Ordinary: ClassVar[TransactionType] = ...
@@ -1444,22 +1369,15 @@ class TransactionType:
         """
         ...
 
+    def __str__(self) -> str: ...
     def __eq__(self, other) -> Any: ...
-
     def __ge__(self, other) -> Any: ...
-
     def __gt__(self, other) -> Any: ...
-
     def __hash__(self) -> Any: ...
-
     def __int__(self) -> Any: ...
-
     def __le__(self, other) -> Any: ...
-
     def __lt__(self, other) -> Any: ...
-
     def __ne__(self, other) -> Any: ...
-
 
 class TransactionTree:
     @staticmethod
@@ -1489,7 +1407,7 @@ class TransactionTree:
         ...
 
     @property
-    def children(self) -> List[Transaction]:
+    def children(self) -> List[TransactionTree]:
         """
         Get list of children nodes
         """
@@ -1497,16 +1415,13 @@ class TransactionTree:
 
     def __iter__(self) -> TransactionTreeIter: ...
 
-
 class TransactionTreeIter:
     """
     Plain transaction tree iterator.
     """
 
     def __iter__(self) -> TransactionTreeIter: ...
-
     def __next__(self) -> Transaction: ...
-
 
 class AccountStatus:
     """
@@ -1525,22 +1440,15 @@ class AccountStatus:
     Uninit: ClassVar[AccountStatus] = ...
     """Account without a state."""
 
+    def __str__(self) -> str: ...
     def __eq__(self, other) -> Any: ...
-
     def __ge__(self, other) -> Any: ...
-
     def __gt__(self, other) -> Any: ...
-
     def __hash__(self) -> Any: ...
-
     def __int__(self) -> Any: ...
-
     def __le__(self, other) -> Any: ...
-
     def __lt__(self, other) -> Any: ...
-
     def __ne__(self, other) -> Any: ...
-
 
 class AccountStatusChange:
     """
@@ -1556,30 +1464,23 @@ class AccountStatusChange:
     Unchanged: ClassVar[AccountStatusChange] = ...
     """Account status has not changed."""
 
+    def __str__(self) -> str: ...
     def __eq__(self, other) -> Any: ...
-
     def __ge__(self, other) -> Any: ...
-
     def __gt__(self, other) -> Any: ...
-
     def __hash__(self) -> Any: ...
-
     def __int__(self) -> Any: ...
-
     def __le__(self, other) -> Any: ...
-
     def __lt__(self, other) -> Any: ...
-
     def __ne__(self, other) -> Any: ...
-
 
 class MessageHeader:
     """Base message header."""
 
+    @property
     def type(self) -> MessageType:
         """Message type."""
         ...
-
 
 class InternalMessageHeader(MessageHeader):
     """Internal message header."""
@@ -1596,39 +1497,27 @@ class InternalMessageHeader(MessageHeader):
         fwd_fee: Optional[Tokens] = None,
         created_lt: Optional[int] = None,
         created_at: Optional[int] = None,
-    ) -> None:
-        ...
-
+    ) -> None: ...
     @property
     def ihr_disabled(self) -> bool: ...
-
     @property
     def bounce(self) -> bool: ...
-
     @property
     def bounced(self) -> bool: ...
-
     @property
     def src(self) -> Address: ...
-
     @property
     def dst(self) -> Address: ...
-
     @property
     def value(self) -> Tokens: ...
-
     @property
     def ihr_fee(self) -> Tokens: ...
-
     @property
     def fwd_fee(self) -> Tokens: ...
-
     @property
     def created_at(self) -> int: ...
-
     @property
     def created_lt(self) -> int: ...
-
 
 class ExternalInMessageHeader(MessageHeader):
     """External incoming message header."""
@@ -1637,9 +1526,7 @@ class ExternalInMessageHeader(MessageHeader):
         self,
         dst: Address,
         import_fee: Optional[Tokens] = None,
-    ) -> None:
-        ...
-
+    ) -> None: ...
     @property
     def dst(self) -> Address:
         """Message destination."""
@@ -1650,18 +1537,15 @@ class ExternalInMessageHeader(MessageHeader):
         """Import fee in nano EVERs"""
         ...
 
-
 class ExternalOutMessageHeader(MessageHeader):
     """External outgoing message header."""
 
     def __init__(
         self,
-        src: Optional[Address],
+        src: Optional[Address] = None,
         created_lt: Optional[int] = None,
         created_at: Optional[int] = None,
-    ) -> None:
-        ...
-
+    ) -> None: ...
     @property
     def src(self) -> Address:
         """Message source."""
@@ -1677,7 +1561,6 @@ class ExternalOutMessageHeader(MessageHeader):
         """A logical time when the message was created."""
         ...
 
-
 class MessageType:
     """Message type."""
 
@@ -1690,22 +1573,15 @@ class MessageType:
     ExternalOut: ClassVar[MessageType] = ...
     """External outgoing message. (Events)."""
 
+    def __str__(self) -> str: ...
     def __eq__(self, other) -> Any: ...
-
     def __ge__(self, other) -> Any: ...
-
     def __gt__(self, other) -> Any: ...
-
     def __hash__(self) -> Any: ...
-
     def __int__(self) -> Any: ...
-
     def __le__(self, other) -> Any: ...
-
     def __lt__(self, other) -> Any: ...
-
     def __ne__(self, other) -> Any: ...
-
 
 class StateInit:
     """
@@ -1749,14 +1625,15 @@ class StateInit:
         """
         ...
 
-    def __init__(self, code: Optional[Cell], data: Optional[Cell]) -> None: ...
-
+    def __init__(
+        self, code: Optional[Cell] = None, data: Optional[Cell] = None
+    ) -> None: ...
     @property
     def code_hash(self) -> Optional[bytes]:
         """Optional code hash."""
         ...
 
-    def set_code_salt(self, salt: Cell):
+    def set_code_salt(self, salt: Cell) -> None:
         """
         Tries to update the code salt.
 
@@ -1794,7 +1671,6 @@ class StateInit:
         """Creates a new cell with StateInit."""
         ...
 
-
 class Address:
     """
     Account address (`StdAddr`).
@@ -1815,7 +1691,7 @@ class Address:
         ...
 
     @staticmethod
-    def from_parts(workchain: int, account: bytes) -> Any:
+    def from_parts(workchain: int, account: bytes) -> "Address":
         """
         Creates an address from parts.
 
@@ -1825,38 +1701,48 @@ class Address:
         ...
 
     def __init__(self, addr: str) -> None: ...
-
     @property
     def account(self) -> bytes:
         """Hash of the initial state."""
         ...
 
-    def to_base64(self, url_safe: bool = True, bounce: bool = False):
+    def to_base64(self, url_safe: bool = True, bounce: bool = False) -> str:
         """
         Encodes address to a base64 format.
         """
         ...
 
-    def __str__(self):
+    def as_cell(self) -> Cell:
+        """
+        Builds a cell with stored address.
+        """
+        ...
+
+    def as_slice(self) -> CellSlice:
+        """
+        Builds a cell slice with stored address.
+        """
+        ...
+
+    def as_builder(self) -> CellBuilder:
+        """
+        Creates a new cell builder and stores this address in it.
+        """
+        ...
+
+    def __str__(self) -> str:
         """
         Encodes address to a raw format.
         """
         ...
 
     def __eq__(self, other) -> Any: ...
-
     def __ge__(self, other) -> Any: ...
-
     def __gt__(self, other) -> Any: ...
-
     def __hash__(self) -> Any: ...
-
     def __le__(self, other) -> Any: ...
-
     def __lt__(self, other) -> Any: ...
-
     def __ne__(self, other) -> Any: ...
-
 
 class CellSlice:
     """
@@ -1886,6 +1772,18 @@ class CellSlice:
     @property
     def refs_offset(self) -> int:
         """Returns the start of the references window."""
+        ...
+
+    def advance(self, bits=None, refs=None) -> None:
+        """
+        Skips a slice prefix.
+        """
+        ...
+
+    def shrink(self, bits=None, refs=None) -> None:
+        """
+        Removes all but the specified prefix.
+        """
         ...
 
     def is_empty(self) -> bool:
@@ -2032,17 +1930,15 @@ class CellSlice:
         """Tries to read the next cell, incrementing the refs window start."""
         ...
 
-
 class CellBuilder:
     """
     Builder for constructing cells with densely packed data.
     """
 
-    is_exotic: Optional[Cell]
+    is_exotic: bool
     """Whether this cell will be built as an exotic."""
 
     def __init__(self) -> None: ...
-
     @property
     def bits(self) -> int:
         """Data length in bits."""
@@ -2067,110 +1963,110 @@ class CellBuilder:
         """Tries to build a new cell from the builder."""
         ...
 
-    def store_zeros(self, bits: int):
+    def store_zeros(self, bits: int) -> None:
         """Tries to store the specified number of zero bits into the cell."""
         ...
 
-    def store_ones(self, bits: int):
+    def store_ones(self, bits: int) -> None:
         """Tries to store the specified number of set bits into the cell."""
         ...
 
-    def store_bit_zero(self):
+    def store_bit_zero(self) -> None:
         """Tries to store one zero bit into the cell."""
         ...
 
-    def store_bit_one(self):
+    def store_bit_one(self) -> None:
         """Tries to store one non-zero bit into the cell."""
         ...
 
-    def store_bit(self, value: bool):
+    def store_bit(self, value: bool) -> None:
         """Tries to store one bit into the cell."""
         ...
 
-    def store_u8(self, value: int):
+    def store_u8(self, value: int) -> None:
         """Tries to store u8 into the cell."""
         ...
 
-    def store_i8(self, value: int):
+    def store_i8(self, value: int) -> None:
         """Tries to store i8 into the cell."""
         ...
 
-    def store_u16(self, value: int):
+    def store_u16(self, value: int) -> None:
         """Tries to store u16 into the cell."""
         ...
 
-    def store_i16(self, value: int):
+    def store_i16(self, value: int) -> None:
         """Tries to store i16 into the cell."""
         ...
 
-    def store_u32(self, value: int):
+    def store_u32(self, value: int) -> None:
         """Tries to store u32 into the cell."""
         ...
 
-    def store_i32(self, value: int):
+    def store_i32(self, value: int) -> None:
         """Tries to store i32 into the cell."""
         ...
 
-    def store_u64(self, value: int):
+    def store_u64(self, value: int) -> None:
         """Tries to store u64 into the cell."""
         ...
 
-    def store_i64(self, value: int):
+    def store_i64(self, value: int) -> None:
         """Tries to store i64 into the cell."""
         ...
 
-    def store_u128(self, value: int):
+    def store_u128(self, value: int) -> None:
         """Tries to store u128 into the cell."""
         ...
 
-    def store_i128(self, value: int):
+    def store_i128(self, value: int) -> None:
         """Tries to store i128 into the cell."""
         ...
 
-    def store_uint(self, value: int, bits: int):
+    def store_uint(self, value: int, bits: int) -> None:
         """Tries to store an unsigned integer into the cell."""
         ...
 
-    def store_int(self, value: int, bits: int):
+    def store_int(self, value: int, bits: int) -> None:
         """Tries to store a signed integer into the cell."""
         ...
 
-    def store_public_key(self, public_key: PublicKey):
+    def store_public_key(self, value: PublicKey) -> None:
         """Tries to store a public key into the cell."""
         ...
 
-    def store_signature(self, signature: Signature):
+    def store_signature(self, signature: Signature) -> None:
         """Tries to store a signature into the cell."""
         ...
 
-    def store_bytes(self, bytes: bytes):
+    def store_bytes(self, bytes: bytes) -> None:
         """Tries to store bytes into the cell."""
         ...
 
-    def store_raw(self, bytes: bytes, bits: int):
+    def store_raw(self, bytes: bytes, bits: int) -> None:
         """Tries to store a raw data into the cell."""
         ...
 
-    def store_reference(self, cell: Cell):
+    def store_reference(self, cell: Cell) -> None:
         """Tries to store a child into the cell."""
         ...
 
-    def store_builder(self, builder: CellBuilder):
+    def store_builder(self, value: CellBuilder) -> None:
         """Tries to append a builder."""
         ...
 
-    def store_slice(self, slice: CellSlice):
+    def store_slice(self, value: CellSlice) -> None:
         """Tries to append a cell slice."""
         ...
 
     def store_abi(
+        self,
         abi: List[Tuple[str, AbiParam]],
         value: Dict[str, Any],
         abi_version: Optional[AbiVersion] = None,
-    ):
+    ) -> None:
         """Tries to store an abi encoded value into the cell."""
         ...
-
 
 class Cell:
     """
@@ -2188,9 +2084,9 @@ class Cell:
 
     @staticmethod
     def build(
-            abi: List[Tuple[str, AbiParam]],
-            value: Dict[str, Any],
-            abi_version: Optional[AbiVersion] = None,
+        abi: List[Tuple[str, AbiParam]],
+        value: Dict[str, Any],
+        abi_version: Optional[AbiVersion] = None,
     ) -> Cell:
         """
         Packs values into cell using the provided ABI.
@@ -2212,7 +2108,6 @@ class Cell:
         ...
 
     def __init__(self) -> None: ...
-
     @property
     def repr_hash(self) -> bytes:
         """Representation hash of the cell."""
@@ -2245,10 +2140,10 @@ class Cell:
         ...
 
     def unpack(
-            self,
-            abi: List[Tuple[str, AbiParam]],
-            abi_version: Optional[AbiVersion] = None,
-            allow_partial: Optional[bool] = None,
+        self,
+        abi: List[Tuple[str, AbiParam]],
+        abi_version: Optional[AbiVersion] = None,
+        allow_partial: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """
         Unpack values using the provided ABI.
@@ -2273,19 +2168,12 @@ class Cell:
         ...
 
     def __eq__(self, other) -> Any: ...
-
     def __ge__(self, other) -> Any: ...
-
     def __gt__(self, other) -> Any: ...
-
     def __hash__(self) -> Any: ...
-
     def __le__(self, other) -> Any: ...
-
     def __lt__(self, other) -> Any: ...
-
     def __ne__(self, other) -> Any: ...
-
 
 class Tokens:
     """
@@ -2297,7 +2185,7 @@ class Tokens:
         """Wraps amount in nano."""
         ...
 
-    def __init__(self, value: str | int):
+    def __init__(self, value: str | int) -> None:
         """Constructs tokens from decimal or integer value."""
         ...
 
@@ -2324,41 +2212,24 @@ class Tokens:
         ...
 
     def abs(self) -> Tokens: ...
-
+    def __str__(self) -> str: ...
     def __bool__(self) -> bool: ...
-
     def __int__(self) -> int: ...
-
     def __add__(self, other: Tokens) -> Tokens: ...
-
     def __sub__(self, other: Tokens) -> Tokens: ...
-
     def __mul__(self, other: int) -> Tokens: ...
-
     def __rmul__(self, other: int) -> Tokens: ...
-
     def __truediv__(self, other: int) -> Tokens: ...
-
     def __pos__(self) -> Tokens: ...
-
     def __neg__(self) -> Tokens: ...
-
     def __abs__(self) -> Tokens: ...
-
     def __eq__(self, other: Tokens) -> Any: ...
-
     def __ge__(self, other: Tokens) -> Any: ...
-
     def __gt__(self, other: Tokens) -> Any: ...
-
     def __hash__(self) -> Any: ...
-
     def __le__(self, other: Tokens) -> Any: ...
-
     def __lt__(self, other: Tokens) -> Any: ...
-
     def __ne__(self, other: Tokens) -> Any: ...
-
 
 # </editor-fold>
 
@@ -2366,7 +2237,6 @@ class Tokens:
 ## TRANSPORT ##
 ###############
 # <editor-fold desc="TRANSPORT">
-
 
 class Transport:
     """Base transport"""
@@ -2376,11 +2246,13 @@ class Transport:
         """Time context."""
         ...
 
-    async def check_connection(self):
+    async def check_connection(self) -> None:
         """Checks the connection."""
         ...
 
-    async def send_external_message(self, message: SignedExternalMessage) -> Optional[Transaction]:
+    async def send_external_message(
+        self, message: SignedExternalMessage
+    ) -> Optional[Transaction]:
         """
         Sends an external message to the network and waits until the transaction.
 
@@ -2392,7 +2264,13 @@ class Transport:
         """Fetches signature id for the selected network."""
         ...
 
-    async def get_blockchain_config(self, force: Optional[bool] = None) -> BlockchainConfig:
+    async def get_signature_context(self) -> SignatureContext:
+        """Fetches signature context from the selected network."""
+        ...
+
+    async def get_blockchain_config(
+        self, force: Optional[bool] = None
+    ) -> BlockchainConfig:
         """
         Fetches the latest blockchain config.
 
@@ -2409,10 +2287,10 @@ class Transport:
         ...
 
     async def get_accounts_by_code_hash(
-            self,
-            code_hash: bytes,
-            continuation: Optional[Address] = None,
-            limit: Optional[int] = None,
+        self,
+        code_hash: bytes,
+        continuation: Optional[Address] = None,
+        limit: Optional[int] = None,
     ) -> List[Address]:
         """
         Fetches a list of address of accounts with the specified code hash.
@@ -2431,7 +2309,9 @@ class Transport:
         """
         ...
 
-    async def get_dst_transaction(self, message_hash: bytes | Message) -> Optional[Transaction]:
+    async def get_dst_transaction(
+        self, message_hash: bytes | Message
+    ) -> Optional[Transaction]:
         """
         Searches for a transaction by the hash of incoming message.
 
@@ -2440,10 +2320,10 @@ class Transport:
         ...
 
     async def get_transactions(
-            self,
-            address: Address,
-            lt: Optional[int] = None,
-            limit: Optional[int] = None,
+        self,
+        address: Address,
+        lt: Optional[int] = None,
+        limit: Optional[int] = None,
     ) -> List[Transaction]:
         """
         Fetches a transactions batch for the specified account.
@@ -2470,7 +2350,9 @@ class Transport:
         """
         ...
 
-    def trace_transaction(self, transaction_hash: bytes | Transaction, yield_root: bool = False) -> TraceTransaction:
+    def trace_transaction(
+        self, transaction_hash: bytes | Transaction, yield_root: bool = False
+    ) -> TraceTransaction:
         """
         Returns an async transactions iterator over the transactions tree.
 
@@ -2478,7 +2360,6 @@ class Transport:
         :param yield_root: whether to emit the root transaction.
         """
         ...
-
 
 class GqlTransport(Transport):
     """
@@ -2490,17 +2371,16 @@ class GqlTransport(Transport):
     """
 
     def __init__(
-            self,
-            endpoints: List[str],
-            clock: Optional[Clock] = None,
-            local: Optional[bool] = None,
+        self,
+        endpoints: List[str],
+        clock: Optional[Clock] = None,
+        local: Optional[bool] = None,
     ) -> None: ...
-
     async def query_transactions(
-            self,
-            filter: str | GqlExprPart | List[GqlExprPart],
-            order_by: Optional[str | GqlExprPart | List[GqlExprPart]] = None,
-            limit: Optional[int] = None
+        self,
+        filter: str | GqlExprPart | List[GqlExprPart],
+        order_by: Optional[str | GqlExprPart | List[GqlExprPart]] = None,
+        limit: Optional[int] = None,
     ) -> List[Transaction]:
         """
         Transactions GQL query.
@@ -2512,11 +2392,11 @@ class GqlTransport(Transport):
         ...
 
     async def query_messages(
-            self,
-            filter: str | GqlExprPart | List[GqlExprPart],
-            order_by: Optional[str | GqlExprPart | List[GqlExprPart]] = None,
-            limit: Optional[int] = None
-    ) -> List[Transaction]:
+        self,
+        filter: str | GqlExprPart | List[GqlExprPart],
+        order_by: Optional[str | GqlExprPart | List[GqlExprPart]] = None,
+        limit: Optional[int] = None,
+    ) -> List[Message]:
         """
         Messages GQL query.
 
@@ -2527,10 +2407,10 @@ class GqlTransport(Transport):
         ...
 
     async def query_accounts(
-            self,
-            filter: str | GqlExprPart | List[GqlExprPart],
-            order_by: Optional[str | GqlExprPart | List[GqlExprPart]] = None,
-            limit: Optional[int] = None
+        self,
+        filter: str | GqlExprPart | List[GqlExprPart],
+        order_by: Optional[str | GqlExprPart | List[GqlExprPart]] = None,
+        limit: Optional[int] = None,
     ) -> List[Tuple[Address, Optional[AccountState]]]:
         """
         Accounts GQL query.
@@ -2541,7 +2421,6 @@ class GqlTransport(Transport):
         """
         ...
 
-
 class GqlExprPart:
     """
     GQL query part.
@@ -2549,10 +2428,8 @@ class GqlExprPart:
     :param value: part value.
     """
 
-    def __init__(self, value: str): ...
-
-    def __str__(self): ...
-
+    def __init__(self, value: str) -> None: ...
+    def __str__(self) -> str: ...
 
 class JrpcTransport(Transport):
     """
@@ -2562,9 +2439,7 @@ class JrpcTransport(Transport):
     :param clock: optional clock to modify timestamp.
     """
 
-    def __init__(self, endpoint: str,
-                 clock: Optional[Clock] = None) -> None: ...
-
+    def __init__(self, endpoint: str, clock: Optional[Clock] = None) -> None: ...
 
 class ProtoTransport(Transport):
     """
@@ -2574,75 +2449,61 @@ class ProtoTransport(Transport):
     :param clock: optional clock to modify timestamp.
     """
 
-    def __init__(self, endpoint: str,
-                 clock: Optional[Clock] = None) -> None: ...
-
+    def __init__(self, endpoint: str, clock: Optional[Clock] = None) -> None: ...
 
 class AccountStatesAsyncIter:
     """
     Async account states iterator.
     """
 
-    async def close(self):
+    async def close(self) -> None:
         """
         Closes async iterator.
         """
         ...
 
     async def __aenter__(self) -> AccountStatesAsyncIter: ...
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb): ...
-
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None: ...
     def __aiter__(self) -> AccountStatesAsyncIter: ...
-
-    def __anext__(self) -> Optional[AccountState]: ...
-
+    async def __anext__(self) -> Optional[AccountState]: ...
 
 class AccountTransactionsAsyncIter:
     """
     Async account transactions iterator.
     """
 
-    async def close(self):
+    async def close(self) -> None:
         """
         Closes async iterator.
         """
         ...
 
     async def __aenter__(self) -> AccountTransactionsAsyncIter: ...
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb): ...
-
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None: ...
     def __aiter__(self) -> AccountTransactionsAsyncIter: ...
-
-    def __anext__(self) -> Tuple[List[Transaction], TransactionsBatchInfo]: ...
-
+    async def __anext__(self) -> Tuple[List[Transaction], TransactionsBatchInfo]: ...
 
 class TraceTransaction:
     """
     Async transactions tree iterator.
     """
 
-    async def close(self):
+    async def close(self) -> None:
         """
         Closes async iterator.
         """
         ...
 
-    async def wait(self):
+    async def wait(self) -> None:
         """
         Waits for the last transaction.
         """
         ...
 
     async def __aenter__(self) -> TraceTransaction: ...
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb): ...
-
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None: ...
     def __aiter__(self) -> TraceTransaction: ...
-
-    def __anext__(self) -> Transaction: ...
-
+    async def __anext__(self) -> Transaction: ...
 
 class TransactionsBatchInfo:
     """
@@ -2659,7 +2520,6 @@ class TransactionsBatchInfo:
         """The highest logical time in batch."""
         ...
 
-
 class Clock:
     """
     Time context.
@@ -2671,7 +2531,6 @@ class Clock:
     """Clock offset in milliseconds."""
 
     def __init__(self, offset: Optional[int] = None) -> None: ...
-
     @property
     def now_sec(self) -> int:
         """Returns current timestamp in seconds."""
@@ -2682,7 +2541,6 @@ class Clock:
         """Returns current timestamp in milliseconds."""
         ...
 
-
 # </editor-fold>
 
 ############
@@ -2690,6 +2548,32 @@ class Clock:
 ############
 # <editor-fold desc="CRYPTO">
 
+class SignatureContext:
+    """
+    Signature Context.
+
+    :param global_id: a network ID.
+    :param capabilities: raw network capabilities.
+    """
+
+    def __init__(self, global_id: int, capabilities: int) -> None: ...
+    @property
+    def global_id(self) -> int:
+        """Network ID."""
+        ...
+
+    @property
+    def capabilities(self) -> int:
+        """Raw network capabilities."""
+        ...
+
+    def apply(self, data: bytes) -> bytes:
+        """
+        Applies signature context prefix to data.
+
+        :param data: data to sign.
+        """
+        ...
 
 class PublicKey:
     """
@@ -2718,14 +2602,18 @@ class PublicKey:
         ...
 
     def __init__(self, value: str, encoding: Optional[str] = None) -> None: ...
-
-    def check_signature(self, data: bytes, signature: Signature, signature_id: Optional[int] = None) -> bool:
+    def check_signature(
+        self,
+        data: bytes,
+        signature: Signature,
+        context: Optional[int] | SignatureContext,
+    ) -> bool:
         """
         Returns `True` if the signature is correct.
 
         :param data: signed message.
         :param signature: signature to check.
-        :param signature_id: optional signature id.
+        :param context: optional signature id or signature context.
         """
         ...
 
@@ -2745,20 +2633,14 @@ class PublicKey:
         """Converts public key into integer."""
         ...
 
+    def __str__(self) -> str: ...
     def __eq__(self, other) -> Any: ...
-
     def __ge__(self, other) -> Any: ...
-
     def __gt__(self, other) -> Any: ...
-
     def __hash__(self) -> Any: ...
-
     def __le__(self, other) -> Any: ...
-
     def __lt__(self, other) -> Any: ...
-
     def __ne__(self, other) -> Any: ...
-
 
 class KeyPair:
     """
@@ -2773,7 +2655,6 @@ class KeyPair:
         ...
 
     def __init__(self, secret: bytes) -> None: ...
-
     @property
     def secret_key(self) -> bytes:
         """Corresponding secret key."""
@@ -2784,48 +2665,48 @@ class KeyPair:
         """Corresponding public key."""
         ...
 
-    def sign(self, data: bytes, signature_id: Optional[int]) -> Signature:
+    def sign(self, data: bytes, context: Optional[int] | SignatureContext) -> Signature:
         """
         Signs a hash of the specified data.
 
         :param data: data to sign.
-        :param signature_id: optional signature id.
+        :param context: optional signature id or context.
         """
         ...
 
-    def sign_raw(self, data: bytes, signature_id: Optional[int]) -> Signature:
+    def sign_raw(
+        self, data: bytes, context: Optional[int] | SignatureContext
+    ) -> Signature:
         """
         Signs data as is.
 
         :param data: data to sign.
-        :param signature_id: optional signature id.
+        :param context: optional signature id or context.
         """
         ...
 
-    def check_signature(self, data: bytes, signature: Signature, signature_id: Optional[int] = None) -> bool:
+    def check_signature(
+        self,
+        data: bytes,
+        signature: Signature,
+        context: Optional[int] | SignatureContext,
+    ) -> bool:
         """
         Returns `True` if the signature is correct.
 
         :param data: signed message.
         :param signature: signature to check.
-        :param signature_id: optional signature id.
+        :param context: optional signature id or signature context.
         """
         ...
 
     def __eq__(self, other) -> Any: ...
-
     def __ge__(self, other) -> Any: ...
-
     def __gt__(self, other) -> Any: ...
-
     def __hash__(self) -> Any: ...
-
     def __le__(self, other) -> Any: ...
-
     def __lt__(self, other) -> Any: ...
-
     def __ne__(self, other) -> Any: ...
-
 
 class Signature:
     """
@@ -2845,7 +2726,6 @@ class Signature:
         ...
 
     def __init__(self, value: str, encoding: Optional[str] = None) -> None: ...
-
     def encode(self, encoding: Optional[str] = None) -> str:
         """
         Encodes signature into string.
@@ -2859,19 +2739,12 @@ class Signature:
         ...
 
     def __eq__(self, other) -> Any: ...
-
     def __ge__(self, other) -> Any: ...
-
     def __gt__(self, other) -> Any: ...
-
     def __hash__(self) -> Any: ...
-
     def __le__(self, other) -> Any: ...
-
     def __lt__(self, other) -> Any: ...
-
     def __ne__(self, other) -> Any: ...
-
 
 class Seed:
     """Base seed."""
@@ -2881,6 +2754,7 @@ class Seed:
         """Number of words in phrase."""
         ...
 
+    def __str__(self) -> str: ...
 
 class LegacySeed(Seed):
     """
@@ -2895,11 +2769,9 @@ class LegacySeed(Seed):
         ...
 
     def __init__(self, phrase: str) -> None: ...
-
     def derive(self) -> KeyPair:
         """Derives a key pair."""
         ...
-
 
 class Bip39Seed(Seed):
     """
@@ -2923,7 +2795,6 @@ class Bip39Seed(Seed):
         ...
 
     def __init__(self, phrase: str) -> None: ...
-
     def derive(self, path: Optional[str] = None) -> KeyPair:
         """
         Derives a key pair using some derivation path.
@@ -2933,7 +2804,6 @@ class Bip39Seed(Seed):
         ...
 
 # </editor-fold>
-
 
 #########
 ## ASM ##

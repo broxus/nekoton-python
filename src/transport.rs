@@ -12,6 +12,7 @@ use tokio_util::sync::{CancellationToken, DropGuard};
 use ton_block::Deserializable;
 
 use crate::abi::SignedExternalMessage;
+use crate::crypto::SignatureContext;
 use crate::models::{AccountState, Address, BlockchainConfig, Message, Transaction};
 use crate::util::*;
 
@@ -152,6 +153,22 @@ impl Transport {
                 .await
                 .handle_runtime_error()?;
             Ok(capabilities.signature_id())
+        })
+    }
+
+    pub fn get_signature_context<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny> {
+        let state = self.0.clone();
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            let capabilities = state
+                .handle
+                .as_ref()
+                .get_capabilities(state.clock.as_ref())
+                .await
+                .handle_runtime_error()?;
+            Ok(SignatureContext {
+                global_id: capabilities.global_id,
+                capabilities: capabilities.raw,
+            })
         })
     }
 

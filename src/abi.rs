@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
+use nt::abi::AsGetterMethodId;
 use num_traits::Zero;
 use pyo3::exceptions::*;
 use pyo3::prelude::*;
@@ -167,36 +168,37 @@ impl ContractAbi {
         AbiVersion(self.0.contract.abi_version)
     }
 
-    fn get_function<'py>(&self, py: Python<'py>, name: &str) -> PyResult<Option<FunctionAbi>> {
-        PyErr::warn(
-            py,
-            py.get_type::<pyo3::exceptions::PyDeprecationWarning>(),
-            "`get_function` method is deprecated, use `function` method instead",
-            0,
-        )?;
-        Ok(self.function(name))
-    }
-
-    fn function(&self, name: &str) -> Option<FunctionAbi> {
+    fn get_function(&self, name: &str) -> Option<FunctionAbi> {
         self.0.functions.get(name).cloned()
     }
 
-    fn get_event<'py>(&self, py: Python<'py>, name: &str) -> PyResult<Option<EventAbi>> {
-        PyErr::warn(
-            py,
-            py.get_type::<pyo3::exceptions::PyDeprecationWarning>(),
-            "`get_event` method is deprecated, use `event` method instead",
-            0,
-        )?;
-        Ok(self.event(name))
+    fn function(&self, name: &str) -> PyResult<FunctionAbi> {
+        match self.0.functions.get(name).cloned() {
+            Some(function) => Ok(function),
+            None => Err(PyKeyError::new_err(format!("Function not found: {name}"))),
+        }
     }
 
-    fn event(&self, name: &str) -> Option<EventAbi> {
+    fn get_event(&self, name: &str) -> Option<EventAbi> {
         self.0.events.get(name).cloned()
     }
 
-    fn getter(&self, name: &str) -> Option<GetterAbi> {
+    fn event(&self, name: &str) -> PyResult<EventAbi> {
+        match self.0.events.get(name).cloned() {
+            Some(event) => Ok(event),
+            None => Err(PyKeyError::new_err(format!("Event not found: {name}"))),
+        }
+    }
+
+    fn get_getter(&self, name: &str) -> Option<GetterAbi> {
         self.0.getters.get(name).cloned()
+    }
+
+    fn getter(&self, name: &str) -> PyResult<GetterAbi> {
+        match self.0.getters.get(name).cloned() {
+            Some(getter) => Ok(getter),
+            None => Err(PyKeyError::new_err(format!("Getter not found: {name}"))),
+        }
     }
 
     fn encode_init_data(
@@ -643,10 +645,10 @@ impl FunctionAbi {
         self.0.output_id
     }
 
-    fn with_args(&self, py: Python<'_>, args: &PyDict) -> FunctionAbiWithArgs {
+    fn with_args(&self, py: Python<'_>, input: &PyDict) -> FunctionAbiWithArgs {
         FunctionAbiWithArgs {
             abi: self.clone(),
-            args: args.into_py(py),
+            args: input.into_py(py),
         }
     }
 
@@ -1110,8 +1112,16 @@ impl GetterAbi {
         self.0.name.clone()
     }
 
-    fn call(
+    // TODO: Use function id.
+    #[getter]
+    fn method_id(&self) -> u32 {
+        self.0.name.as_str().as_getter_method_id()
+    }
+
+    // TODO: Use function id.
+    fn call<'a>(
         &self,
+        py: Python<'a>,
         account_state: &AccountState,
         input: &PyDict,
         clock: Option<&Clock>,
@@ -1146,8 +1156,26 @@ impl GetterAbi {
 
         Ok(ExecutionOutput {
             exit_code: ctx.exit_code,
-            // TODO
-            output: None,
+            output: (ctx.exit_code == 0)
+                .then(|| {
+                    if ctx.stack.len() != self.0.outputs.len() {
+                        return Err(PyRuntimeError::new_err("Output stack size mismatch"));
+                    }
+
+                    let outputs = self
+                        .0
+                        .outputs
+                        .iter()
+                        .zip(ctx.stack)
+                        .map(|(param, value)| {
+                            let value = stack_item_to_token(&param.kind, &value)?;
+                            Ok(ton_abi::Token::new(&param.name, value))
+                        })
+                        .collect::<PyResult<Vec<_>>>()?;
+
+                    Ok(convert_tokens(py, outputs)?.into_py(py))
+                })
+                .transpose()?,
         })
     }
 
@@ -1290,13 +1318,13 @@ impl UnsignedExternalMessage {
         self.state_init = state_init;
     }
 
-    fn sign(
+    fn sign<'a>(
         &self,
-        py: Python<'_>,
+        py: Python<'a>,
         keypair: &KeyPair,
-        signature_id: Option<i32>,
+        context: &'a PyAny,
     ) -> PyResult<Py<SignedExternalMessage>> {
-        self.fill_body(py, self.body.sign(keypair, signature_id)?)
+        self.fill_body(py, self.body.sign(keypair, context)?)
     }
 
     fn with_signature(
@@ -1352,8 +1380,8 @@ impl UnsignedBody {
         self.expire_at
     }
 
-    fn sign(&self, keypair: &KeyPair, signature_id: Option<i32>) -> PyResult<Cell> {
-        let signature = keypair.sign_raw(self.hash.as_ref(), signature_id);
+    fn sign(&self, keypair: &KeyPair, context: &PyAny) -> PyResult<Cell> {
+        let signature = keypair.sign_raw(self.hash.as_ref(), context)?;
         self.fill_signature(Some(signature.0.as_ref()))
     }
 

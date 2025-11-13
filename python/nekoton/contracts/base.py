@@ -1,4 +1,4 @@
-import nekoton as _nt
+import nekoton.nekoton as _nt
 
 
 class IGiver:

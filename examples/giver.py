@@ -13,8 +13,7 @@ giver_abi = nt.ContractAbi("""{
     "events": []
 }""")
 
-send_grams = giver_abi.get_function("sendGrams")
-assert send_grams is not None
+send_grams = giver_abi.function("sendGrams")
 
 
 class Giver:
@@ -34,7 +33,7 @@ class Giver:
                 "dest": target,
                 "amount": amount,
             },
-            public_key=None
+            public_key=None,
         ).without_signature()
 
         # Send external message

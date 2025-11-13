@@ -1,9 +1,3 @@
-<p align="center">
-  <a href="https://github.com/venom-blockchain/developer-program">
-    <img src="https://raw.githubusercontent.com/venom-blockchain/developer-program/main/vf-dev-program.png" alt="Logo" width="366.8" height="146.4">
-  </a>
-</p>
-
 # nekoton-python &emsp;  [![Latest Version]][pypi.org]
 
 Python bindings for Nekoton
@@ -35,7 +29,7 @@ giver_abi = nt.ContractAbi("""{
     "events": []
 }""")
 
-send_grams = giver_abi.get_function("sendGrams")
+send_grams = giver_abi.function("sendGrams")
 assert send_grams is not None
 
 

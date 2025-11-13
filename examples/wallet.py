@@ -20,16 +20,18 @@ wallet_abi = nt.ContractAbi("""{
     "events": []
 }""")
 
-send_transaction = wallet_abi.get_function("sendTransaction")
-assert send_transaction is not None
+send_transaction = wallet_abi.function("sendTransaction")
 
 wallet_code = nt.Cell.decode(
-    'te6cckEBBgEA/AABFP8A9KQT9LzyyAsBAgEgAgMABNIwAubycdcBAcAA8nqDCNcY7UTQgwfXAdcLP8j4KM8WI88WyfkAA3HXAQHDAJqDB9cBURO68uBk3oBA1wGAINcBgCDXAVQWdfkQ8qj4I7vyeWa++COBBwiggQPoqFIgvLHydAIgghBM7mRsuuMPAcjL/8s/ye1UBAUAmDAC10zQ+kCDBtcBcdcBeNcB10z4AHCAEASqAhSxyMsFUAXPFlAD+gLLaSLQIc8xIddJoIQJuZgzcAHLAFjPFpcwcQHLABLM4skB+wAAPoIQFp4+EbqOEfgAApMg10qXeNcB1AL7AOjRkzLyPOI+zYS/')
+    "te6cckEBBgEA/AABFP8A9KQT9LzyyAsBAgEgAgMABNIwAubycdcBAcAA8nqDCNcY7UTQgwfXAdcLP8j4KM8WI88WyfkAA3HXAQHDAJqDB9cBURO68uBk3oBA1wGAINcBgCDXAVQWdfkQ8qj4I7vyeWa++COBBwiggQPoqFIgvLHydAIgghBM7mRsuuMPAcjL/8s/ye1UBAUAmDAC10zQ+kCDBtcBcdcBeNcB10z4AHCAEASqAhSxyMsFUAXPFlAD+gLLaSLQIc8xIddJoIQJuZgzcAHLAFjPFpcwcQHLABLM4skB+wAAPoIQFp4+EbqOEfgAApMg10qXeNcB1AL7AOjRkzLyPOI+zYS/"
+)
 
 
 class EverWallet:
     @classmethod
-    def compute_address(cls, public_key: nt.PublicKey, workchain: int = 0) -> nt.Address:
+    def compute_address(
+        cls, public_key: nt.PublicKey, workchain: int = 0
+    ) -> nt.Address:
         return cls.compute_state_init(public_key).compute_address(workchain)
 
     @staticmethod
@@ -39,7 +41,9 @@ class EverWallet:
         data_builder.store_u64(0)
         return nt.StateInit(wallet_code, data_builder.build())
 
-    def __init__(self, transport: nt.Transport, keypair: nt.KeyPair, workchain: int = 0):
+    def __init__(
+        self, transport: nt.Transport, keypair: nt.KeyPair, workchain: int = 0
+    ):
         state_init = self.compute_state_init(keypair.public_key)
 
         self._initialized = False
@@ -52,10 +56,12 @@ class EverWallet:
     def address(self) -> nt.Address:
         return self._address
 
-    async def send(self, dst: nt.Address, value: nt.Tokens, payload: nt.Cell, bounce: bool = False) -> nt.Transaction:
+    async def send(
+        self, dst: nt.Address, value: nt.Tokens, payload: nt.Cell, bounce: bool = False
+    ) -> nt.Transaction:
         state_init = await self.__get_state_init()
 
-        signature_id = await self._transport.get_signature_id()
+        context = await self._transport.get_signature_context()
 
         external_message = send_transaction.encode_external_message(
             self._address,
@@ -64,11 +70,11 @@ class EverWallet:
                 "value": value,
                 "bounce": bounce,
                 "flags": 3,
-                "payload": payload
+                "payload": payload,
             },
             public_key=self._keypair.public_key,
-            state_init=state_init
-        ).sign(self._keypair, signature_id)
+            state_init=state_init,
+        ).sign(self._keypair, context)
 
         tx = await self._transport.send_external_message(external_message)
         if tx is None:
@@ -90,7 +96,10 @@ class EverWallet:
             return None
 
         account_state = await self.get_account_state()
-        if account_state is not None and account_state.status == nt.AccountStatus.Active:
+        if (
+            account_state is not None
+            and account_state.status == nt.AccountStatus.Active
+        ):
             self._initialized = True
             return None
         else:

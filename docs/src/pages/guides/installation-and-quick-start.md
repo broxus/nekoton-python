@@ -46,7 +46,7 @@ giver_abi = nt.ContractAbi("""{
     "events": []
 }""")
 
-send_grams = giver_abi.get_function("sendGrams")
+send_grams = giver_abi.function("sendGrams")
 assert send_grams is not None
 
 

@@ -8,7 +8,7 @@ use ton_block::{Deserializable, GetRepresentationHash, Serializable};
 use ton_types::IBitstring;
 
 use crate::abi::{convert_tokens, parse_tokens, AbiParam, AbiVersion};
-use crate::crypto::{PublicKey, Signature};
+use crate::crypto::{PublicKey, Signature, SignatureContext};
 use crate::util::{make_hasher, py_none, Encoding, HandleError};
 
 #[derive(Clone)]
@@ -36,6 +36,14 @@ impl BlockchainConfig {
             Some(self.0.global_id())
         } else {
             None
+        }
+    }
+
+    #[getter]
+    fn signature_context(&self) -> SignatureContext {
+        SignatureContext {
+            global_id: self.0.global_id(),
+            capabilities: self.0.capabilites(),
         }
     }
 
@@ -940,19 +948,20 @@ impl Message {
     }
 
     #[getter]
-    fn created_at(&self) -> Option<u32> {
+    fn created_at(&self) -> u32 {
         match self.data.header() {
-            ton_block::CommonMsgInfo::IntMsgInfo(x) => Some(x.created_at.as_u32()),
-            ton_block::CommonMsgInfo::ExtOutMsgInfo(x) => Some(x.created_at.as_u32()),
-            ton_block::CommonMsgInfo::ExtInMsgInfo(_) => None,
+            ton_block::CommonMsgInfo::IntMsgInfo(x) => x.created_at.as_u32(),
+            ton_block::CommonMsgInfo::ExtOutMsgInfo(x) => x.created_at.as_u32(),
+            ton_block::CommonMsgInfo::ExtInMsgInfo(_) => 0,
         }
     }
+
     #[getter]
-    fn created_lt(&self) -> Option<u64> {
+    fn created_lt(&self) -> u64 {
         match self.data.header() {
-            ton_block::CommonMsgInfo::IntMsgInfo(x) => Some(x.created_lt),
-            ton_block::CommonMsgInfo::ExtOutMsgInfo(x) => Some(x.created_lt),
-            ton_block::CommonMsgInfo::ExtInMsgInfo(_) => None,
+            ton_block::CommonMsgInfo::IntMsgInfo(x) => x.created_lt,
+            ton_block::CommonMsgInfo::ExtOutMsgInfo(x) => x.created_lt,
+            ton_block::CommonMsgInfo::ExtInMsgInfo(_) => 0,
         }
     }
 
@@ -2001,8 +2010,8 @@ impl CellBuilder {
         Ok(())
     }
 
-    fn store_bit(&mut self, bit: bool) -> PyResult<()> {
-        self.builder.append_bit_bool(bit).handle_value_error()?;
+    fn store_bit(&mut self, value: bool) -> PyResult<()> {
+        self.builder.append_bit_bool(value).handle_value_error()?;
         Ok(())
     }
 
@@ -2110,8 +2119,8 @@ impl CellBuilder {
         Ok(())
     }
 
-    fn store_public_key(&mut self, key: &PublicKey) -> PyResult<()> {
-        self.store_bytes(key.0.as_bytes())
+    fn store_public_key(&mut self, value: &PublicKey) -> PyResult<()> {
+        self.store_bytes(value.0.as_bytes())
     }
 
     fn store_signature(&mut self, signature: &Signature) -> PyResult<()> {

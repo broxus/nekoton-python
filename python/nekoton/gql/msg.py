@@ -1,6 +1,11 @@
-from .filters import OrderBy as _OrderBy, IntFilter as _IntFilter, HashFilter as _HashFilter, TokensFilter as _TokensFilter, \
-    BoolFilter as _BoolFilter, AddressFilter as _AddressFilter, MessageTypeFilter as _MessageTypeFilter, \
-    IntAsStringFilter as _IntAsStringFilter
+from .filters import AddressFilter as _AddressFilter
+from .filters import BoolFilter as _BoolFilter
+from .filters import HashFilter as _HashFilter
+from .filters import IntAsStringFilter as _IntAsStringFilter
+from .filters import IntFilter as _IntFilter
+from .filters import MessageTypeFilter as _MessageTypeFilter
+from .filters import OrderBy as _OrderBy
+from .filters import TokensFilter as _TokensFilter
 
 
 class Id(_HashFilter, _OrderBy):

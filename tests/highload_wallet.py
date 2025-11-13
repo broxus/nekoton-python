@@ -1,18 +1,17 @@
 import asyncio
-from nekoton import *
+
+import nekoton as nt
 
 
 # Subscriptions
 async def main():
-    clock = Clock()
-
-    transport = JrpcTransport(endpoint="https://jrpc.everwallet.net")
+    transport = nt.JrpcTransport(endpoint="https://jrpc.everwallet.net")
     await transport.check_connection()
     signature_id = await transport.get_signature_id()
     assert signature_id is None
 
-    keypair = KeyPair.generate()
-    wallet = contracts.HighloadWalletV2(transport, keypair)
+    keypair = nt.KeyPair.generate()
+    wallet = nt.contracts.HighloadWalletV2(transport, keypair)
 
     print(wallet.address)
     async with transport.account_states(wallet.address) as states:
@@ -23,11 +22,11 @@ async def main():
                 continue
 
             print("account balance: ", state.balance)
-            if state.balance >= Tokens(1):
+            if state.balance >= nt.Tokens(1):
                 break
 
     print("Balance is enough")
-    tx = await wallet.send(dst=wallet.address, value=Tokens("0.5"))
+    tx = await wallet.send(dst=wallet.address, value=nt.Tokens("0.5"))
     await transport.trace_transaction(tx).wait()
     print("Done")
 

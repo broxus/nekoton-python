@@ -1,6 +1,5 @@
-import os
 import argparse
-
+import os
 from typing import Optional
 
 from . import generator
@@ -21,4 +20,5 @@ with open(args.filename) as abi_file:
     if contract_name is None:
         contract_name = os.path.basename(args.filename).removesuffix(".abi.json")
 
+    assert contract_name is not None
     print(generator.generate(contract_name, abi))

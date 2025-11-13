@@ -1,7 +1,8 @@
-from typing import Optional, List
+from typing import List, Optional
 
-from . import IGiver
-import nekoton as _nt
+import nekoton.nekoton as _nt
+
+from .base import IGiver
 
 _wallet_code = _nt.Cell.decode(
     "te6ccgEBCQEA5QABFP8A9KQT9LzyyAsBAgEgBAIB6vKDCNcYINMf0z/4I6ofUyC58mPtRNDTH9M/0//0BNFTYIBA9A5voTHyYFFzuvKiB/kBVBCH+RDyowL0BNH4AH+OFiGAEPR4b6UgmALTB9QwAfsAkTLiAbPmW4MlochANIBA9EOK5jHIEssfE8s/y//0AMntVAMANCCAQPSWb6UyURCUMFMDud4gkzM2AZIyMOKzAgFICAUCASAHBgBBvl+XaiaGmPmOmf6f+Y+gJoqRBAIHoHN9CYyS2/yV3R8UABe9nOdqJoaa+Y64X/wABNAw"
@@ -9,7 +10,7 @@ _wallet_code = _nt.Cell.decode(
 _default_wallet_id = 0x00000000
 _default_ttl = 60
 
-_messages_abi = [
+_messages_abi: list[tuple[str, _nt.AbiParam]] = [
     (
         "messages",
         _nt.AbiMap(
@@ -172,10 +173,7 @@ class HighloadWalletV2(IGiver):
             return None
 
         account_state = await self.get_account_state()
-        if (
-            account_state is not None
-            and account_state.status == _nt.AccountStatus.Active
-        ):
+        if account_state is not None and account_state.state_init is not None:
             if account_state.state_init.data is None:
                 raise RuntimeError("Account state does not contain data")
 

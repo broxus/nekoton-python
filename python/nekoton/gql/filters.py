@@ -1,7 +1,13 @@
 from typing import Iterable as _Iterable
 
-from nekoton import Address as _Address, Tokens as _Tokens, TransactionType as _TransactionType, MessageType as _MessageType, \
-    AccountStatus as _AccountStatus, GqlExprPart
+from nekoton.nekoton import AccountStatus as _AccountStatus
+from nekoton.nekoton import Address as _Address
+from nekoton.nekoton import GqlExprPart
+from nekoton.nekoton import MessageType as _MessageType
+from nekoton.nekoton import Tokens as _Tokens
+from nekoton.nekoton import TransactionType as _TransactionType
+
+# pyright: reportIncompatibleMethodOverride=false
 
 
 class OrderBy:
@@ -21,9 +27,9 @@ class BoolFilter:
 
     def _op(self, value: bool) -> GqlExprPart:
         if value:
-            return GqlExprPart('{}:{{eq:true}}'.format(self._field))
+            return GqlExprPart("{}:{{eq:true}}".format(self._field))
         else:
-            return GqlExprPart('{}:{{eq:false}}'.format(self._field))
+            return GqlExprPart("{}:{{eq:false}}".format(self._field))
 
     def __invert__(self) -> GqlExprPart:
         return self._op(False)
@@ -40,16 +46,18 @@ class IntFilter:
         self._field = field
 
     def any_of(self, values: _Iterable[int]) -> GqlExprPart:
-        return self._multi_op('in', values)
+        return self._multi_op("in", values)
 
     def not_any_of(self, values: _Iterable[int]) -> GqlExprPart:
-        return self._multi_op('notIn', values)
+        return self._multi_op("notIn", values)
 
     def _op(self, op: str, value: int) -> GqlExprPart:
-        return GqlExprPart('{}:{{{}:{}}}'.format(self._field, op, value))
+        return GqlExprPart("{}:{{{}:{}}}".format(self._field, op, value))
 
     def _multi_op(self, op: str, values: _Iterable[int]) -> GqlExprPart:
-        return GqlExprPart('{}:{{{}:[{}]}}'.format(self._field, op, ','.join(map(str, values))))
+        return GqlExprPart(
+            "{}:{{{}:[{}]}}".format(self._field, op, ",".join(map(str, values)))
+        )
 
     def __eq__(self, other: int) -> GqlExprPart:
         return self._op("eq", other)
@@ -72,10 +80,10 @@ class StringFilter:
         self._field = field
 
     def any_of(self, values: _Iterable[str]) -> GqlExprPart:
-        return self._multi_op('in', values)
+        return self._multi_op("in", values)
 
     def not_any_of(self, values: _Iterable[str]) -> GqlExprPart:
-        return self._multi_op('notIn', values)
+        return self._multi_op("notIn", values)
 
     def _op(self, op: str, value: str) -> GqlExprPart:
         return GqlExprPart('{}:{{{}:"{}"}}'.format(self._field, op, value))
@@ -83,7 +91,7 @@ class StringFilter:
     def _multi_op(self, op: str, values: _Iterable[str]) -> GqlExprPart:
         values = '","'.join(values)
         if not values:
-            return GqlExprPart('{}:{{{}:[]}}'.format(self._field, op))
+            return GqlExprPart("{}:{{{}:[]}}".format(self._field, op))
         else:
             return GqlExprPart('{}:{{{}:["{}"]}}'.format(self._field, op, values))
 
@@ -105,10 +113,10 @@ class StringFilter:
 
 class IntAsStringFilter(StringFilter):
     def any_of(self, values: _Iterable[int | str]) -> GqlExprPart:
-        return self._multi_op('in', map(str, values))
+        return self._multi_op("in", map(str, values))
 
     def not_any_of(self, values: _Iterable[int | str]) -> GqlExprPart:
-        return self._multi_op('notIn', map(str, values))
+        return self._multi_op("notIn", map(str, values))
 
     def __eq__(self, other: int | str) -> GqlExprPart:
         return self._op("eq", str(other))
@@ -135,10 +143,10 @@ class TokensFilter(StringFilter):
             return str(value)
 
     def any_of(self, values: _Iterable[_Tokens | int | str]) -> GqlExprPart:
-        return self._multi_op('in', map(TokensFilter.__convert, values))
+        return self._multi_op("in", map(TokensFilter.__convert, values))
 
     def not_any_of(self, values: _Iterable[_Tokens | int | str]) -> GqlExprPart:
-        return self._multi_op('notIn', map(TokensFilter.__convert, values))
+        return self._multi_op("notIn", map(TokensFilter.__convert, values))
 
     def __eq__(self, other: _Tokens | int | str) -> GqlExprPart:
         return self._op("eq", TokensFilter.__convert(other))
@@ -165,10 +173,10 @@ class HashFilter(StringFilter):
             return value
 
     def any_of(self, values: _Iterable[bytes | str]) -> GqlExprPart:
-        return self._multi_op('in', map(HashFilter.__convert, values))
+        return self._multi_op("in", map(HashFilter.__convert, values))
 
     def not_any_of(self, values: _Iterable[bytes | str]) -> GqlExprPart:
-        return self._multi_op('notIn', map(HashFilter.__convert, values))
+        return self._multi_op("notIn", map(HashFilter.__convert, values))
 
     def __eq__(self, other: bytes | str) -> GqlExprPart:
         return self._op("eq", HashFilter.__convert(other))
@@ -188,10 +196,10 @@ class HashFilter(StringFilter):
 
 class AddressFilter(StringFilter):
     def any_of(self, values: _Iterable[_Address | str]) -> GqlExprPart:
-        return self._multi_op('in', map(str, values))
+        return self._multi_op("in", map(str, values))
 
     def not_any_of(self, values: _Iterable[_Address | str]) -> GqlExprPart:
-        return self._multi_op('notIn', map(str, values))
+        return self._multi_op("notIn", map(str, values))
 
     def __eq__(self, other: _Address | str) -> GqlExprPart:
         return self._op("eq", str(other))
@@ -211,10 +219,10 @@ class AddressFilter(StringFilter):
 
 class TransactionTypeFilter(IntFilter):
     def any_of(self, values: _Iterable[_TransactionType | int]) -> GqlExprPart:
-        return self._multi_op('in', map(int, values))
+        return self._multi_op("in", map(int, values))
 
     def not_any_of(self, values: _Iterable[_TransactionType | int]) -> GqlExprPart:
-        return self._multi_op('notIn', map(int, values))
+        return self._multi_op("notIn", map(int, values))
 
     def __eq__(self, other: _TransactionType | int) -> GqlExprPart:
         return self._op("eq", int(other))
@@ -234,10 +242,10 @@ class TransactionTypeFilter(IntFilter):
 
 class MessageTypeFilter(IntFilter):
     def any_of(self, values: _Iterable[_MessageType | int]) -> GqlExprPart:
-        return self._multi_op('in', map(int, values))
+        return self._multi_op("in", map(int, values))
 
     def not_any_of(self, values: _Iterable[_MessageType | int]) -> GqlExprPart:
-        return self._multi_op('notIn', map(int, values))
+        return self._multi_op("notIn", map(int, values))
 
     def __eq__(self, other: _MessageType | int) -> GqlExprPart:
         return self._op("eq", int(other))
@@ -257,10 +265,10 @@ class MessageTypeFilter(IntFilter):
 
 class AccountStatusFilter(IntFilter):
     def any_of(self, values: _Iterable[_AccountStatus | int]) -> GqlExprPart:
-        return self._multi_op('in', map(int, values))
+        return self._multi_op("in", map(int, values))
 
     def not_any_of(self, values: _Iterable[_AccountStatus | int]) -> GqlExprPart:
-        return self._multi_op('notIn', map(int, values))
+        return self._multi_op("notIn", map(int, values))
 
     def __eq__(self, other: _AccountStatus | int) -> GqlExprPart:
         return self._op("eq", int(other))

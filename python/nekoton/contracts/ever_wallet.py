@@ -1,8 +1,8 @@
-from typing import Optional, List
+from typing import List, Optional
 
-from . import IGiver
-import nekoton as _nt
+import nekoton.nekoton as _nt
 
+from .base import IGiver
 
 _wallet_abi = _nt.ContractAbi("""{
   "ABI version": 2,
@@ -79,13 +79,11 @@ _wallet_abi = _nt.ContractAbi("""{
 }
 """)
 
-_send_transaction = _wallet_abi.get_function("sendTransaction")
-assert _send_transaction is not None
+_send_transaction = _wallet_abi.function("sendTransaction")
 
-_send_transaction_raw = list()
+_send_transaction_raw: List[_nt.FunctionAbi] = list()
 for i in range(4):
-    abi = _wallet_abi.get_function(f"sendTransactionRaw{i}")
-    assert abi is not None
+    abi = _wallet_abi.function(f"sendTransactionRaw{i}")
     _send_transaction_raw.append(abi)
 
 _wallet_code = _nt.Cell.decode(
