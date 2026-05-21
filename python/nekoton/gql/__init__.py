@@ -2,7 +2,10 @@ from typing import List as _List
 
 from nekoton.nekoton import GqlExprPart
 
-from . import acc, filters, msg, tx
+from . import acc as acc
+from . import filters as filters
+from . import msg as msg
+from . import tx as tx
 
 
 def and_(expressions: str | GqlExprPart | _List[GqlExprPart]) -> GqlExprPart:

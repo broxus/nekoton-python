@@ -2,7 +2,7 @@ import json
 import re
 from typing import Dict, List, Optional
 
-from nekoton import ContractAbi
+from nekoton.nekoton import ContractAbi
 
 
 def generate(name: str, abi: str) -> str:
