@@ -122,7 +122,7 @@ class HighloadWalletV2(IGiver):
             raise RuntimeError("Too many messages at once")
 
         state_init = await self.__get_state_init()
-        signature_id = await self._transport.get_signature_id()
+        context = await self._transport.get_signature_context()
 
         expire_at = self._transport.clock.now_sec + _default_ttl if ttl is None else ttl
 
@@ -141,7 +141,7 @@ class HighloadWalletV2(IGiver):
         payload_builder.store_slice(messages_dict_cell.as_slice())
 
         hash_to_sign = payload_builder.build().repr_hash
-        signature = self._keypair.sign_raw(hash_to_sign, signature_id)
+        signature = self._keypair.sign_raw(hash_to_sign, context)
 
         body_builder = _nt.CellBuilder()
         body_builder.store_signature(signature)

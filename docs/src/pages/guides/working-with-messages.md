@@ -306,11 +306,11 @@ print(expire_at) # 1695429486
 
 ### Signing an Unsigned External Message
 
-The `sign` method allows you to sign an unsigned external message. This requires a `KeyPair` and an optional `signature_id`.
+The `sign` method allows you to sign an unsigned external message. This requires a `KeyPair` and an optional `signature_context`.
 
 ```python
 # Sign the unsigned message
-signed_message = unsigned_message.sign(keypair, signature_id)
+signed_message = unsigned_message.sign(keypair, signature_context)
 
 print(signed_message)
 ```
@@ -383,11 +383,11 @@ print(without_signature_message)
 
 ### Signing the External Message Body
 
-The `sign` method of the `UnsignedBody` class allows you to sign the body of an external message. This requires a `KeyPair` and an optional `signature_id`.
+The `sign` method of the `UnsignedBody` class allows you to sign the body of an external message. This requires a `KeyPair` and an optional `signature_context`.
 
 ```python
 # Sign the body of the unsigned message
-signed_body = unsigned_body.sign(keypair, signature_id)
+signed_body = unsigned_body.sign(keypair, signature_context)
 
 print(signed_body)
 ```

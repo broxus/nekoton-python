@@ -95,13 +95,13 @@ class GiverV2(IGiver):
                 raise RuntimeError("Message expired")
             await transport.trace_transaction(tx).wait()
 
-        signature_id = await transport.get_signature_id()
+        context = await transport.get_signature_context()
         external_message = _giver_v2_constructor.encode_external_message(
             address,
             input={},
             public_key=keypair.public_key,
             state_init=state_init,
-        ).sign(keypair, signature_id)
+        ).sign(keypair, context)
         tx = await transport.send_external_message(external_message)
         if tx is None:
             raise RuntimeError("Message expired")
@@ -121,7 +121,7 @@ class GiverV2(IGiver):
         return self._address
 
     async def give(self, target: _nt.Address, amount: _nt.Tokens):
-        signature_id = await self._transport.get_signature_id()
+        context = await self._transport.get_signature_context()
 
         # Prepare external message
         message = _giver_v2_send_grams.encode_external_message(
@@ -132,7 +132,7 @@ class GiverV2(IGiver):
                 "bounce": False,
             },
             public_key=self._keypair.public_key,
-        ).sign(self._keypair, signature_id)
+        ).sign(self._keypair, context)
 
         # Send external message
         tx = await self._transport.send_external_message(message)

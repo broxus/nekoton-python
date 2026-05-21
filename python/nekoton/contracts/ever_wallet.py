@@ -144,8 +144,7 @@ class EverWallet(IGiver):
         bounce: bool = False,
     ) -> _nt.Transaction:
         state_init = await self.__get_state_init()
-
-        signature_id = await self._transport.get_signature_id()
+        context = await self._transport.get_signature_context()
 
         external_message = _send_transaction.encode_external_message(
             self._address,
@@ -158,7 +157,7 @@ class EverWallet(IGiver):
             },
             public_key=self._keypair.public_key,
             state_init=state_init,
-        ).sign(self._keypair, signature_id)
+        ).sign(self._keypair, context)
 
         tx = await self._transport.send_external_message(external_message)
         if tx is None:
@@ -173,7 +172,7 @@ class EverWallet(IGiver):
             raise RuntimeError("Too many messages at once")
 
         state_init = await self.__get_state_init()
-        signature_id = await self._transport.get_signature_id()
+        context = await self._transport.get_signature_context()
 
         abi = _send_transaction_raw[len(messages)]
         input = dict()
@@ -186,7 +185,7 @@ class EverWallet(IGiver):
             input,
             public_key=self._keypair.public_key,
             state_init=state_init,
-        ).sign(self._keypair, signature_id)
+        ).sign(self._keypair, context)
 
         tx = await self._transport.send_external_message(external_message)
         if tx is None:

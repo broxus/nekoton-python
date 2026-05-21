@@ -130,14 +130,14 @@ print(raw_param)
 <Cell repr_hash='e6025a4b06943baa939e0497bf474bf8b946938d5a4d70bd2fae2b7d481b3cb9', bits=256, refs=0>
 ```
 
-## Fetching Signature ID
+## Fetching Signature Context
 
-You can fetch the signature ID for the selected network using the `get_signature_id` method. This method does not take any parameters.
+You can fetch the signature context for the selected network using the `get_signature_context` method. This method does not take any parameters.
 
 ```python
-signature_id = await transport.get_signature_id()
+signature_context = await transport.get_signature_context()
 
-print(signature_id)
+print(signature_context)
 ```
 
 ##### Result

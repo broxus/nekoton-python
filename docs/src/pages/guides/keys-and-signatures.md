@@ -221,7 +221,7 @@ Signing data is a fundamental cryptographic operation that provides both authent
 
 In this section, we'll explore two primary ways of signing data: with hashing (using the `sign()` method) and without hashing (using the `sign_raw()` method).
 
-Additionally, we will touch upon the optional incorporation of a `signature_id` to further enhance the identification of the signed data.
+Additionally, we will touch upon the optional incorporation of a `signature_context` to further enhance the identification of the signed data.
 
 ### Data with Hashing
 
@@ -230,9 +230,9 @@ When signing data using the `sign()` method, the data is first hashed before bei
 ```python
 data = b"Hello, World 42!"
 
-signature_id = await transport.get_signature_id() # Optional
+signature_context = await transport.get_signature_context() # Optional
 
-signature = keypair.sign(data, signature_id)
+signature = keypair.sign(data, signature_context)
 
 print(signature)
 ```
@@ -244,7 +244,7 @@ Signature('b2bd3045b3ec3872bcccc96f58b71fe0fd60cba104249cc5e72c1a2ebad35cbbf1d82
 ```
 
 :::tip
-The `signature_id` is an optional identifier for a signature, sourced directly from the transport layer using the `get_signature_id()` method. If this is your first time encountering `signature_id` or you're unfamiliar with our transport layer, it's recommended to [read our guide on working with the transport](./working-with-transport.md) to get started.
+The `signature_context` is an optional context for a signature, sourced directly from the transport layer using the `get_signature_context()` method. If this is your first time encountering `signature_context` or you're unfamiliar with our transport layer, it's recommended to [read our guide on working with the transport](./working-with-transport.md) to get started.
 :::
 
 ### Raw Data
@@ -271,7 +271,7 @@ To verify a signature, you need to use the correct input depending on the signin
 
 If it was signed with `sign_raw()`, you should either use the hash of the original data (if you want to verify the signature against hashed data) or the original data itself (if you want to verify the signature against raw data).
 
-When a `signature_id` was used during signing, the same `signature_id` should be used for verification.
+When a `signature_context` was used during signing, the same `signature_context` should be used for verification.
 
 ### Hashed Signature
 
@@ -282,7 +282,7 @@ import hashlib
 
 data = hashlib.sha256(b"Hello, World 42!").digest()
 
-is_valid = public_key.check_signature(data, signature, signature_id)
+is_valid = public_key.check_signature(data, signature, signature_context)
 
 print(is_valid) # True
 ```
