@@ -25,7 +25,7 @@ import{_ as s,v as n,b as a,R as l}from"./chunks/framework.f247d2cd.js";const C=
 <span class="line"><span style="color:#C3E88D;">    &quot;events&quot;: []</span></span>
 <span class="line"><span style="color:#C3E88D;">}</span><span style="color:#89DDFF;">&quot;&quot;&quot;</span><span style="color:#89DDFF;">)</span></span>
 <span class="line"></span>
-<span class="line"><span style="color:#A6ACCD;">send_grams </span><span style="color:#89DDFF;">=</span><span style="color:#A6ACCD;"> giver_abi</span><span style="color:#89DDFF;">.</span><span style="color:#82AAFF;">get_function</span><span style="color:#89DDFF;">(</span><span style="color:#89DDFF;">&quot;</span><span style="color:#C3E88D;">sendGrams</span><span style="color:#89DDFF;">&quot;</span><span style="color:#89DDFF;">)</span></span>
+<span class="line"><span style="color:#A6ACCD;">send_grams </span><span style="color:#89DDFF;">=</span><span style="color:#A6ACCD;"> giver_abi</span><span style="color:#89DDFF;">.</span><span style="color:#82AAFF;">function</span><span style="color:#89DDFF;">(</span><span style="color:#89DDFF;">&quot;</span><span style="color:#C3E88D;">sendGrams</span><span style="color:#89DDFF;">&quot;</span><span style="color:#89DDFF;">)</span></span>
 <span class="line"><span style="color:#89DDFF;font-style:italic;">assert</span><span style="color:#A6ACCD;"> send_grams </span><span style="color:#89DDFF;">is</span><span style="color:#A6ACCD;"> </span><span style="color:#89DDFF;">not</span><span style="color:#A6ACCD;"> </span><span style="color:#89DDFF;">None</span></span>
 <span class="line"></span>
 <span class="line"></span>
